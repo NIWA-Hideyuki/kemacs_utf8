@@ -70,7 +70,8 @@ static int
 utf8_to_internal(char *p, int n1)
 {
   static iconv_t cd = (iconv_t)(-1);
-  char tmpb[3], *tmpi = tmpb;
+  static iconv_t cd_u32 = (iconv_t)(-1);
+  char tmpb[8], *tmpi = tmpb;
   size_t tmpn = sizeof(tmpb), n = n1;
   int cc;
 
@@ -86,22 +87,49 @@ utf8_to_internal(char *p, int n1)
       puts("iconv_open() failed ... Why?\n"); exit(1);
     }
   }
-  if (-1 == iconv(cd, &p, &n, &tmpi, &tmpn)) return -1;
-  if (!(tmpb[0] & 0x80)) {
-    cc = tmpb[0] & 0x7f;
-  } else
-  if (tmpb[0] == (char)SSHFT2) {
-    enkana(cc, tmpb[1] & 0x7f);
-  } else
-  if (tmpb[0] == (char)SSHFT3) {
-    enkanji(cc, tmpb[1]&0x7f, tmpb[2]&0x7f);
-    cc |= 0x8000;
-     /* Using highest bit to represent hojo-kanji set
-        (but actually kemacs doesn't support hojo-kanji) */
-  } else {
-    enkanji(cc, tmpb[0]&0x7f, tmpb[1]&0x7f);
+  /* save original input for UTF-32 fallback */
+  {
+    char *orig_p = p;
+    size_t orig_n = n;
+
+    if (-1 != iconv(cd, &p, &n, &tmpi, &tmpn)) {
+      /* EUC-JP conversion succeeded */
+      if (!(tmpb[0] & 0x80)) {
+        cc = tmpb[0] & 0x7f;
+      } else
+      if (tmpb[0] == (char)SSHFT2) {
+        enkana(cc, tmpb[1] & 0x7f);
+      } else
+      if (tmpb[0] == (char)SSHFT3) {
+        enkanji(cc, tmpb[1]&0x7f, tmpb[2]&0x7f);
+        cc |= 0x8000;
+         /* Using highest bit to represent hojo-kanji set
+            (but actually kemacs doesn't support hojo-kanji) */
+      } else {
+        enkanji(cc, tmpb[0]&0x7f, tmpb[1]&0x7f);
+      }
+      return cc;
+    }
+    /* EUC-JP conversion failed - try UTF-32 (for emojis etc.) */
+    if (cd_u32 == (iconv_t)(-1)) {
+      cd_u32 = iconv_open("UTF-32LE", "UTF-8");
+      if (cd_u32 == (iconv_t)(-1)) return -1;
+    }
+    {
+      char u32buf[8], *u32i = u32buf;
+      size_t u32n = sizeof(u32buf);
+      char *pin = orig_p;
+      size_t inlen = orig_n;
+      if (-1 == iconv(cd_u32, &pin, &inlen, &u32i, &u32n)) {
+        return -1;
+      }
+      /* UTF-32LE output: 4 bytes per codepoint */
+      cc = (int)((unsigned char)u32buf[0] | ((unsigned char)u32buf[1] << 8) |
+                 ((unsigned char)u32buf[2] << 16) | ((unsigned char)u32buf[3] << 24));
+      return cc; /* >= 0x10000 for non-BMP characters */
+    }
   }
-  return cc;
+  return -1;
 }
 #endif /* HANDLE_UTF */
 
@@ -558,7 +586,8 @@ kgetc(KSTREAM * kp)
 
 	  if ((0xa1 <= cc && cc <= 0xfe || cc == SSHFT2) &&
 	      (KS_CODE(kp->ks_flag) == KS_UJIS ||
-	       KS_INTERP(kp->ks_flag) == KS_UKANJI)) {
+	       (KS_INTERP(kp->ks_flag) == KS_UKANJI &&
+	  KS_CODE(kp->ks_flag) != KS_UTF8))) {
 	       /* May be 1st byte of UJIS kanji (including SSHFT2) */
 	    KS_CODE(kp->ks_flag) = KS_UJIS;
 	    if (n < 1) {
@@ -579,7 +608,8 @@ kgetc(KSTREAM * kp)
 	    p--;
 	  }
 	  if (KS_CODE(kp->ks_flag) == KS_SJIS ||
-	      KS_INTERP(kp->ks_flag) == KS_UKANJI) {
+	      (KS_INTERP(kp->ks_flag) == KS_UKANJI &&
+	       KS_CODE(kp->ks_flag) != KS_UTF8)) {
 	    KS_CODE(kp->ks_flag) = KS_SJIS;
 	    if (0xa0 <= cc && cc <= 0xdf) { /* SJIS KANA */
 	      KS_INTERP(kp->ks_flag) = KS_KANJI;
@@ -625,7 +655,7 @@ kgetc(KSTREAM * kp)
 		 /* conversion succeed */
 		p += n1, n -= n1;
 		KS_INTERP(kp->ks_flag) = KS_KANJI;
-		if (cc & 0x8000) cc &= ~0x8000, putq(SSHFT3);
+		if (!isunicode(cc) && (cc & 0x8000)) cc &= ~0x8000, putq(SSHFT3);
 		putq(cc);
 		continue;
 	      }

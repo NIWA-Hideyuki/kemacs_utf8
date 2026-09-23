@@ -1,4 +1,4 @@
-typedef short Char;
+typedef unsigned int Char;
 
 Char	*Cstrcat(Char *, Char *);
 Char	*Cstrncat(Char *, Char *, int);

@@ -168,6 +168,21 @@ vtputc(Char c)
       vtputc('0'+((c & 0070) >> 3));
       vtputc('0'+((c & 0007) >> 0));
 #if KANJI
+    } else if (isunicode(c)) {
+      /* Unicode codepoints (>= 0x10000): 2-column wide, output as UTF-8 */
+      if (vtcol >= term.t_ncol-1 || vtcol < 0) {
+          /* abandon to display */
+          vtputc(' ');
+          vtputc(' ');
+      } else {
+          if (vtcol >= 0) {
+              /* first col */
+              vp->v_text[vtcol] = c;
+              /* second col */
+              vp->v_text[vtcol+1] = TRAILER;
+          }
+          vtcol += 2;
+      }
     } else if (iskanji(c)) {
 	/* narrow characters (e.g. Greek mu 0x264c) need only one column */
 	if (is_narrow_kanji(c)) {
@@ -457,7 +472,7 @@ updpos()
 		else if (c >= 0x80 && c < 0x100)
 		  curcol += 3;
 #if KANJI
-		else if (iskanji(c) && !is_narrow_kanji(c))
+		else if (iswidechar(c))
 			++curcol;
 #endif
 
@@ -588,12 +603,12 @@ updext()
 		  col |= 7;
 		} else if (c >= 0x80 && c < 0x100) {
 		  col += 3;
-		} else if (c < ' ' || c == 0x7f || (iskanji(c) && !is_narrow_kanji(c))) {
+		} else if (c < ' ' || c == 0x7f || (iswidechar(c))) {
 		    col++;
 		}
 		col++;
 		}
-		if (col > lbound+1 && iskanji(c)) taboff = lbound = lcol-1;
+		if (col > lbound+1 && iswidechar(c)) taboff = lbound = lcol-1;
 	}
 #endif /*KANJI*/
 
@@ -809,7 +824,7 @@ modeline(wp)
 	    vtputc(c);
 	    n++;
 #if	KANJI
-	    if (iskanji(c) && !is_narrow_kanji(c)) n++;
+	    if (iswidechar(c)) n++;
 #endif
 	    continue;
 	}
@@ -824,7 +839,7 @@ modeline(wp)
 	    vtputc(c);
 	    n++;
 #if	KANJI
-	    if (iskanji(c) && !is_narrow_kanji(c)) n++;
+	    if (iswidechar(c)) n++;
 #endif
 	    continue;
 	case '*':
@@ -911,7 +926,7 @@ modeline(wp)
 	    vtputc(*cp);
 	    n++;
 #if	KANJI
-	    if (iskanji(*cp) && !is_narrow_kanji(*cp)) n++;
+	    if (iswidechar(*cp)) n++;
 #endif
 	    cp++;
 	}
@@ -1036,7 +1051,7 @@ mlwrite(fmt, arg)
             TTputc(c);
 	    ++ttcol;
 #if KANJI
-	    if (iskanji(c) && !is_narrow_kanji(c)) ++ttcol;
+	    if (iswidechar(c)) ++ttcol;
 #endif
 	} else {
 	    c = *fmt++;
@@ -1099,7 +1114,7 @@ mlwrite(fmt, arg)
 	                    TTputc(c);
 	    ++ttcol;
 	    #if KANJI
-	    if (iskanji(c) && !is_narrow_kanji(c)) ++ttcol;
+	    if (iswidechar(c)) ++ttcol;
 	    #endif
 	    }
 	}
@@ -1131,7 +1146,7 @@ mlputs(s)
         TTputc(c);
 	++ttcol;
 #if KANJI
-	if (iskanji(c) && !is_narrow_kanji(c)) ++ttcol;
+	if (iswidechar(c)) ++ttcol;
 #endif
     }
 }

@@ -427,7 +427,7 @@ promptpattern(Char * prompt)
     for (p = tpat, w = 0; *p; p++)
     	w +=
 #if KANJI
-		iskanji(*p)? 2:
+		iskanji(*p) || isunicode(*p) ? 2:
 #endif
 		1;
     return(w);
@@ -463,7 +463,7 @@ echochar(c,col)
 	}
     } else
 #if KANJI
-	if (iskanji(c)) {
+	if (iskanji(c) || isunicode(c)) {
 	    TTputc(c);
 	    col++;
     } else

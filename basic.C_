@@ -331,7 +331,7 @@ register LINE	*dlp;
 			newcol |= 0x07;
 		else if (c<0x20 || c==0x7F
 #if KANJI
-			|| iskanji(c)
+			|| iskanji(c) || isunicode(c)
 #endif
 					  ) {
 			/* takes two columns */

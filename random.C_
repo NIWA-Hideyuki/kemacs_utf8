@@ -136,7 +136,7 @@ getccol(int bflg)
 		else if (c >= 0x80 && c < 0x100)
 		  col += 3;
 #if KANJI
-		else if (iskanji(c) && !is_narrow_kanji(c))
+		else if (iswidechar(c))
 			++col;
 #endif
 		++col;
@@ -173,7 +173,7 @@ setccol(pos)
 		else if (c >= 0x80 && c < 0x100)
 		  col += 3;
 #if KANJI
-		else if (iskanji(c) && !is_narrow_kanji(c))
+		else if (iswidechar(c))
 			++col;
 #endif
 		++col;
@@ -361,7 +361,7 @@ entab(f, n)		/* change spaces to tabs where posible */
 			    /* takes 4 columns */
 			    ccol += 3;
 #if KANJI
-			  else if (iskanji(cchar) && !is_narrow_kanji(cchar)) ccol++;
+			  else if (iswidechar(cchar)) ccol++;
 #endif
 			  fspace = -1;
 			  break;

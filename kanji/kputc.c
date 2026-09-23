@@ -13,6 +13,29 @@
 
 #if HANDLE_UTF
 static int
+codepoint_to_utf8(unsigned int cp, char *buf)
+{
+    if (cp < 0x80) {
+        buf[0] = cp;
+        return 1;
+    } else if (cp < 0x800) {
+        buf[0] = 0xC0 | (cp >> 6);
+        buf[1] = 0x80 | (cp & 0x3F);
+        return 2;
+    } else if (cp < 0x10000) {
+        buf[0] = 0xE0 | (cp >> 12);
+        buf[1] = 0x80 | ((cp >> 6) & 0x3F);
+        buf[2] = 0x80 | (cp & 0x3F);
+        return 3;
+    } else {
+        buf[0] = 0xF0 | (cp >> 18);
+        buf[1] = 0x80 | ((cp >> 12) & 0x3F);
+        buf[2] = 0x80 | ((cp >> 6) & 0x3F);
+        buf[3] = 0x80 | (cp & 0x3F);
+        return 4;
+    }
+}
+static int
 ujis_to_utf8(char *q, int n1, char **pp)
 {
 
@@ -72,6 +95,13 @@ kputc(int c, KSTREAM * kp)
 	if (KS_INTERP(kp->ks_flag) == KS_BINARY) {
 	  buf[0] = c & (KS_THRU(kp->ks_flag)? 0xff: 0x7f);
 	  (void)(*kp->ks_putf)(kp->ks_id, buf, 1);
+	  return c;
+	}
+	if (isunicode(c)) {
+	  /* Unicode codepoint (>= 0x10000) - output as UTF-8 bytes directly */
+	  char utf8buf[MAX_U8LEN];
+	  int ulen = codepoint_to_utf8((unsigned int)c, utf8buf);
+	  (void)(*kp->ks_putf)(kp->ks_id, utf8buf, ulen);
 	  return c;
 	}
 	if (iskanji(c)) {

@@ -422,7 +422,7 @@ prntchar(c)
   TTputc(c);
   return
 #if KANJI
-    (iskanji(c) && !is_narrow_kanji(c))? 2:
+    (iswidechar(c))? 2:
 #endif
 		1;
 }
@@ -444,7 +444,7 @@ killchar(c)
 		return 2;
 	}
 #if KANJI
-	if (iskanji(c) && !is_narrow_kanji(c)) {
+	if (iswidechar(c)) {
 		outstring(CSTR("\b \b"));
 		return 2;
 	}

@@ -1,7 +1,7 @@
 #include "../econfig.h"
 
 #define ARFLAG	"_CX_DEF_"	/* Flag to make declaration of Array uniq */
-#define ARTYPE	"short"
+#define ARTYPE	"unsigned int"
 #define ARNAME	"Cxstr"
 
 /* Cstr data file */

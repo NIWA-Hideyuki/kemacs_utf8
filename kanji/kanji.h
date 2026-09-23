@@ -216,7 +216,12 @@ typedef union ks_un	KS_FLAG;
 
 #define iskana(c) (((c) & 0xff00) == 0x0100)
 
-#define iskanji(c) (((c) & 0xff00) > 0x0100)
+#define iskanji(c) (((c) & 0xff00) > 0x0100 && !isunicode(c))
+/* isunicode: Unicode codepoints (>= 0x10000) stored directly;
+   these are characters that have no EUC-JP equivalent (e.g. emojis) */
+#define isunicode(c) ((unsigned int)(c) >= 0x10000)
+/* iswidechar: characters that occupy 2 terminal columns */
+#define iswidechar(c) (isunicode(c) || (iskanji(c) && !is_narrow_kanji(c)))
 
 /*
  * Characters that are stored as "kanji" (high byte > 0x01) but are actually

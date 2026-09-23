@@ -1,5 +1,5 @@
 #ifndef _CX_DEF_
-extern short Cxstr[];
+extern unsigned int Cxstr[];
 #define _CX_DEF_
 #endif /*_CX_DEF_*/
 /*	EVAL.C:	Expresion evaluation functions for

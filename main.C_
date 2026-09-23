@@ -550,7 +550,7 @@ execute(c, f, n)
 	    /*
 	     * wrap around condition for KANJI and KANA
 	     */
-	    if ((iskanji((Char)c) || iskana((Char)c)) &&
+	    if ((iskanji((Char)c) || iskana((Char)c) || isunicode((Char)c)) &&
 		should_wrap((Char)c, getccol(FALSE))) {
 		/* insert newline and indent */
 		(void)indent(FALSE, 1);

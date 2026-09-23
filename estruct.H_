@@ -69,11 +69,11 @@
 # define CPERIOD 30			/* period of updating clock	*/
 #endif
 
-#define CK_FLAGS 0xffff0000		/* flags to keystrokes		*/
-#define CTLFLG	0x010000		/* Control flag, or'ed in	*/
-#define META	0x020000		/* Meta flag, or'ed in		*/
-#define CTLX	0x040000		/* ^X flag, or'ed in		*/
-#define SPEC	0x080000		/* special key (function keys)	*/
+#define CK_FLAGS 0xff000000		/* flags to keystrokes		*/
+#define CTLFLG	0x01000000		/* Control flag, or'ed in	*/
+#define META	0x02000000		/* Meta flag, or'ed in		*/
+#define CTLX	0x04000000		/* ^X flag, or'ed in		*/
+#define SPEC	0x08000000		/* special key (function keys)	*/
 
 #define FALSE	0			/* False, no, bad, etc.		*/
 #define TRUE	1			/* True, yes, good, etc.	*/

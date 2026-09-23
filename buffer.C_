@@ -395,7 +395,7 @@ makelist(iflag)
 			*cp1++ = c;
 			s++;
 #if	KANJI
-			if (iskanji(c) && !is_narrow_kanji(c)) s++;
+			if (iswidechar(c)) s++;
 #endif
 		}
 		cp2 = bp->b_fname;		/* File name		*/
@@ -410,7 +410,7 @@ makelist(iflag)
 				*cp1++ = c;
 				i++;
 #if	KANJI
-				if (iskanji(c) && !is_narrow_kanji(c)) i++;
+				if (iswidechar(c)) i++;
 #endif
 			}
 		} else

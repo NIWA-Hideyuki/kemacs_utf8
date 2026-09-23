@@ -34,7 +34,7 @@ wrapword(int f, int n)
 	cnt = 0;
 	while (((c = lgetc(curwp->w_dotp, curwp->w_doto)) != ' ')
 #if KANJI
-				&& !iskanji(c) && !iskana(c)
+				&& !iskanji(c) && !iskana(c) && !isunicode(c)
 #endif
 				&& (c != '\t')) {
 		cnt++;
@@ -48,7 +48,7 @@ wrapword(int f, int n)
 	}
 
 #if KANJI
-	if (iskanji(c) || iskana(c)) {
+	if (iskanji(c) || iskana(c) || isunicode(c)) {
 		if (!forwchar(0, 1)) return FALSE;
 	} else {
 #endif
@@ -564,7 +564,7 @@ fillpara(f, n)	/* Fill the current paragraph according to the current
 			/* KANJI space */
 			/* is there any difference with other KANJI chars? */
 		/* } */
-		else if (iskanji(c) || iskana(c)) {
+		else if (iskanji(c) || iskana(c) || isunicode(c)) {
 			register int sp = 0;
 
 			/* KANJI or KANA character */
@@ -582,7 +582,7 @@ fillpara(f, n)	/* Fill the current paragraph according to the current
 				clength += sp;
 			}
 			(void)linsert(1, c);
-			clength += 1+(iskanji(c) && !is_narrow_kanji(c));
+			clength += 1+(iswidechar(c));
 			lwflag = wf_norm;
 			sflag = sf_none;
 		}
@@ -685,7 +685,7 @@ wordcount(f, n)
 		/* and tabulate it */
 		wordflag = (isletter(ch) || isdigit(ch) ||
 #if KANJI
-			    (iskanji(ch)) ||
+			    (iskanji(ch)) || isunicode(ch) ||
 #endif
 			    (ch == '$' || ch == '_'));
 		if (wordflag == TRUE && lastword == FALSE)
@@ -717,7 +717,7 @@ should_wrap(c, col)
     Char c;
     int col;
 {
-    return ((col += 1+(iskanji(c) && !is_narrow_kanji(c))) >= fillcol && kinsoku1(c)) ||
+    return ((col += 1+(iswidechar(c))) >= fillcol && kinsoku1(c)) ||
 	   (col > fillcol && !kinsoku2(c));
 }
 
