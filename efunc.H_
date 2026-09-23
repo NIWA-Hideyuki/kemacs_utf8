@@ -1,0 +1,700 @@
+/*	EFUNC.H:	MicroEMACS function declarations and names
+
+
+
+		This file list all the C code functions used by MicroEMACS
+
+	and the names to use to bind keys to them. To add functions,
+
+	declare it here in both the extern function list and the name
+
+	binding table.
+
+
+
+*/
+
+
+
+#include <signal.h>	/* to see whether SIGTSTP is defined */
+
+
+
+/*	External function declarations		*/
+
+
+
+extern	int	ctrlg(int f, int n);
+extern	int	quit(int f, int n);
+extern	int	ctlxlp(int f, int n);
+extern	int	ctlxrp(int f, int n);
+extern	int	ctlxe(int f, int n);
+extern	int	fileread(int f, int n);
+extern	int	filefind(int f, int n);
+extern	int	filewrite(int f, int n);
+extern	int	filesave(int f, int n);
+extern	int	filename(void);
+extern	int	gotobol(int f, int n);
+extern	int	forwchar(int f, int n);
+extern	int	gotoeol(int f, int n);
+extern	int	backchar(int f, int n);
+extern	int	forwline(int f, int n);
+extern	int	backline(int f, int n);
+extern	int	forwpage(int f, int n);
+extern	int	backpage(int f, int n);
+extern	int	gotobob(int f, int n);
+extern	int	gotoeob(int f, int n);
+extern	int	setfillcol(int f, int n);
+extern	int	setmark(int f, int n);
+extern	int	swapmark(int f, int n);
+extern	int	forwsearch(int f, int n);
+extern	int	backsearch(int f, int n);
+extern	int	sreplace(int f, int n);
+extern	int	qreplace(int f, int n);
+extern	int	showcpos(int f, int n);
+extern	int	nextwind(void);
+extern	int	prevwind(int f, int n);
+extern	int	onlywind(int f, int n);
+extern	int	splitwind(int f, int n);
+extern	int	mvdnwind(int f, int n);
+extern	int	mvupwind(int f, int n);
+extern	int	enlargewind(int f, int n);
+extern	int	shrinkwind(int f, int n);
+extern	int	listbuffers(int f, int n);
+extern	int	usebuffer(int f, int n);
+extern	int	killbuffer(int f, int n);
+extern	int	reposition(int f, int n);
+extern	int	refreshscr(int f, int n);
+extern	int	twiddle(int f, int n);
+extern	int	tab(int f, int n);
+extern	int	newline(int f, int n);
+extern	int	indent(int f, int n);
+extern	int	openline(int f, int n);
+extern	int	deblank(int f, int n);
+extern	int	quote(int f, int n);
+extern	int	backword(int f, int n);
+extern	int	forwword(int f, int n);
+extern	int	forwdel(int f, int n);
+extern	int	backdel(int f, int n);
+extern	int	killtext(int f, int n);
+extern	int	yank(int f, int n);
+extern	int	upperword(int f, int n);
+extern	int	lowerword(int f, int n);
+extern	int	upperregion(int f, int n);
+extern	int	lowerregion(int f, int n);
+extern	int	capword(int f, int n);
+extern	int	delfword(int f, int n);
+extern	int	delbword(int f, int n);
+extern	int	killregion(int f, int n);
+extern	int	copyregion(int f, int n);
+extern	int	spawncli(int f, int n);
+extern	int	spawn(int f, int n);
+#ifdef SIGTSTP
+
+extern	int	bktoshell(void);
+extern SIGRET_T rtfrmshell(SIGARG_T(dummy));
+#endif
+
+extern	int	quickexit(int f, int n);
+extern	int	set_mode(int f, int n);
+extern	int	delmode(int f, int n);
+extern	int	gotoline(int f, int n);
+extern	int	namebuffer(int f, int n);
+#if	WORDPRO
+
+extern	int	gotobop(int f, int n);
+extern	int	gotoeop(int f, int n);
+extern	int	fillpara(void);
+#endif
+
+extern	int	help(void);
+extern	int	deskey(int f, int n);
+extern	int	viewfile(int f, int n);
+extern	int	insfile(int f, int n);
+extern	int	scrnextup(int f, int n);
+extern	int	scrnextdw(int f, int n);
+extern	int	bindtokey(int f, int n);
+extern	int	unbindkey(int f, int n);
+extern	int	namedcmd(int f, int n);
+extern	int	desbind(void);
+extern	int	execcmd(int f, int n);
+extern	int	execbuf(int f, int n);
+extern	int	execfile(int f, int n);
+extern	int	nextbuffer(int f, int n);
+#if	WORDPRO
+
+extern	int	killpara(void);
+#endif
+
+extern	int	setgmode(int f, int n);
+extern	int	delgmode(int f, int n);
+extern	int	insspace(int f, int n);
+extern	int	forwhunt(int f, int n);
+extern	int	backhunt(int f, int n);
+extern	int	pipecmd(int f, int n);
+extern	int	filter(int f, int n);
+extern	int	delwind(int f, int n);
+extern	int	cbufn(int f, int n);
+extern	int	cbuf1(int f, int n);
+extern	int	cbuf2(int f, int n);
+extern	int	cbuf3(int f, int n);
+extern	int	cbuf4(int f, int n);
+extern	int	cbuf5(int f, int n);
+extern	int	cbuf6(int f, int n);
+extern	int	cbuf7(int f, int n);
+extern	int	cbuf8(int f, int n);
+extern	int	cbuf9(int f, int n);
+extern	int	cbuf10(int f, int n);
+extern	int	cbuf11(int f, int n);
+extern	int	cbuf12(int f, int n);
+extern	int	cbuf13(int f, int n);
+extern	int	cbuf14(int f, int n);
+extern	int	cbuf15(int f, int n);
+extern	int	cbuf16(int f, int n);
+extern	int	cbuf17(int f, int n);
+extern	int	cbuf18(int f, int n);
+extern	int	cbuf19(int f, int n);
+extern	int	cbuf20(int f, int n);
+extern	int	cbuf21(int f, int n);
+extern	int	cbuf22(int f, int n);
+extern	int	cbuf23(int f, int n);
+extern	int	cbuf24(int f, int n);
+extern	int	cbuf25(int f, int n);
+extern	int	cbuf26(int f, int n);
+extern	int	cbuf27(int f, int n);
+extern	int	cbuf28(int f, int n);
+extern	int	cbuf29(int f, int n);
+extern	int	cbuf30(int f, int n);
+extern	int	cbuf31(int f, int n);
+extern	int	cbuf32(int f, int n);
+extern	int	cbuf33(int f, int n);
+extern	int	cbuf34(int f, int n);
+extern	int	cbuf35(int f, int n);
+extern	int	cbuf36(int f, int n);
+extern	int	cbuf37(int f, int n);
+extern	int	cbuf38(int f, int n);
+extern	int	cbuf39(int f, int n);
+extern	int	cbuf40(int f, int n);
+extern	int	storemac(int f, int n);
+extern	int	resize(int f, int n);
+extern	int	clrmes(int f, int n);
+extern	int	meta_pfx(void);
+extern	int	cex(void);
+extern	int	unarg(void);
+extern	int	istring(void);
+extern	int	unmark(void);
+#if	ISRCH
+
+extern	int	fisearch(int f, int n);
+extern	int	risearch(int f, int n);
+#endif
+
+#if	WORDPRO
+
+extern	int	wordcount(int f, int n);
+#endif
+
+extern	int	savewnd(int f, int n);
+extern	int	restwnd(int f, int n);
+extern	int	upscreen(int f, int n);
+extern	int	writemsg(int f, int n);
+extern	int	clearkill(int f, int n);
+extern	int	noop(int f, int n);
+#if	FLABEL
+
+extern	int	fnclabel(int f, int n);
+#endif
+
+#if	APROP
+
+extern	int	apro(int f, int n);
+#endif
+
+#if	CRYPT
+
+extern	int	setcrkey(int f, int n);
+#endif
+
+extern	int	wrapword(int f, int n);
+#if	CFENCE
+
+extern	int	getfence(int f, int n);
+#endif
+
+extern	int	newsize(int f, int n);
+extern	int	setvar(int f, int n);
+extern	int	newwidth(int f, int n);
+extern	int	changewd(int f, int n);
+#if AUTOMODE
+
+extern	int	automode(int f, int n);
+#endif
+
+extern	int	recedit(bool toplev, int n);
+extern	int	exitrecedit(int f, int n);
+#if	AEDIT
+
+extern	int	trim(int f, int n);
+extern	int	detab(int f, int n);
+extern	int	entab(int f, int n);
+#endif
+
+#if	PROC
+
+extern	int	storeproc(void);
+extern	int	execproc(int f, int n);
+#endif
+
+extern	int	updmode(int f, int n);
+extern	int	millisleep(int f, int n);
+
+
+/*	Name to function binding table
+
+
+
+		This table gives the names of all the bindable functions
+
+	end their C function address. These are used for the bind-to-key
+
+	function.
+
+*/
+
+
+
+NBIND	names[] = {
+
+	{CSTR("abort-command"),		ctrlg},
+
+	{CSTR("add-mode"),		set_mode},
+
+	{CSTR("add-global-mode"),	setgmode},
+
+#if	APROP
+
+	{CSTR("apropos"),		apro},
+
+#endif
+
+#if AUTOMODE
+
+	{CSTR("auto-mode-for-file"),	automode},
+
+#endif
+
+	{CSTR("backward-character"),	backchar},
+
+	{CSTR("begin-macro"),		ctlxlp},
+
+	{CSTR("beginning-of-file"),	gotobob},
+
+	{CSTR("beginning-of-line"),	gotobol},
+
+	{CSTR("bind-to-key"),		bindtokey},
+
+	{CSTR("buffer-position"),	showcpos},
+
+	{CSTR("case-region-lower"),	lowerregion},
+
+	{CSTR("case-region-upper"),	upperregion},
+
+	{CSTR("case-word-capitalize"),	capword},
+
+	{CSTR("case-word-lower"),	lowerword},
+
+	{CSTR("case-word-upper"),	upperword},
+
+	{CSTR("cd"),			changewd},
+
+	{CSTR("change-file-name"),	filename},
+
+	{CSTR("change-screen-size"),	newsize},
+
+	{CSTR("change-screen-width"),	newwidth},
+
+	{CSTR("clear-and-redraw"),	refreshscr},
+
+	{CSTR("clear-kill-buffer"),	clearkill},
+
+	{CSTR("clear-message-line"),	clrmes},
+
+	{CSTR("copy-region"),		copyregion},
+
+#if	WORDPRO
+
+	{CSTR("count-words"),		wordcount},
+
+#endif
+
+	{CSTR("ctlx-prefix"),		cex},
+
+	{CSTR("delete-blank-lines"),	deblank},
+
+	{CSTR("delete-buffer"),		killbuffer},
+
+	{CSTR("delete-mode"),		delmode},
+
+	{CSTR("delete-global-mode"),	delgmode},
+
+	{CSTR("delete-next-character"),	forwdel},
+
+	{CSTR("delete-next-word"),	delfword},
+
+	{CSTR("delete-other-windows"),	onlywind},
+
+	{CSTR("delete-previous-character"),	backdel},
+
+	{CSTR("delete-previous-word"),	delbword},
+
+	{CSTR("delete-window"),		delwind},
+
+	{CSTR("describe-bindings"),	desbind},
+
+	{CSTR("describe-key"),		deskey},
+
+#if	AEDIT
+
+	{CSTR("detab-line"),		detab},
+
+#endif
+
+	{CSTR("end-macro"),		ctlxrp},
+
+	{CSTR("end-of-file"),		gotoeob},
+
+	{CSTR("end-of-line"),		gotoeol},
+
+#if	AEDIT
+
+	{CSTR("entab-line"),		entab},
+
+#endif
+
+	{CSTR("exchange-point-and-mark"),	swapmark},
+
+	{CSTR("execute-buffer"),	execbuf},
+
+	{CSTR("execute-command-line"),	execcmd},
+
+	{CSTR("execute-file"),		execfile},
+
+	{CSTR("execute-macro"),		ctlxe},
+
+	{CSTR("execute-macro-n"),	cbufn},
+
+	{CSTR("execute-macro-1"),	cbuf1},
+
+	{CSTR("execute-macro-2"),	cbuf2},
+
+	{CSTR("execute-macro-3"),	cbuf3},
+
+	{CSTR("execute-macro-4"),	cbuf4},
+
+	{CSTR("execute-macro-5"),	cbuf5},
+
+	{CSTR("execute-macro-6"),	cbuf6},
+
+	{CSTR("execute-macro-7"),	cbuf7},
+
+	{CSTR("execute-macro-8"),	cbuf8},
+
+	{CSTR("execute-macro-9"),	cbuf9},
+
+	{CSTR("execute-macro-10"),	cbuf10},
+
+	{CSTR("execute-macro-11"),	cbuf11},
+
+	{CSTR("execute-macro-12"),	cbuf12},
+
+	{CSTR("execute-macro-13"),	cbuf13},
+
+	{CSTR("execute-macro-14"),	cbuf14},
+
+	{CSTR("execute-macro-15"),	cbuf15},
+
+	{CSTR("execute-macro-16"),	cbuf16},
+
+	{CSTR("execute-macro-17"),	cbuf17},
+
+	{CSTR("execute-macro-18"),	cbuf18},
+
+	{CSTR("execute-macro-19"),	cbuf19},
+
+	{CSTR("execute-macro-20"),	cbuf20},
+
+	{CSTR("execute-macro-21"),	cbuf21},
+
+	{CSTR("execute-macro-22"),	cbuf22},
+
+	{CSTR("execute-macro-23"),	cbuf23},
+
+	{CSTR("execute-macro-24"),	cbuf24},
+
+	{CSTR("execute-macro-25"),	cbuf25},
+
+	{CSTR("execute-macro-26"),	cbuf26},
+
+	{CSTR("execute-macro-27"),	cbuf27},
+
+	{CSTR("execute-macro-28"),	cbuf28},
+
+	{CSTR("execute-macro-29"),	cbuf29},
+
+	{CSTR("execute-macro-30"),	cbuf30},
+
+	{CSTR("execute-macro-31"),	cbuf31},
+
+	{CSTR("execute-macro-32"),	cbuf32},
+
+	{CSTR("execute-macro-33"),	cbuf33},
+
+	{CSTR("execute-macro-34"),	cbuf34},
+
+	{CSTR("execute-macro-35"),	cbuf35},
+
+	{CSTR("execute-macro-36"),	cbuf36},
+
+	{CSTR("execute-macro-37"),	cbuf37},
+
+	{CSTR("execute-macro-38"),	cbuf38},
+
+	{CSTR("execute-macro-39"),	cbuf39},
+
+	{CSTR("execute-macro-40"),	cbuf40},
+
+	{CSTR("execute-named-command"),	namedcmd},
+
+#if	PROC
+
+	{CSTR("execute-procedure"),	execproc},
+
+#endif
+
+	{CSTR("exit-emacs"),		quit},
+
+	{CSTR("exit-recursive-edit"),	exitrecedit},
+
+#if	WORDPRO
+
+	{CSTR("fill-paragraph"),	fillpara},
+
+#endif
+
+	{CSTR("filter-buffer"),		filter},
+
+	{CSTR("find-file"),		filefind},
+
+	{CSTR("forward-character"),	forwchar},
+
+	{CSTR("goto-line"),		gotoline},
+
+#if	CFENCE
+
+	{CSTR("goto-matching-fence"),	getfence},
+
+#endif
+
+	{CSTR("grow-window"),		enlargewind},
+
+	{CSTR("handle-tab"),		tab},
+
+	{CSTR("hunt-forward"),		forwhunt},
+
+	{CSTR("hunt-backward"),		backhunt},
+
+	{CSTR("help"),			help},
+
+	{CSTR("i-shell"),		spawncli},
+
+#if	ISRCH
+
+	{CSTR("incremental-search"),	fisearch},
+
+#endif
+
+	{CSTR("insert-file"),		insfile},
+
+	{CSTR("insert-space"),		insspace},
+
+	{CSTR("insert-string"),		istring},
+
+#if	WORDPRO
+
+	{CSTR("kill-paragraph"),	killpara},
+
+#endif
+
+	{CSTR("kill-region"),		killregion},
+
+	{CSTR("kill-to-end-of-line"),	killtext},
+
+#if	FLABEL
+
+	{CSTR("label-function-key"),	fnclabel},
+
+#endif
+
+	{CSTR("list-buffers"),		listbuffers},
+
+	{CSTR("meta-prefix"),		meta_pfx},
+
+	{CSTR("move-window-down"),	mvdnwind},
+
+	{CSTR("move-window-up"),	mvupwind},
+
+	{CSTR("name-buffer"),		namebuffer},
+
+	{CSTR("newline"),		newline},
+
+	{CSTR("newline-and-indent"),	indent},
+
+	{CSTR("next-buffer"),		nextbuffer},
+
+	{CSTR("next-line"),		forwline},
+
+	{CSTR("next-page"),		forwpage},
+
+#if	WORDPRO
+
+	{CSTR("next-paragraph"),	gotoeop},
+
+#endif
+
+	{CSTR("next-window"),		nextwind},
+
+	{CSTR("next-word"),		forwword},
+
+	{CSTR("no-op"),			noop},
+
+	{CSTR("open-line"),		openline},
+
+	{CSTR("pipe-command"),		pipecmd},
+
+	{CSTR("previous-line"),		backline},
+
+	{CSTR("previous-page"),		backpage},
+
+#if	WORDPRO
+
+	{CSTR("previous-paragraph"),	gotobop},
+
+#endif
+
+	{CSTR("previous-window"),	prevwind},
+
+	{CSTR("previous-word"),		backword},
+
+	{CSTR("query-replace-string"),	qreplace},
+
+	{CSTR("quick-exit"),		quickexit},
+
+	{CSTR("quote-character"),	quote},
+
+	{CSTR("read-file"),		fileread},
+
+	{CSTR("recursive-edit"),	recedit},
+
+	{CSTR("redraw-display"),	reposition},
+
+	{CSTR("resize-window"),		resize},
+
+	{CSTR("restore-window"),	restwnd},
+
+	{CSTR("replace-string"),	sreplace},
+
+#if	ISRCH
+
+	{CSTR("reverse-incremental-search"),
+
+					risearch},
+
+#endif
+
+#if	PROC
+
+	{CSTR("run"),			execproc},
+
+#endif
+
+	{CSTR("save-file"),		filesave},
+
+	{CSTR("save-window"),		savewnd},
+
+	{CSTR("scroll-next-window-down"),	scrnextdw},
+
+	{CSTR("scroll-next-window-up"),	scrnextup},
+
+ 	{CSTR("search-forward"),	forwsearch},
+
+	{CSTR("search-reverse"),	backsearch},
+
+	{CSTR("select-buffer"),		usebuffer},
+
+	{CSTR("set"),			setvar},
+
+#if	CRYPT
+
+	{CSTR("set-encryption-key"),	setcrkey},
+
+#endif
+
+	{CSTR("set-fill-column"),	setfillcol},
+
+	{CSTR("set-mark"),		setmark},
+
+	{CSTR("shell-command"),		spawn},
+
+	{CSTR("shrink-window"),		shrinkwind},
+
+	{CSTR("sleep-millisecs"),	millisleep}, /* Added by N.Nide */
+
+	{CSTR("split-current-window"),	splitwind},
+
+	{CSTR("store-macro"),		storemac},
+
+#if	PROC
+
+	{CSTR("store-procedure"),	storeproc},
+
+#endif
+
+#ifdef SIGTSTP
+
+	{CSTR("suspend-emacs"),		bktoshell},
+
+#endif
+
+	{CSTR("transpose-characters"),	twiddle},
+
+#if	AEDIT
+
+	{CSTR("trim-line"),		trim},
+
+#endif
+
+	{CSTR("unbind-key"),		unbindkey},
+
+	{CSTR("universal-argument"),	unarg},
+
+	{CSTR("unmark-buffer"),		unmark},
+
+	{CSTR("update-modeline"),	updmode},
+
+	{CSTR("update-screen"),		upscreen},
+
+	{CSTR("view-file"),		viewfile},
+
+	{CSTR("wrap-word"),		wrapword},
+
+	{CSTR("write-file"),		filewrite},
+
+	{CSTR("write-message"),		writemsg},
+
+	{CSTR("yank"),			yank},
+
+
+
+	{CSTR(""),			NULL}
+
+};

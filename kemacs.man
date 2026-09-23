@@ -1,0 +1,89 @@
+.TH KEMACS Local "29 June 1987"
+.UC 4
+.SH NAME
+kemacs \- Kanji MicroEmacs
+.SH SYNOPSIS
+.B kemacs
+[ [\fIoptions\fR] [@\fImacros\fR] [\fIfiles\fR] ... ]
+.br
+.SH DESCRIPTION
+.I Kemacs
+is a version of MicroEmacs which can edit KANJI code files.
+.SH OPTIONS
+.I Kemacs
+has the following options. Each option can be 
+interleaved with file arguments.
+.IP \-b
+specifies default file mode to be BINARY mode. 
+.IP \-k[\fIkey\fR]
+specifies encryption \fIkey\fR for the next file.
+If \fIkey\fR is omitted, \fIkemacs\fR prompts for it when reading the file.
+.IP \-v
+specifies VIEW mode for the next file.
+.IP \-e
+specifies EDIT (non-VIEW) mode for the next file.
+.IP \-r
+invokes \fBrestricted\fR version of \fIkemacs\fR.
+With this flag on, \fIkemacs\fR's functions are restricted so that
+only the files which are specified in the command line can be edited.
+.IP \-{ft}[{jJeuswlcd}]
+specifies the default code system (j for JIS, J for JIS with 8bit
+through, e or u for UJIS(EUC-JP), s for SJIS and w for UTF8)
+or the default EOL type (l for LF, c for CR and d for DOS type CRLF)
+for each device (f for files and t for terminal).
+EOL type can be specified only for files, not for terminal.
+For files, 8bit
+through is always assumed.
+Each specification can also be altered dynamically in the session.
+The detail of JIS code (i.e. shift sequences) can't be specified from
+command line option. Default is configuration dependent.
+.IP
+Specifying first character only (either f or t) results in BINARY mode being disabled.
+In this case, code and EOL specifications are not changed.
+.IP -g\fIline\fR
+specifies the line number of first file in the command line.
+.I Kemacs
+jumps to the line.
+.IP -s\fIpattern\fR
+specifies search pattern. After reading first file,
+.I kemacs
+searches this pattern.
+.IP
+Only one of -g or -s can be specified at once.
+.IP -x\fIline\fR
+executes \fIline\fR as a macro command. If \fIline\fR contains shell sensitive
+characters (spaces, dollers, exclaimations, etc.), they must be escaped.
+.IP @\fImacro\fR
+.br
+specifies the macro file to be executed by
+.I kemacs
+instead of the standard startup macro file.
+.PP
+Other arguments are treated as the files to be edited. Only the first file
+is actually read in. Others are read when the buffer associated to
+each of them is selected.
+.SH FILES
+.IP ~/.kemacsrc
+standard start-up macro.
+.IP /usr/local/lib/kemacs/.kemacsrc
+used when ~/.kemacsrc does not exist.
+.IP /usr/local/lib/kemacs/emacs.hlp
+help file.
+.SH AUTHORS
+.IP "D. M. Lawrence"
+original author of MicroEmacs
+.IP "SANETO (sanewo) Takanori"
+hacked for kemacs
+.SH BUGS
+Many. :\-)
+Gratefully welcome for bug reports,
+suggestions, enhancement ideas, etc.
+Please E-mail to the following address.
+.PP
+.RS 5
+sanewo@hagiwara.kuis.kyoto\-u.JUNET\ (JUNET)
+.br
+sanewo%hagiwara.kuis.kyoto\-u.JUNET@japan.CSNET\ (CSNET)
+.br
+sanewo%hagiwara.kuis.kyoto\-u.JUNET%japan.CSNET@relay.cs.NET\ (ARPA)
+.RE

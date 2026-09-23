@@ -1,0 +1,18 @@
+/*	PATH:	This file contains certain info needed to locate the
+		MicroEMACS files on a system dependant basis.
+
+									*/
+
+/*	possible names and paths of help files */
+
+Char *pathname[] =
+{
+	CSTR(".kemacsrc"),
+	CSTR("emacs.hlp"),
+	CSTR("_PREFIX_/lib/kemacs/"),		/* Don't forget last '/' */
+	CSTR("")
+};
+/* In this file, `_PREFIX_' will be replaced to $(PREFIX) in mf.c
+   before compiling */
+
+#define NPNAMES (sizeof(pathname)/sizeof(Char *))

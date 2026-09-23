@@ -1,0 +1,868 @@
+/*
+ * The routines in this file implement commands that work word or a
+ * paragraph at a time.	 There are all sorts of word mode commands.  If I
+ * do any sentence mode commands, they are likely to be put in this file. 
+ */
+
+#include	"ecomm.h"
+#include	"estruct.h"
+#include	"edef.h"
+
+#if	KANJI
+static int isword_gap(Char c1, Char c2);
+#endif
+
+/* Word wrap on n-spaces. Back-over whatever precedes the point on the current
+ * line and stop on the first word-break or the beginning of the line. If we
+ * reach the beginning of the line, jump back to the end of the word and start
+ * a new line.	Otherwise, break the line at the word-break, eat it, and jump
+ * back to the end of the word.
+ * Returns TRUE on success, FALSE on errors.
+ */
+/*ARGSUSED*/
+wrapword(int f, int n)
+{
+	register int cnt;	/* size of word wrapped to next line */
+	register Char c;	/* charector temporary */
+
+	/* backup from the <NL> 1 char */
+	if (!backchar(0, 1))
+		return(FALSE);
+
+	/* back up until we aren't in a word,
+	   make sure there is a break in the line */
+	cnt = 0;
+	while (((c = lgetc(curwp->w_dotp, curwp->w_doto)) != ' ')
+#if KANJI
+				&& !iskanji(c) && !iskana(c)
+#endif
+				&& (c != '\t')) {
+		cnt++;
+		if (!backchar(0, 1))
+			return(FALSE);
+		/* if we make it to the beginning, start a new line */
+		if (curwp->w_doto == 0) {
+			(void)gotoeol(FALSE, 0);
+			return(lnewline());
+		}
+	}
+
+#if KANJI
+	if (iskanji(c) || iskana(c)) {
+		if (!forwchar(0, 1)) return FALSE;
+	} else {
+#endif
+	/* delete the forward white space */
+	if (!forwdel(0, 1))
+		return(FALSE);
+#if KANJI
+	}
+#endif
+
+	/* put in a end of line */
+	if (!lnewline())
+		return(FALSE);
+
+	/* and past the first word */
+	while (cnt-- > 0) {
+		if (forwchar(FALSE, 1) == FALSE)
+			return(FALSE);
+	}
+	return(TRUE);
+}
+
+/*
+ * Move the cursor backward by "n" words. All of the details of motion are
+ * performed by the "backchar" and "forwchar" routines. Error if you try to
+ * move beyond the buffers.
+ */
+backword(int f, int n)
+{
+	if (n < 0)
+		return (forwword(f, -n));
+	while (n--) {
+		do {
+			if (backchar(FALSE, 1) == FALSE)
+				return (FALSE);
+		} while (top_of_word() == FALSE);
+	}
+	return TRUE;
+}
+
+/*
+ * Move the cursor forward by the specified number of words. All of the motion
+ * is done by "forwchar". Error if you try and move beyond the buffer's end.
+ */
+forwword(int f, int n)
+{
+	if (n < 0)
+		return (backword(f, -n));
+	while (n--) {
+#if	NFWORD
+		do {
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+		} while (top_of_word() == FALSE);
+#else	/* !NFWORD */
+		while (end_of_word() == FALSE) {
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+		}
+		if (forwchar(FALSE, 1) == FALSE)
+			return (FALSE);
+#endif	/* NFWORD */
+	}
+	return(TRUE);
+}
+
+/*
+ * Move the cursor forward by the specified number of words. As you move,
+ * convert any characters to upper case. Error if you try and move beyond the
+ * end of the buffer. Bound to "M-U".
+ */
+/*ARGSUSED*/
+upperword(int f, int n)
+{
+	register Char	c;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (FALSE);
+	while (n--) {
+		while (inword() == FALSE) {
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+		}
+		for (;;) {
+			c = lgetc(curwp->w_dotp, curwp->w_doto);
+			if (islower(c)) {
+				lputc(curwp->w_dotp, curwp->w_doto, CHCASE(c));
+				lchange(WFHARD);
+			}
+			if (end_of_word()) break;
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+		}
+		if (forwchar(FALSE, 1) == FALSE)
+			return (FALSE);
+	}
+	return (TRUE);
+}
+
+/*
+ * Move the cursor forward by the specified number of words. As you move
+ * convert characters to lower case. Error if you try and move over the end of
+ * the buffer. Bound to "M-L".
+ */
+/*ARGSUSED*/
+lowerword(int f, int n)
+{
+	register Char	c;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (FALSE);
+	while (n--) {
+		while (inword() == FALSE) {
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+		}
+		for (;;) {
+			c = lgetc(curwp->w_dotp, curwp->w_doto);
+			if (isupper(c)) {
+				lputc(curwp->w_dotp, curwp->w_doto, CHCASE(c));
+				lchange(WFHARD);
+			}
+			if (end_of_word()) break;
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+		}
+		if (forwchar(FALSE, 1) == FALSE)
+			return (FALSE);
+	}
+	return (TRUE);
+}
+
+/*
+ * Move the cursor forward by the specified number of words. As you move
+ * convert the first character of the word to upper case, and subsequent
+ * characters to lower case. Error if you try and move past the end of the
+ * buffer. Bound to "M-C".
+ */
+/*ARGSUSED*/
+capword(int f, int n)
+{
+	register Char	c;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (FALSE);
+	while (n--) {
+		while (inword() == FALSE) {
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+		}
+		c = lgetc(curwp->w_dotp, curwp->w_doto);
+		if (islower(c)) {
+			lputc(curwp->w_dotp, curwp->w_doto, CHCASE(c));
+			lchange(WFHARD);
+		}
+		while (!end_of_word()) {
+		    if (forwchar(FALSE, 1) == FALSE)
+			    return (FALSE);
+		    c = lgetc(curwp->w_dotp, curwp->w_doto);
+		    if (isupper(c)) {
+			lputc(curwp->w_dotp, curwp->w_doto, CHCASE(c));
+			lchange(WFHARD);
+		    }
+		}
+		if (forwchar(FALSE, 1) == FALSE)
+		    return (FALSE);
+	}
+	return (TRUE);
+}
+
+/*
+ * Kill forward by "n" words. Remember the location of dot. Move forward by
+ * the right number of words. Put dot back where it was and issue the kill
+ * command for the right number of characters. Bound to "M-D".
+ */
+/*ARGSUSED*/
+delfword(int f, int n)
+{
+	register LINE	*dotp;
+	register int	doto;
+	long size;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (FALSE);
+	if ((lastflag&CFKILL) == 0)	/* Clear kill buffer if */
+		kdelete();		/* last wasn't a kill.	*/
+	thisflag |= CFKILL;
+	dotp = curwp->w_dotp;
+	doto = curwp->w_doto;
+	size = 0;
+	while (n--) {
+#if	NFWORD
+		if (iseol()) {
+			if (forwchar(FALSE,1) == FALSE)
+				return(FALSE);
+			++size;
+		}
+
+		if (inword()) {
+		  while (!end_of_word()) {
+		    if (forwchar(FALSE,1) == FALSE)
+		      return(FALSE);
+		    ++size;
+		  }
+		  if (forwchar(FALSE,1) == FALSE)
+		    return(FALSE);
+		  ++size;
+
+		  while (iswhite()) {
+		    if (forwchar(FALSE, 1) == FALSE)
+		      return (FALSE);
+		    ++size;
+		  }
+		} else {
+		  while (!top_of_word() && !iseol()) {
+		    if (forwchar(FALSE,1) == FALSE)
+		      return(FALSE);
+		    ++size;
+		  }
+		}
+#else	/*!NFWORD*/
+		while (inword() == FALSE) {
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+			++size;
+		}
+
+		while (!end_of_word()) {
+			if (forwchar(FALSE, 1) == FALSE)
+				return (FALSE);
+			++size;
+		}
+		if (forwchar(FALSE, 1) == FALSE)
+			return (FALSE);
+		++size;
+#endif	/*!NFWORD*/
+	}
+	curwp->w_dotp = dotp;
+	curwp->w_doto = doto;
+	return (ldelete(size, TRUE));
+}
+
+/*
+ * Kill backwards by "n" words. Move backwards by the desired number of words,
+ * counting the characters. When dot is finally moved to its resting place,
+ * fire off the kill command. Bound to "M-Rubout" and to "M-Backspace".
+ */
+/*ARGSUSED*/
+delbword(int f, int n)
+{
+	long size;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (FALSE);
+	if ((lastflag&CFKILL) == 0)	/* Clear kill buffer if */
+		kdelete();		/* last wasn't a kill.	*/
+	thisflag |= CFKILL;
+	size = 0;
+	while (n--) {
+		do {
+			if (backchar(FALSE, 1) == FALSE)
+				return (FALSE);
+			++size;
+		} while (top_of_word() == FALSE);
+	}
+	return (ldelete(size, TRUE));
+}
+
+/*
+ * Return TRUE if the character at dot is a character that is considered to be
+ * part of a word. The word character list is hard coded. Should be setable.
+ */
+inword(void)
+{
+	register Char	c;
+
+	if (iseol())
+		return (FALSE);
+	c = lgetc(curwp->w_dotp, curwp->w_doto);
+	if (isletter(c) ||
+	    isdigit(c) ||
+#if KANJI
+	    (iskanji(c) && c != CCHR('　')) ||
+#endif
+	    c=='$' || c=='_')			/* For identifiers	*/
+		return (TRUE);
+	return (FALSE);
+}
+
+/*
+ * Return TRUE if dot points to the top of a word.
+ */
+top_of_word(void)
+{
+	register Char c1, c2;
+	register int s;
+
+	if (!inword())
+	    return FALSE;
+	if (curwp->w_doto <= 0)
+	    return TRUE;
+	curwp->w_doto--;
+	s = inword();
+	curwp->w_doto++;
+	if (!s)
+	    return TRUE;
+#if	KANJI
+	c1 = lgetc(curwp->w_dotp, curwp->w_doto);
+	c2 = lgetc(curwp->w_dotp, curwp->w_doto-1);
+	return isword_gap(c2, c1);
+#else	/*!KANJI*/
+	return FALSE;
+#endif	/*KANJI*/
+}
+
+/*
+ * Return TRUE if dot points to the end of a word.
+ */
+end_of_word(void)
+{
+	register Char c1, c2;
+	register int s;
+
+	if (!inword())
+	    return FALSE;
+	if (iseol())
+	    return TRUE;
+	curwp->w_doto++;
+	s = inword();
+	curwp->w_doto--;
+	if (!s)
+	    return TRUE;
+#if	KANJI
+	c1 = lgetc(curwp->w_dotp, curwp->w_doto);
+	c2 = lgetc(curwp->w_dotp, curwp->w_doto+1);
+	return isword_gap(c1, c2);
+#else	/*!KANJI*/
+	return FALSE;
+#endif	/*KANJI*/
+}
+
+#if	KANJI
+/*
+ * Return TRUE if there is gap between c1 and c2.
+ */
+isword_gap(Char c1, Char c2)
+{
+
+    if (isascii(c1) && isascii(c2) ||
+	iskana(c1) && iskana(c2)) {
+	return FALSE;
+    }
+    if (iskanji(c1) && iskanji(c2)) {
+	return ch_type(c1) != ch_type(c2);
+    }
+    return TRUE;
+}
+
+/*
+ * character type of Kanji.
+ */
+enum ch_type {
+    CH_SYMBOL,
+    CH_NUMBER,
+    CH_ALPHA,
+    CH_HIRA,
+    CH_KATA,
+    CH_GREEK,
+    CH_RUSSIAN,
+    CH_KANJI,
+};
+
+ch_type(c)
+    register Char c;
+{
+    register int h;
+
+    h = (c >> 8) & 0xff;
+    if (h < 0x30) {
+	switch (h) {
+	case 0x23:
+	    return ((c & 0xff) == 0x30)? (int)CH_NUMBER:
+					 (int)CH_ALPHA;
+	case 0x24:
+	    return (int)CH_HIRA;
+	case 0x25:
+	    return (int)CH_KATA;
+	case 0x26:
+	    return (int)CH_GREEK;
+	case 0x27:
+	    return (int)CH_RUSSIAN;
+	}
+	return (int)CH_SYMBOL;
+    }
+    return (int)CH_KANJI;
+}
+#endif	/*KANJI*/
+
+#if	WORDPRO
+
+#define BEGIN	if (1) {
+#define END	} else
+
+/*ARGSUSED*/
+fillpara(f, n)	/* Fill the current paragraph according to the current
+		   fill column						*/
+{
+	register Char c;		/* current char durring scan	*/
+	register int wordlen;		/* length of current word	*/
+	register int clength;		/* position on line during fill */
+	register int eopflag;		/* Are we at the End-Of-Paragraph? */
+	register enum {
+		sf_none,
+		sf_space,
+		sf_nl
+	}	    sflag;		/* separator info */
+	register enum {
+		wf_norm,
+		wf_dot
+	}	    lwflag, cwflag;	/* last and current word info */
+	register LINE *eopline;		/* pointer to line just past EOP */
+	Char wbuf[NSTRING];		/* buffer for current word	*/
+
+	/* flush current word */
+#define flush_word() BEGIN\
+		register int i;\
+		/* check this word */\
+		i = 0;\
+		if (lwflag == wf_dot) i++;\
+		if (sflag != sf_none) i++;\
+		if (clength+i+wordlen <= fillcol) {\
+			/* add this word to this line */\
+			/* spaces between last word */\
+			(void)linsert(i, ' ');\
+			clength += i;\
+		} else {\
+			/* wrap to next line */\
+			(void)lnewline();\
+			clength = 0;\
+		}\
+		/* then insert word, anyway */\
+		for (i=0; i<wordlen; )\
+			(void)linsert(1, wbuf[i++]);\
+		/* update status */\
+		clength += wordlen;\
+		lwflag = cwflag;\
+		wordlen = 0;\
+		/* sfalg should be set properly */\
+	END /* flush_word */
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (fillcol == 0) {	/* no fill column set */
+		mlwrite(
+#if KMSGS
+		    kterminal? CSTR("フィルするカラムがセットされていません"):
+#endif
+		    CSTR("No fill column set"));
+		return(FALSE);
+	}
+
+	/* record the pointer to the line just past the EOP */
+	(void)gotoeop(FALSE, 1);
+	eopline = lforw(curwp->w_dotp);
+
+	/* and back top the begining of the paragraph */
+	(void)gotobop(FALSE, 1);
+
+	/* initialize various info */
+	clength = getccol(FALSE);
+	wordlen = 0;
+	lwflag = cwflag = wf_norm;
+	sflag = sf_none;
+
+	/* scan through lines, filling words */
+	eopflag = FALSE;
+	do {
+		/* get the next character in the paragraph */
+		if (curwp->w_doto == llength(curwp->w_dotp)) {
+			c = '\n';
+			if (lforw(curwp->w_dotp) == eopline)
+				eopflag = TRUE;
+		} else
+			c = lgetc(curwp->w_dotp, curwp->w_doto);
+		/* and then delete it */
+		(void)ldelete(1L, FALSE);
+
+		/* examine current character */
+		if (c == ' ' || c == '\t' || c == '\n') {
+			/* word separator */
+			if (wordlen) {
+				flush_word();
+				sflag = sf_space;
+			} else {
+				if (c == '\n' && sflag == sf_none)
+					sflag = sf_nl;
+				else
+					sflag = sf_space;
+			}
+		}
+#if KANJI
+		/* else if (c == KSPACE) { */
+			/* KANJI space */
+			/* is there any difference with other KANJI chars? */
+		/* } */
+		else if (iskanji(c) || iskana(c)) {
+			register int sp = 0;
+
+			/* KANJI or KANA character */
+			if (wordlen) {
+				flush_word();
+				sflag = sf_none;
+			}
+			if (lwflag == wf_dot) sp++;
+			if (sflag == sf_space) sp++;
+			if (should_wrap(c, clength+sp)) {
+				(void)lnewline();
+				clength = 0;
+			} else {
+				(void)linsert(sp, ' ');
+				clength += sp;
+			}
+			(void)linsert(1, c);
+			clength += 1+(iskanji(c) && !is_narrow_kanji(c));
+			lwflag = wf_norm;
+			sflag = sf_none;
+		}
+#endif /* KANJI */
+		else {
+			/* normal word character */
+			cwflag = (c == '.')? wf_dot: wf_norm;
+			if (wordlen < NSTRING-1)
+				wbuf[wordlen++] = c;
+		}
+	} while (!eopflag);
+	/* and add a last newline for the end of our new paragraph */
+	if (eopline == curbp->b_linep) {
+		/* end of buffer. not add newline. instead, advance dot */
+		(void)forwchar(FALSE, 1);
+	} else {
+		(void)lnewline();
+	}
+	return(TRUE);
+}
+
+/*ARGSUSED*/
+killpara(f, n)	/* delete n paragraphs starting with the current one */
+
+int f;	/* default flag */
+int n;	/* # of paras to delete */
+
+{
+	register int status;	/* returned status of functions */
+
+	while (n--) {		/* for each paragraph to delete */
+
+		/* mark out the end and begining of the para to delete */
+		(void)gotoeop(FALSE, 1);
+
+		/* set the mark here */
+		curwp->w_markp = curwp->w_dotp;
+		curwp->w_marko = curwp->w_doto;
+
+		/* go to the beginning of the paragraph */
+		(void)gotobop(FALSE, 1);
+		curwp->w_doto = 0;	/* force us to the beginning of line */
+
+		/* and delete it */
+		if ((status = killregion(FALSE, 1)) != TRUE)
+			return(status);
+
+		/* and clean up the 2 extra lines */
+		(void)ldelete(2L, TRUE);
+	}
+	return(TRUE);
+}
+
+
+/*	wordcount:	count the # of words in the marked region,
+			along with average word sizes, # of chars, etc,
+			and report on them.			*/
+
+/*ARGSUSED*/
+wordcount(f, n)
+{
+	register LINE *lp;	/* current line to scan */
+	register int offset;	/* current char to scan */
+	long size;		/* size of region left to count */
+	register Char ch;	/* current character to scan */
+	register int wordflag;	/* are we in a word now? */
+	register int lastword;	/* were we just in a word? */
+	long nwords;		/* total # of words */
+	long nchars;		/* total number of chars */
+	int nlines;		/* total number of lines in region */
+	int avgch;		/* average number of chars/word */
+	int status;		/* status return code */
+	REGION region;		/* region to look at */
+
+	/* make sure we have a region to count */
+	if ((status = getregion(&region)) != TRUE)
+		return(status);
+	lp = region.r_linep;
+	offset = region.r_offset;
+	size = region.r_size;
+
+	/* count up things */
+	lastword = FALSE;
+	nchars = 0L;
+	nwords = 0L;
+	nlines = 0;
+	while (size--) {
+
+		/* get the current character */
+		if (offset == llength(lp)) {	/* end of line */
+			ch = '\n';
+			lp = lforw(lp);
+			offset = 0;
+			++nlines;
+		} else {
+			ch = lgetc(lp, offset);
+			++offset;
+		}
+
+		/* and tabulate it */
+		wordflag = (isletter(ch) || isdigit(ch) ||
+#if KANJI
+			    (iskanji(ch)) ||
+#endif
+			    (ch == '$' || ch == '_'));
+		if (wordflag == TRUE && lastword == FALSE)
+			++nwords;
+		lastword = wordflag;
+		++nchars;
+	}
+
+	/* and report on the info */
+	if (nwords > 0L)
+		avgch = (int)((100L * nchars) / nwords);
+	else
+		avgch = 0;
+
+	mlwrite(
+#if KMSGS
+	    kterminal? CSTR("%D 語 %D 文字 %d 行  平均1語あたり %f 文字"):
+#endif
+	    CSTR("Words %D Chars %D Lines %d Avg chars/word %f"),
+		nwords, nchars, nlines + 1, avgch);
+	return(TRUE);
+}
+#endif /*WORDPRO*/
+#if KANJI
+/*
+ * return TRUE if character C placed at column COL should be wrapped around.
+ */
+should_wrap(c, col)
+    Char c;
+    int col;
+{
+    return ((col += 1+(iskanji(c) && !is_narrow_kanji(c))) >= fillcol && kinsoku1(c)) ||
+	   (col > fillcol && !kinsoku2(c));
+}
+
+/*
+ * KANA codes in following text is not portable in case inner
+ * representation is changed.
+ */
+
+/*
+ * return TRUE if C is a character which should never be placed
+ * at the end of the line.
+ */
+kinsoku1(c)
+    Char c;
+{
+    switch (c) {
+    case '(':
+    case '<':
+    case '{':
+    case '[':
+	return (TRUE);
+    }
+    switch (c) {
+    case CCHR('‘'): /* opening quote */
+    case CCHR('“'):
+    case CCHR('（'): /* opening paren */
+    case CCHR('〔'):
+    case CCHR('［'):
+    case CCHR('｛'):
+    case CCHR('〈'):
+    case CCHR('《'):
+    case CCHR('「'):
+    case CCHR('『'):
+    case CCHR('【'):
+	return TRUE;
+    }
+    switch (c) { /* for KANA */
+    case 0x122: /* oepning paren */
+	return TRUE;
+    }
+    return FALSE;
+}
+
+/*
+ * return TRUE if C is a character which should never be placed
+ * at the top of line.
+ */
+kinsoku2(c)
+    Char c;
+{
+    switch (c) {
+    case '!':
+    case ')':
+    case ',':
+    case '.':
+    case '?':
+    case ';':
+    case ':':
+    case ']':
+    case '}':
+    case '>':
+	return (TRUE);
+    }
+    switch (c) {
+    case CCHR('、'): /* tou-ten */
+    case CCHR('。'): /* ku-ten */
+    case CCHR('，'): /* comma */
+    case CCHR('．'): /* peirod */
+    case CCHR('・'): /* mid dot */
+    case CCHR('？'): /* question mark */
+    case CCHR('！'): /* exclaimation mark */
+    case CCHR('゛'): /* daku-ten */
+    case CCHR('゜'): /* han-daku-ten */
+    case CCHR('ヽ'): /* kurikaeshi */
+    case CCHR('ヾ'): /* daku-ten tuki kurikaeshi */
+    case CCHR('ゝ'): /* kurikaeshi */
+    case CCHR('ゞ'): /* daku-ten tuki kurikaeshi */
+    case CCHR('〃'): /* kurikaeshi */
+    case CCHR('仝'): /* kurikaeshi */
+    case CCHR('々'): /* kurikaeshi */
+    case CCHR('ー'): /* chou-on kigou */
+    case CCHR('’'): /* closing single quote */
+    case CCHR('”'): /* closing double quote */
+    case CCHR('）'): /* closing paren */
+    case CCHR('〕'): /* closing broad-angled brace */
+    case CCHR('］'): /* closing brace */
+    case CCHR('｝'): /* closing curly brace */
+    case CCHR('」'): /* closing angle bracket */
+    case CCHR('』'): /* closing double angle bracket */
+    case CCHR('】'): /* closing filled bracket */
+    case CCHR('ぁ'): case CCHR('ァ'): /* small 'a' */
+    case CCHR('ぃ'): case CCHR('ィ'): /* small 'i' */
+    case CCHR('ぅ'): case CCHR('ゥ'): /* small 'u' */
+    case CCHR('ぇ'): case CCHR('ェ'): /* small 'e' */
+    case CCHR('ぉ'): case CCHR('ォ'): /* small 'o' */
+    case CCHR('っ'): case CCHR('ッ'): /* small 'tsu' */
+    case CCHR('ゃ'): case CCHR('ャ'): /* small 'ya' */
+    case CCHR('ゅ'): case CCHR('ュ'): /* small 'yu' */
+    case CCHR('ょ'): case CCHR('ョ'): /* small 'yo' */
+    case CCHR('ゎ'): case CCHR('ヮ'): /* small 'wa' */
+    case CCHR('ヵ'): /* small 'ka' */
+    case CCHR('ヶ'): /* small 'ke' */
+	return TRUE;
+    }
+    switch (c) { /* for KANA */
+    case 0x121: /* kuten */
+    case 0x123: /* closing paren */
+    case 0x124: /* touten */
+    case 0x125: /* nakaten */
+    case 0x127: /* small "a" */
+    case 0x128: /* small "i" */
+    case 0x129: /* small "u" */
+    case 0x12a: /* small "e" */
+    case 0x12b: /* small "o" */
+    case 0x12c: /* small "ya" */
+    case 0x12d: /* small "yu" */
+    case 0x12e: /* small "yo" */
+    case 0x12f: /* small "tsu" */
+    case 0x130: /* cho-on kigou */
+    case 0x15e: /* dakuten */
+    case 0x15f: /* han-dakuten */
+	return TRUE;
+    }
+    return FALSE;
+}
+
+#endif /*KANJI*/
+
+/*
+ *  return TRUE if the current character is whitespace,
+ *  else return FALSE.
+ */
+
+iswhite()
+{
+  register Char c;
+
+  if (iseol())
+    return (FALSE);
+  c = lgetc(curwp->w_dotp, curwp->w_doto);
+  if (c == ' ' || c == '\t') return (TRUE);
+  return (FALSE);
+}
+
+iseol()
+{
+    return (curwp->w_doto == llength(curwp->w_dotp));
+}

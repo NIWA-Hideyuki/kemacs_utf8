@@ -1,0 +1,65 @@
+# mf.dep
+# DO NOT DELETE THIS LINE - make depend DEPENDS ON IT
+A=Cstrings
+B=kanji
+
+basic.o: $A/Cstrings.h basic.c ecomm.h econfig.h edef.h estruct.h $B/kanji.h
+
+bind.o: $A/Cstrings.h bind.c ecomm.h econfig.h edef.h epath.h estruct.h \
+	$B/kanji.h
+
+buffer.o: $A/Cstrings.h buffer.c ecomm.h econfig.h edef.h estruct.h \
+	$B/kanji.h
+
+crypt.o: $A/Cstrings.h crypt.c ecomm.h econfig.h edef.h estruct.h $B/kanji.h
+
+display.o: $A/Cstrings.h display.c ecomm.h econfig.h edef.h estruct.h \
+	$B/kanji.h
+
+eval.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h eval.c evar.h \
+	$B/kanji.h
+
+exec.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h exec.c $B/kanji.h
+
+file.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h file.c $B/kanji.h
+
+fileio.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h fileio.c \
+	$B/kanji.h
+
+input.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h input.c $B/kanji.h
+
+isearch.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h isearch.c \
+	$B/kanji.h
+
+kanji.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B.c $B/kanji.h
+
+line.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h line.c
+
+main.o: $A/Cstrings.h ebind.h ecomm.h econfig.h edef.h efunc.h estruct.h \
+	$B/kanji.h main.c
+
+random.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h \
+	random.c
+
+region.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h \
+	region.c
+
+search.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h \
+	search.c
+
+spawn.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h spawn.c
+
+tcap.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h tcap.c
+
+termio.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h \
+	termio.c
+
+version.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h eversion.h \
+	$B/kanji.h version.c
+
+window.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h \
+	window.c
+
+word.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h word.c
+
+# *** Do not add anything here - It will go away. ***

@@ -1,0 +1,44 @@
+HDRS	      = Cstrings.h
+
+# ORDER IS IMPORTANT! DO NOT REORDER.
+OBJS	      = Cfromc.o \
+		Cindex.o \
+		Crindex.o \
+		Cstrcat.o \
+		Cstrcmp.o \
+		Cstrcpy.o \
+		Cstrncat.o \
+		Cstrncmp.o \
+		Cstrncpy.o \
+		cfromC_.o \
+		Cstrlen.o
+
+SRCS	      = Cfromc.c \
+		Cindex.c \
+		Crindex.c \
+		Cstrcat.c \
+		Cstrcmp.c \
+		Cstrcpy.c \
+		Cstrlen.c \
+		Cstrncat.c \
+		Cstrncmp.c \
+		Cstrncpy.c \
+		cfromC_.c
+
+LIBRARY       = Cstrings.a
+
+CCFLAGS       = -O
+CFLAGS	      = $(CCFLAGS) -I../kanji $(EINCL)
+
+all:		$(LIBRARY)
+
+$(LIBRARY):	$(OBJS)
+		ar cru $(LIBRARY) $(OBJS)
+		@-ranlib $(LIBRARY) || echo If you use systemV, no problem.
+
+clean:;		@rm -f $(OBJS)
+
+realclean: clean
+		@rm -f $(LIBRARY)
+
+$(OBJS):	$(HDRS)

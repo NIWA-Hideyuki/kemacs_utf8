@@ -1,0 +1,41 @@
+ILIBS	=
+CC	= cc
+
+HDRS	= kpp.h
+
+SRCS	= kpp.c ftoc.c
+
+OBJS	= kpp.o ftoc.o
+
+CCFLAGS	= -O 
+INCL	= -I../kanji -I../Cstrings
+DEFS	=
+CFLAGS	= $(CCFLAGS) $(DEFS) $(INCL) $(EINCL)
+
+LIBS	= ../Cstrings/Cstrings.a ../kanji/kanji.a
+
+all: kpp ftoc
+
+kpp: kpp.c $(LIBS)
+	$(CC) -o kpp $(CFLAGS) kpp.c $(LIBS) $(ILIBS)
+
+ftoc: ftoc.c $(LIBS)
+	$(CC) -o ftoc $(CFLAGS) ftoc.c $(LIBS) $(ILIBS)
+
+clean:;	@rm -f $(OBJS) kpp ftoc
+
+realclean: clean
+	@rm -f kpp ftoc
+
+depend:
+	maketd $(INCL) $(DEFS) $(SRCS)
+
+# DO NOT DELETE THIS LINE - make depend DEPENDS ON IT
+A=../Cstrings
+B=../kanji
+
+kpp.o: $A/Cstrings.h ../econfig.h $B/kanji.h kpp.c kpp.h
+
+ftoc.o: $A/Cstrings.h ../econfig.h $B/kanji.h ftoc.c kpp.h
+
+# *** Do not add anything here - It will go away. ***

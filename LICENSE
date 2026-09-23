@@ -1,0 +1,105 @@
+==================================================================
+LICENSE FOR kemacs 2.1k (UTF-8 Compatible Version)
+==================================================================
+
+This software is distributed under the original licensing terms of
+MicroEMACS / kemacs.  Commercial use is NOT permitted without
+explicit permission from the copyright holders.
+
+------------------------------------------------------------------
+ORIGINAL COPYRIGHT NOTICE
+------------------------------------------------------------------
+
+	(C)opyright 1987 by Daniel M. Lawrence
+
+	MicroEMACS 3.8 can be copied and distributed freely for any
+	non-commercial purposes. MicroEMACS 3.8 can only be incorporated
+	into commercial software with the permission of the current author.
+
+	(Note the copyright.....a number of large companies decided to use
+	MicroEMACS 3.7 and 3.7i as the shell of their products, and several
+	of the ones I contacted were not even courteous enough to send me
+	their product for my personal use.  I am not out to make a fortune
+	on this, but a little common courtesy would be appreciated.)
+
+Based on MicroEMACS 3.8i, greatly modified and maintained over the
+years by Daniel M. Lawrence (1958-2010) and Dave G. Conroy.
+
+------------------------------------------------------------------
+CONTRIBUTORS
+------------------------------------------------------------------
+
+This source tree is the result of cumulative contributions from
+multiple authors, all distributed under the same non-commercial
+license terms stated above:
+
+  Original MicroEMACS Contributors
+  - Dave G. Conroy         (original MicroEMACS 3.2 author)
+  - Steve Wilhite          (MicroEMACS 3.2 modifications)
+  - George Jones           (MicroEMACS 3.2 modifications)
+  - Daniel M. Lawrence     (MicroEMACS 3.8/3.8i, core maintainer, 1958-2010)
+  - Linwood Varney         (System V / USG support)
+  - D. R. Banks            (Incremental search functions, isearch.c)
+
+  kemacs (Japanese / Kanji) Extensions
+  - Takanori (sanewo) Saneto  (Nihongo MicroEMACS / kemacs base)
+                              Email: sanewo@strg.sony.co.jp
+
+  Unofficial Patch Contributors (derivative of kemacs)
+  - Naoyuki Niide          (unofficial kemacs 2.1k patch set --
+                             Linux/SysV support, limited UTF-8
+                             support, cygwin compilation kit
+                             assistance from Wataru Kawakami;
+                             also tcap.c terminal size / SIGWINCH
+                             support as "N. Nide")
+
+  Separate Copyright Component
+  - Dana L. Hoggatt         ((C) Copyright 1986 -- DLH-POLY-86-B
+                             CIPHER encryption in crypt.c)
+
+  Current UTF-8 / compiler compatibility modifications
+  - Hideyuki Niwa           (UTF-8 / GCC 15.2.0 compatibility fixes,
+                             copyright holder for derivative modifications;
+                             produced with the assistance of Hermes Agent,
+                             an AI coding assistant)
+
+------------------------------------------------------------------
+REGARDING THE LICENSE
+------------------------------------------------------------------
+
+kemacs is a derivative work of MicroEMACS 3.8i.  In the context of
+kemacs, the term "current author" (as referenced in the original
+copyright notice) is interpreted as Daniel M. Lawrence (deceased
+2010) and Takanori (sanewo) Saneto, as stated in the kemacs WhatsNew
+document.
+
+All contributors listed above distribute their code under the same
+non-commercial licensing terms.  Commercial use, incorporation into
+commercial software, or resale requires the prior written permission
+of all copyright holders.
+
+------------------------------------------------------------------
+REDISTRIBUTION CONDITIONS
+------------------------------------------------------------------
+
+  a) This software may be freely copied and distributed for any
+     NON-COMMERCIAL purpose, provided that:
+
+       - All copyright notices and this license text are preserved
+         in full.
+       - Attribution to all contributors is retained.
+       - Modified versions must clearly document what was changed.
+       - The non-commercial restriction applies to the entire
+         derivative work as a whole.
+
+  b) Incorporation into commercial software or resale is permitted
+     ONLY with the prior written permission of all copyright holders:
+       - Estate of Daniel M. Lawrence (MicroEMACS core)
+       - Takanori (sanewo) Saneto (kemacs Japanese extensions)
+       - Dana L. Hoggatt (crypt.c encryption routines)
+       - All other contributors listed above
+
+  c) No warranty is expressed or implied.  This software is provided
+     "as is".
+
+==================================================================

@@ -1,0 +1,265 @@
+;;sample .kemacsrc file
+
+bind-to-key beginning-of-file M-FN^@	; Home
+bind-to-key end-of-file M-FNX		; End
+
+;;if you can't use ^S and ^Q because of flow control...
+;bind-to-key search-forward ^\
+;bind-to-key save-file ^X^\
+;bind-to-key incremental-search ^X\
+;bind-to-key quote-character ^XQ
+
+;;some private binds
+;bind-to-key exit-recursive-edit ^^
+;bind-to-key insert-space ^C
+;bind-to-key insert-file ^XI
+;bind-to-key set-mark ^@
+;bind-to-key entab-line ^XT
+
+;set $fcode UJIS
+;set $bcode UJIS
+;set $cperiod 0
+
+set %term &env "TERM"
+!if &or &seq %term "xterm" &or &seq %term "sun" &seq %term "linux"
+	set $kanji FALSE
+!endif
+
+; ESC Tでチュートリアル
+40 store-macro
+	find-file "/usr/local/lib/kemacs/emacs.tut"
+	set $cbufname Tutorial
+	set $cfname /dev/null
+*loop0
+	; /^[ \t]*>>/で始まっているところを探す
+	; ^Sの探索リストに残らぬようsearch-forwardを使わず探す
+	!if &gre $curline 40
+		; 40行以内になければ中止
+		beginning-of-file
+		!return
+	!endif
+	set %tmp $curline
+	set %line #Tutorial
+	!if &equ %tmp $curline
+		; 最後まで探し終わった。無限ループ回避
+		beginning-of-file
+		!return
+	!endif
+*loop0sub
+	!if &les &len %line 2
+		!goto loop0
+	!endif
+	set %chr &lef %line 2
+	!if &seq %chr ">>"
+		!goto loop0fin
+	!endif
+	set %chr &lef %line 1
+	set %line &rig %line 2
+	!if &or &seq %chr " " &seq %chr "~t"
+		!goto loop0sub
+	!endif
+	!goto loop0
+*loop0fin
+	previous-line
+	beginning-of-line
+	; 見つかった行にカーソルがある
+
+	set %addsp &sub &sub $pagelen $curline 6
+	; %addsp行ほど空ける
+	set %tmp %addsp
+*loop
+	!if &not &gre %tmp 0
+		!goto loopfin
+	!endif
+	open-line
+	set %tmp &sub %tmp 1
+	!goto loop
+*loopfin
+
+	; %addspが3より大きいなら中ほどにメッセージ
+	!if &gre %addsp 3
+		set %tmp &div %addsp 2
+	*loop2
+		!if &not &gre %tmp 1
+			!goto loop2fin
+		!endif
+		next-line
+		set %tmp &sub %tmp 1
+		!goto loop2
+	*loop2fin
+		!if $kanji
+			insert-string "~t(ここはわざと空けてあります。"
+			insert-string "続きの内容は画面下方にあります。)"
+		!else
+			insert-string "~t(This space is left blank on purpose."
+			insert-string " Text continues below.)"
+		!endif
+	!endif
+
+	; 変更フラグを落として終了
+	unmark-buffer
+	beginning-of-file
+!endm
+bind-to-key execute-macro-40 M-T
+
+; ESC Eでコンパイル&実行(単一ソースファイルのCプログラムに限る)
+39 store-macro
+	set %args @"Args: "
+	save-file
+	!if &not &seq "" %args
+		write-message &cat "~nArgs: " %args
+	!endif
+	write-message "~nCompiling...~r~n"
+	set %args &cat " " %args
+	set %args &cat $cfname %args
+	shell-command &cat "exec /usr/local/lib/kemacs/ccg " %args 
+!endm
+bind-to-key execute-macro-39	M-E
+
+; AWKモードもどき
+; CMODEにしておいて"#"のバインドだけ変える。CMODEでは"#"は自動的に行頭へ
+; 戻ってしまう(変更不能)ので、単に自分をinsertだけするマクロをわざわざ
+; 作って"#"にバインド。このとき、ファイル名末尾が「.[ch]」だと本来の"#"の
+; 働きを1回エミュレートした上で"#"へのバインドを解除し、またファイル名
+; 末尾がそれら以外なら単に"#"へのバインドを解除
+38 store-macro
+	insert-string "#"
+	; CMODEでないなら普通のバインドに戻して終わり
+	!if &not &bmode "CMODE"
+		!goto unbind
+	!endif
+
+	; ファイル名末尾が「.awk」ならそのまま終了
+	!if &les 3 &len $cfname
+		!if &seq ".awk" &rig $cfname &sub &len $cfname 3
+			!return
+		!endif
+	!endif	
+
+	; 通常のCMODE。「#」の働きを1回エミュレートの上普通のバインドに戻す
+	set %tmpx $curcol
+	backward-character ; 「#」1個分バック
+*searchloop
+	!if &equ $curcol 1
+		!goto topofline
+	!endif
+	backward-character
+	!if &not &or &equ $curchar 32 &equ $curchar 9
+	*normspcloop
+		!if &not &equ %tmpx $curcol
+			forward-character
+			!goto normspcloop
+		!endif
+		!goto unbind
+	!endif
+	!goto searchloop
+*topofline
+	!if &not &equ $curchar 35
+		delete-next-character
+		!goto topofline
+	!endif
+	forward-character
+*unbind
+	set %prvdiscmd $discmd
+	set $discmd FALSE
+	unbind-key "#"
+	set $discmd %prvdiscmd 
+!endm
+auto-mode-for-file CMODE "\.awk$"
+bind-to-key execute-macro-38	"#"
+
+;「ESC [ …」というシーケンスを吐くいくつかのファンクションキーを取り扱う
+37 store-macro
+	set %tmpseq &gtkey
+	!if &seq %tmpseq "["	; ESC [ [ ○
+		set %tmpseq &cat %tmpseq &gtkey
+		!goto gotseq
+	!endif
+	!if &or &sle %tmpseq "0" &sle "9" %tmpseq	; ESC [ ○
+		!goto gotseq
+	!endif
+*getseqloop
+	; ESC [ 数 ~	「~」は "~~" と書かねばならないことに注意
+	set %tmpc &gtkey
+	set %tmpseq &cat %tmpseq %tmpc
+	!if &seq %tmpc "~~"
+		!goto gotseq
+	!endif
+	!if &or &sle %tmpc "0" &sle "9" %tmpc
+		!goto unsup
+	!endif
+	!goto getseqloop
+*gotseq
+	!if &seq %tmpseq "5~~"		; PgUp
+		previous-page
+		!return
+	!endif
+	!if &seq %tmpseq "6~~"		; PgDn
+		next-page
+		!return
+	!endif
+	!if &seq %tmpseq "1~~"		; Home
+		beginning-of-file
+		!return
+	!endif
+	!if &seq %tmpseq "4~~"		; End
+		end-of-file
+		!return
+	!endif
+	!if &seq %tmpseq "2~~"		; Ins
+		!if &bmode "OVER"
+			delete-mode "OVER"
+		!else
+			add-mode "OVER"
+		!endif
+		!return
+	!endif
+	!if &seq %tmpseq "3~~"		; Del
+		delete-previous-character
+		!return
+	!endif
+	!if &seq %tmpseq "A"		; Up
+		previous-line
+		!return
+	!endif
+	!if &seq %tmpseq "B"		; Down
+		next-line
+		!return
+	!endif
+	!if &seq %tmpseq "D"		; Left
+		backward-character
+		!return
+	!endif
+	!if &seq %tmpseq "C"		; Right
+		forward-character
+		!return
+	!endif
+*unsup
+	!if $kanji
+		write-message "[未定義ファンクションキー]"
+	!else
+		write-message "[Function key not bound]"
+	!endif
+!endm
+bind-to-key execute-macro-37	M-[
+
+; 10-key numerics etc.
+36 store-macro
+	insert-string &chr &mod $lastkey 64
+!endm
+bind-to-key execute-macro-36	M-FNw
+bind-to-key execute-macro-36	M-FNx
+bind-to-key execute-macro-36	M-FNy
+bind-to-key execute-macro-36	M-FNt
+bind-to-key execute-macro-36	M-FNu
+bind-to-key execute-macro-36	M-FNv
+bind-to-key execute-macro-36	M-FNq
+bind-to-key execute-macro-36	M-FNr
+bind-to-key execute-macro-36	M-FNs
+bind-to-key execute-macro-36	M-FNp
+bind-to-key execute-macro-36	M-FNj
+bind-to-key execute-macro-36	M-FNk
+bind-to-key execute-macro-36	M-FNm
+bind-to-key execute-macro-36	M-FNn
+bind-to-key execute-macro-36	M-FNo
+bind-to-key newline		M-FNM

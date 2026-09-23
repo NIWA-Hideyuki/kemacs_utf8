@@ -1,0 +1,241 @@
+/*	EVAR.H:	Environment and user variable definitions
+		for MicroEMACS
+
+		written 1986 by Daniel Lawrence
+*/
+
+/*	structure to hold user variables and their definitions	*/
+
+typedef struct UVAR {
+	Char u_name[NVSIZE + 1];		/* name of user variable */
+	Char *u_value;				/* value (string) */
+} UVAR;
+
+/*	current user variables (This structure will probably change)	*/
+
+#define	MAXVARS		100
+
+UVAR uv[MAXVARS];	/* user variables */
+
+/* environment variable structure */
+
+typedef struct ENVAR {
+	Char *ev_name;			/* name of variable */
+	byte ev_class;			/* local or global */
+	char *ev_addr;			/* address of related object */
+	Char *(*ev_gethook)();		/* routine to get the value */
+	int (*ev_puthook)();		/* routine to put the value */
+} ENVAR;
+
+#define EV_LOCAL	0
+#define EV_GLOBAL	1
+
+static BUFFER dummy_buffer;
+
+#define BUF_OFS(f)	(char *)&dummy_buffer.f
+#define BUF_ADR(o)	((char *)curbp+((char *)o-(char *)&dummy_buffer))
+
+#if	SHORTNAME
+# define get_curchar_hook	get_cchr_hook
+# define get_curcol_hook	get_ccol_hook
+# define get_curline_hook	get_clin_hook
+# define get_curwidth_hook	get_cwid_hook
+# define put_curchar_hook	put_cchr_hook
+# define put_curcol_hook	put_ccol_hook
+# define put_curline_hook	put_clin_hook
+# define put_curwidth_hook	put_cwid_hook
+#endif	/*SHORTNAME*/
+
+/*
+ * hook functions: declared as following
+ *
+ *	Char *get_hook(ENVAR *);
+ *	int put_hook(ENVAR *, Char *);
+ */
+/* hook for putting to readonly variables */
+static int readonly_hook();
+/* general get hooks */
+static Char *get_int_hook(), *get_bool_hook(), *get_str_hook();
+/* general put hooks */
+static int put_int_hook(), put_bool_hook(), put_str_hook();
+
+/* variable specific hooks */
+static Char *get_pagelen_hook(), *get_curcol_hook(), *get_curline_hook();
+static int put_pagelen_hook(), put_curcol_hook(), put_curline_hook();
+static int put_curwidth_hook(), put_cbufname_hook(), put_cfname_hook();
+#if KANJI
+static int put_kterminal_hook();
+static Char *get_kcode_hook();
+static int put_kcode_hook();
+static int put_tcode_hook();
+static int put_bufcode_hook();
+#endif
+static Char *get_curchar_hook();
+static int put_curchar_hook();
+static int put_modeline_hook();
+#if	CLOCK
+static int put_cperiod_hook();
+#endif
+
+/*	list of recognized environment variables	*/
+ENVAR envars[] = {
+	{CSTR("fillcol"), EV_GLOBAL,	/* current fill column */
+		(char *)&fillcol, get_int_hook, put_int_hook},
+	{CSTR("pagelen"), EV_GLOBAL,	/* number of lines used by editor */
+		NULL, get_pagelen_hook, put_pagelen_hook},
+	{CSTR("curcol"), EV_LOCAL,	/* current column pos of cursor */
+		NULL, get_curcol_hook, put_curcol_hook},
+	{CSTR("curline"), EV_LOCAL,	/* current line in file */
+		NULL, get_curline_hook, put_curline_hook},
+	{CSTR("curwidth"), EV_GLOBAL,	/* current screen width */
+		(char *)&term.t_ncol, get_int_hook, put_curwidth_hook},
+	{CSTR("cbufname"), EV_LOCAL,	/* current buffer name */
+		BUF_OFS(b_bname), get_str_hook, put_cbufname_hook},
+	{CSTR("cfname"), EV_LOCAL,	/* current file name */
+		BUF_OFS(b_fname), get_str_hook, put_cfname_hook},
+	{CSTR("debug"),	EV_GLOBAL,	/* macro debugging */
+		(char *)&macbug, get_bool_hook, put_bool_hook},
+	{CSTR("status"), EV_GLOBAL,	/* status of last command */
+		(char *)&cmdstatus, get_bool_hook, put_bool_hook},
+#if KANJI
+	{CSTR("kanji"), EV_GLOBAL,	/* display KANJI messages */
+		(char *)&kterminal, get_bool_hook, put_kterminal_hook},
+	{CSTR("fcode"), EV_GLOBAL,	/* global file code */
+		(char *)&kcode, get_kcode_hook, put_kcode_hook},
+	{CSTR("tcode"), EV_GLOBAL,	/* terminal code */
+		(char *)&term.t_code, get_kcode_hook, put_tcode_hook},
+	{CSTR("bcode"), EV_LOCAL,	/* current buffer's file code */
+		BUF_OFS(b_code), get_kcode_hook, put_bufcode_hook},
+#endif
+#if ASAVE
+	{CSTR("asave"), EV_GLOBAL,	/* # of chars between auto-saves */
+	   (char *)&gasave, get_int_hook, put_int_hook},
+	{CSTR("acount"), EV_GLOBAL,	/* # of chars until next auto-save */
+	   (char *)&gacount, get_int_hook, put_int_hook},
+#endif
+	{CSTR("lastkey"), EV_GLOBAL,	/* last keyboard char struck */
+	   (char *)&lastkey, get_int_hook, put_int_hook},
+	{CSTR("curchar"), EV_GLOBAL,	/* current character under the cursor */
+	   NULL, get_curchar_hook, put_curchar_hook},
+	{CSTR("discmd"), EV_GLOBAL,	/* display commands on command line */
+	   (char *)&discmd, get_bool_hook, put_bool_hook},
+	{CSTR("version"), EV_GLOBAL,	/* current version number */
+	   NULL, version, readonly_hook},
+	{CSTR("progname"), EV_GLOBAL,	/* returns current prog name */
+	   NULL, prgname, readonly_hook},
+	{CSTR("revdate"), EV_GLOBAL,	/* returns last revised date */
+	   NULL, revdate, readonly_hook},
+	{CSTR("seed"), EV_GLOBAL,	/* current random number seed */
+	   (char *)&seed, get_int_hook, put_int_hook},
+	{CSTR("disinp"), EV_GLOBAL,	/* display command line input characters */
+	   (char *)&disinp, get_bool_hook, put_bool_hook},
+	{CSTR("gmodeline"), EV_GLOBAL,	/* global mode line format */
+	   (char *)&gmodeline, get_str_hook, put_modeline_hook},
+	{CSTR("bmodeline"), EV_LOCAL,	/* buffer mode line format */
+		BUF_OFS(b_modeline), get_str_hook, put_modeline_hook},
+#if	CLOCK
+	{CSTR("cperiod"), EV_GLOBAL,	/* period of timer in seconds */
+		(char *)&cperiod, get_int_hook, put_cperiod_hook},
+#endif
+	{CSTR("time"),	EV_GLOBAL,	/* current time string */
+		NULL, getclock, readonly_hook},
+
+	{CSTR("searchpat"), EV_GLOBAL,	/* current search pattern */
+		(char *)pat, NULL, NULL},
+	{CSTR("replacepat"), EV_GLOBAL,	/* current replace pattern */
+		(char *)rpat, NULL, NULL},
+};
+
+#define	NEVARS	(sizeof(envars) / sizeof(ENVAR))
+
+/*	list of recognized user functions	*/
+
+enum FUNC_ADITY {
+  NILNAMIC,
+  MONAMIC,
+  DYNAMIC,
+  TRINAMIC,
+};
+
+typedef struct UFUNC {
+	Char *f_name;	/* name of function */
+	enum FUNC_ADITY f_type;
+} UFUNC;
+
+UFUNC funcs[] = {
+	CSTR("add"), DYNAMIC,		/* add two numbers together */
+	CSTR("sub"), DYNAMIC,		/* subtraction */
+	CSTR("tim"), DYNAMIC,		/* multiplication */
+	CSTR("div"), DYNAMIC,		/* division */
+	CSTR("mod"), DYNAMIC,		/* mod */
+	CSTR("neg"), MONAMIC,		/* negate */
+	CSTR("cat"), DYNAMIC,		/* concatinate string */
+	CSTR("lef"), DYNAMIC,		/* left string(string, len) */
+	CSTR("rig"), DYNAMIC,		/* right string(string, pos) */
+	CSTR("mid"), TRINAMIC,	/* mid string(string, pos, len) */
+	CSTR("not"), MONAMIC,		/* logical not */
+	CSTR("equ"), DYNAMIC,		/* logical equality check */
+	CSTR("les"), DYNAMIC,		/* logical less than */
+	CSTR("gre"), DYNAMIC,		/* logical greater than */
+	CSTR("seq"), DYNAMIC,		/* string logical equality check */
+	CSTR("sle"), DYNAMIC,		/* string logical less than */
+	CSTR("sgr"), DYNAMIC,		/* string logical greater than */
+	CSTR("ind"), MONAMIC,		/* evaluate indirect value */
+	CSTR("env"), MONAMIC,		/* get UNIX environment */
+	CSTR("len"), MONAMIC,		/* length of string */
+	CSTR("and"), DYNAMIC,		/* logical and */
+	CSTR("or"),  DYNAMIC,		/* logical or */
+	CSTR("upp"), MONAMIC,		/* uppercase string */
+	CSTR("low"), MONAMIC,		/* lower case string */
+	CSTR("tru"), MONAMIC,		/* Truth of the universe logical test */
+	CSTR("asc"), MONAMIC,		/* char to integer conversion */
+	CSTR("chr"), MONAMIC,		/* integer to char conversion */
+	CSTR("gtk"), NILNAMIC,		/* get 1 charater */
+	CSTR("rnd"), MONAMIC,		/* get a random number */
+	CSTR("abs"), MONAMIC,		/* absolute value of a number */
+	CSTR("bin"), MONAMIC,		/* function name bound to this key sequence */
+
+	CSTR("bmo"), MONAMIC,
+	CSTR("gmo"), MONAMIC,
+};
+
+#define	NFUNCS	sizeof(funcs) / sizeof(UFUNC)
+
+/* 	and its preprocesor definitions		*/
+
+enum UF_NUMBERS {
+	UFADD,
+	UFSUB,
+	UFTIMES,
+	UFDIV,
+	UFMOD,
+	UFNEG,
+	UFCAT,
+	UFLEFT,
+	UFRIGHT,
+	UFMID,
+	UFNOT,
+	UFEQUAL,
+	UFLESS,
+	UFGREATER,
+	UFSEQUAL,
+	UFSLESS,
+	UFSGREAT,
+	UFIND,
+	UFENV,
+	UFLENGTH,
+	UFAND,
+	UFOR,
+	UFUPPER,
+	UFLOWER,
+	UFTRUTH,
+	UFASCII,
+	UFCHR,
+	UFGTKEY,
+	UFRND,
+	UFABS,
+	UFBIND,
+
+	UFBMODE,
+	UFGMODE,
+};

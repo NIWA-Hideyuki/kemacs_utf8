@@ -1,0 +1,41 @@
+:
+# kemacs internal use
+# Usage: ccg [-n] filename.c [arg...]
+CCDEFAULT=cc
+
+NONEXE=false
+if [ "$1" = -n ]; then
+	NONEXE=true
+	shift
+fi
+if [ 0 -eq $# ]; then
+	echo 'Usage: ccg [-n] filename.c [arg...]' 1>&2
+	exit 255
+fi
+
+SRC="$1"; shift
+OBJ=`expr "$SRC" : '\(..*\)\.c'`
+if [ -z "$OBJ" ]; then
+	echo 'Not a C source file'. 1>&2
+	exit 255
+fi
+
+#make "$OBJ"
+case "`ls -drt \"$SRC\" \"$OBJ\" 2>/dev/null`" in
+*.c|"")
+	"${KEMACS_CC:-${CC:-$CCDEFAULT}}" "$SRC" -o "$OBJ" -lm
+	if [ 0 -ne $? ]; then
+		exit 255
+	fi
+	;;
+*)
+	echo 'Executable file is newer, compile not performed' 1>&2
+	echo '' 1>&2
+	;;
+esac
+if [ $NONEXE != true ]; then
+	if [ 0 -eq `expr X"$OBJ" : X/` ]; then
+		OBJ=./"$OBJ"
+	fi
+	"$OBJ" "$@"
+fi

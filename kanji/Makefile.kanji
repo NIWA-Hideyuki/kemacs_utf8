@@ -1,0 +1,40 @@
+HDRS	      = kanji.h
+
+# ORDER IS IMPORTANT! DO NOT REORDER.
+OBJS	      = kclose.o \
+		kfree.o \
+		kgetc.o \
+		kopen.o \
+		kalloc.o \
+		kputc.o \
+		jtos.o \
+		stoj.o
+
+SRCS	      = jtos.c \
+		kalloc.c \
+		kclose.c \
+		kfree.c \
+		kgetc.c \
+		kopen.c \
+		kputc.c \
+		stoj.c
+
+LIBRARY       = libconv.a kanji.a
+
+CCFLAGS       = -O
+
+CFLAGS	      = $(CCFLAGS) $(EINCL)
+
+all:		$(LIBRARY)
+
+libconv.a kanji.a: $(OBJS)
+		ar cru $@ $(OBJS)
+		@-ranlib $@ || echo If you use systemV, no problem.
+
+clean:;		@rm -f $(OBJS)
+
+realclean: clean
+		@rm -f $(LIBRARY)
+
+kopen.o: ../econfig.h
+$(OBJS): $(HDRS)
