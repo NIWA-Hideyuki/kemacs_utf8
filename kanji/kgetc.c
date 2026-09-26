@@ -58,41 +58,75 @@ sweep_esc(KSTREAM * kp)
 }
 
 #if HANDLE_UTF
+/* File-scope iconv handles for UTF-8 conversion (closed by kanji_term() at exit) */
+static iconv_t conv_cd = (iconv_t)(-1);       /* UTF-8 -> EUC-JP */
+static iconv_t conv_cd_u32 = (iconv_t)(-1);   /* UTF-8 -> UTF-32LE */
+static int conv_cd_failed = 0;       /* iconv_open("EUC-JP","UTF-8") failed */
+static int conv_cd_u32_failed = 0;   /* iconv_open("UTF-32LE","UTF-8") failed */
+
+/* Manual UTF-8 decoder (no iconv dependency).
+   Decodes UTF-8 bytes to a Unicode codepoint. Returns -1 on invalid input. */
 static int
 utf8_restbytes(int c)
 {
-
-  return c < 0x80 ? 0 : c < 0xc2 ? -1: c < 0xe0 ? 1 : c < 0xf0 ? 2 :
+  return c < 0x80 ? 0 : c < 0xc2 ? -1 : c < 0xe0 ? 1 : c < 0xf0 ? 2 :
 	 c < 0xf8 ? 3 : c < 0xfc ? 4 : c < 0xfe ? 5 : -1;
+}
+
+/* Manual UTF-8 decoder (no iconv dependency).
+   Decodes UTF-8 bytes to a Unicode codepoint. Returns -1 on invalid input. */
+static int
+utf8_to_codepoint(const char *p, int n)
+{
+    unsigned char c = (unsigned char)p[0];
+    int cp;
+
+    if (c < 0x80) return c;
+    if (c < 0xC2) return -1;
+    if (c < 0xE0) {
+        if (n < 2) return -1;
+        cp = ((c & 0x1F) << 6) | (p[1] & 0x3F);
+        return cp;
+    }
+    if (c < 0xF0) {
+        if (n < 3) return -1;
+        cp = ((c & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
+        return cp;
+    }
+    if (c < 0xF8) {
+        if (n < 4) return -1;
+        cp = ((c & 0x07) << 18) | ((p[1] & 0x3F) << 12) |
+             ((p[2] & 0x3F) << 6) | (p[3] & 0x3F);
+        return cp;
+    }
+    return -1;
 }
 
 static int
 utf8_to_internal(char *p, int n1)
 {
-  static iconv_t cd = (iconv_t)(-1);
-  static iconv_t cd_u32 = (iconv_t)(-1);
-  char tmpb[8], *tmpi = tmpb;
-  size_t tmpn = sizeof(tmpb), n = n1;
+  char tmpb[8], *tmpi;
+  size_t tmpn, n;
   int cc;
 
-#if 0
-  if (p == NULL) { /* try to close cd */
-    if (cd != (iconv_t)(-1) && iconv_close(cd) == 0) cd = (iconv_t)(-1);
-    return -1;
-  }
-#endif
-  if (cd == (iconv_t)(-1)) {
-    cd = iconv_open("EUC-JP", "UTF-8"); /* UTF-8 -> EUC-JP */
-    if (cd == (iconv_t)(-1)) {
-      puts("iconv_open() failed ... Why?\n"); exit(1);
+  /* Try iconv-based UTF-8 -> EUC-JP conversion */
+  if (!conv_cd_failed && conv_cd == (iconv_t)(-1)) {
+    conv_cd = iconv_open("EUC-JP", "UTF-8"); /* UTF-8 -> EUC-JP */
+    if (conv_cd == (iconv_t)(-1)) {
+      conv_cd_failed = 1;
+      puts("iconv_open(UTF-8 -> EUC-JP) failed; using fallback decoder\n");
     }
   }
-  /* save original input for UTF-32 fallback */
-  {
-    char *orig_p = p;
-    size_t orig_n = n;
 
-    if (-1 != iconv(cd, &p, &n, &tmpi, &tmpn)) {
+  if (!conv_cd_failed && conv_cd != (iconv_t)(-1)) {
+    /* save original input for UTF-32 fallback */
+    char *orig_p = p;
+    size_t orig_n = n1;
+    tmpi = tmpb;
+    tmpn = sizeof(tmpb);
+    n = n1;
+
+    if (-1 != iconv(conv_cd, &p, &n, &tmpi, &tmpn)) {
       /* EUC-JP conversion succeeded */
       if (!(tmpb[0] & 0x80)) {
         cc = tmpb[0] & 0x7f;
@@ -110,28 +144,74 @@ utf8_to_internal(char *p, int n1)
       }
       return cc;
     }
-    /* EUC-JP conversion failed - try UTF-32 (for emojis etc.) */
-    if (cd_u32 == (iconv_t)(-1)) {
-      cd_u32 = iconv_open("UTF-32LE", "UTF-8");
-      if (cd_u32 == (iconv_t)(-1)) return -1;
+    /* iconv failed - try UTF-32 (for emojis etc.) */
+    p = orig_p;
+    n = orig_n;
+  }
+
+  /* Try UTF-8 -> UTF-32LE conversion (for non-BMP characters like emojis) */
+  if (!conv_cd_u32_failed && conv_cd_u32 == (iconv_t)(-1)) {
+    conv_cd_u32 = iconv_open("UTF-32LE", "UTF-8");
+    if (conv_cd_u32 == (iconv_t)(-1)) {
+      conv_cd_u32_failed = 1;
+      puts("iconv_open(UTF-8 -> UTF-32LE) failed; using manual fallback\n");
     }
-    {
-      char u32buf[8], *u32i = u32buf;
-      size_t u32n = sizeof(u32buf);
-      char *pin = orig_p;
-      size_t inlen = orig_n;
-      if (-1 == iconv(cd_u32, &pin, &inlen, &u32i, &u32n)) {
-        return -1;
-      }
+  }
+
+  if (!conv_cd_u32_failed && conv_cd_u32 != (iconv_t)(-1)) {
+    char u32buf[8], *u32i = u32buf;
+    size_t u32n = sizeof(u32buf);
+    char *pin = p;
+    size_t inlen = n1;
+    if (-1 != iconv(conv_cd_u32, &pin, &inlen, &u32i, &u32n)) {
       /* UTF-32LE output: 4 bytes per codepoint */
       cc = (int)((unsigned char)u32buf[0] | ((unsigned char)u32buf[1] << 8) |
                  ((unsigned char)u32buf[2] << 16) | ((unsigned char)u32buf[3] << 24));
       return cc; /* >= 0x10000 for non-BMP characters */
     }
+    /* iconv failed - fall through to manual decoder */
   }
+
+  /* Manual UTF-8 decoding fallback (no iconv dependency).
+     For non-BMP (>= 0x10000): return codepoint directly (kemacs handles Unicode).
+     For BMP (0x80-0xFFFF): return -1 (caller outputs raw bytes). */
+  cc = utf8_to_codepoint(p, n1);
+  if (cc >= 0x10000) return cc;
   return -1;
 }
 #endif /* HANDLE_UTF */
+
+/* Close all iconv handles in kgetc (UTF-8 -> EUC-JP / UTF-32LE).
+   Called by kanji_term() at program exit. */
+void
+kgetc_iconv_close(void)
+{
+#if HANDLE_UTF
+    if (conv_cd != (iconv_t)(-1)) {
+        iconv_close(conv_cd);
+        conv_cd = (iconv_t)(-1);
+    }
+    if (conv_cd_u32 != (iconv_t)(-1)) {
+        iconv_close(conv_cd_u32);
+        conv_cd_u32 = (iconv_t)(-1);
+    }
+    conv_cd_failed = 0;
+    conv_cd_u32_failed = 0;
+#endif
+}
+
+/* kputc_iconv_close() is defined in kputc.c.
+   Declared here so kanji_term() can call it. */
+extern void kputc_iconv_close(void);
+
+/* Close all iconv handles across kanji library.
+   Registered via atexit() in main() for clean shutdown. */
+void
+kanji_term(void)
+{
+    kgetc_iconv_close();
+    kputc_iconv_close();
+}
 
 static int
 kdetermine(char *p, int n)

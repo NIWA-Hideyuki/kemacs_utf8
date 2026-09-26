@@ -274,5 +274,9 @@ extern void		kclose(KFILE * kp);
 extern int		jtos(int * j, int * s);
 extern int		stoj(int * s, int * j);
 
+/* Close all iconv handles for clean shutdown.
+   Register via atexit() or call directly before exit(). */
+extern void		kanji_term(void);
+
 
 #endif /* !KFILE */

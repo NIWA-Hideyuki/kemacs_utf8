@@ -58,6 +58,9 @@ main(int argc, char *argv[])
     (void)Cstrcpy(bname, CSTR("main")); /* default buffer name */
     gmodeline = safeC(gmodeline); /* fix by N.Nide;
 				   not to free initial value of gmodeline */
+#if	KANJI
+    atexit(kanji_term);  /* close iconv handles at exit */
+#endif
     vtinit();			/* Displays.		*/
     edinit(bname);		/* Buffers, windows.	*/
     varinit();			/* user variables	*/

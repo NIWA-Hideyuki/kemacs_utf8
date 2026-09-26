@@ -12,6 +12,10 @@
 #define KANA	2
 
 #if HANDLE_UTF
+/* File-scope iconv handle for EUC-JP -> UTF-8, closed by kanji_term() at exit */
+static iconv_t conv_wcd = (iconv_t)(-1);
+static int conv_wcd_failed = 0;   /* iconv_open("UTF-8","EUC-JP") failed */
+
 static int
 codepoint_to_utf8(unsigned int cp, char *buf)
 {
@@ -35,33 +39,57 @@ codepoint_to_utf8(unsigned int cp, char *buf)
         return 4;
     }
 }
+/* Manual EUC-JP -> UTF-8 fallback converter (no iconv dependency).
+   Converts each byte: high-bit bytes become 2-byte UTF-8 sequences,
+   ASCII bytes are passed through directly. */
+static int
+eucjp_to_utf8_fallback(char *q, int n1, char **out)
+{
+    while (n1--) {
+        if (*q & 0x80) {
+            *(*out)++ = (*q >> 6) & 0x3 | 0xc0;
+            *(*out)++ = *q++ & 0x3f | 0x80;
+        } else
+            *(*out)++ = *q++;
+    }
+    return 1;
+}
+
 static int
 ujis_to_utf8(char *q, int n1, char **pp)
 {
-
-
-	static iconv_t cd = (iconv_t)(-1);
 	size_t l = MAX_U8LEN /* *pp must have MAX_U8LEN bytes space */, n = n1;
 
-	if (cd == (iconv_t)(-1)) {
-		cd = iconv_open("UTF-8", "EUC-JP"); /* EUC-JP -> UTF-8 */
-		if (cd == (iconv_t)(-1)) {
-			puts("iconv_open() failed ... Why?\n"); exit(1);
+	if (!conv_wcd_failed && conv_wcd == (iconv_t)(-1)) {
+		conv_wcd = iconv_open("UTF-8", "EUC-JP"); /* EUC-JP -> UTF-8 */
+		if (conv_wcd == (iconv_t)(-1)) {
+			conv_wcd_failed = 1;
+			puts("iconv_open(EUC-JP -> UTF-8) failed; using fallback\n");
 		}
 	}
 
-	if (-1 == iconv(cd, &q, &n, pp, &l)) {
-		/* failed (e.g. q doesn't correspond to existing ujis kanji) */
-		while (n--) { /* ad hoc */
-			if (*q & 0x80) {
-				*(*pp)++ = (*q >> 6) & 0x3 | 0xc0;
-				*(*pp)++ = *q++ & 0x3f | 0x80;
-			} else
-				*(*pp)++ = *q++;
+	if (!conv_wcd_failed && conv_wcd != (iconv_t)(-1)) {
+		if (-1 != iconv(conv_wcd, &q, &n, pp, &l)) {
+			return 1; /* *pp proceeded */
 		}
-		return 0;
+		/* iconv failed (e.g. q doesn't correspond to existing ujis kanji) */
 	}
-	return 1; /* *pp proceeded */
+
+	/* Manual fallback conversion (no iconv dependency) */
+	return eucjp_to_utf8_fallback(q, n1, pp);
+}
+
+/* Close iconv handle in kputc. Called by kanji_term() at program exit. */
+void
+kputc_iconv_close(void)
+{
+#if HANDLE_UTF
+    if (conv_wcd != (iconv_t)(-1)) {
+        iconv_close(conv_wcd);
+        conv_wcd = (iconv_t)(-1);
+    }
+    conv_wcd_failed = 0;
+#endif
 }
 #endif
 int

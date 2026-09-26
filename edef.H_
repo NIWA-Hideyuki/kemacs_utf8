@@ -131,6 +131,8 @@ int string_code();
 
 unsigned kfclose();
 
+void kanji_term(void);
+
 #endif
 
 Char *mkupper();
