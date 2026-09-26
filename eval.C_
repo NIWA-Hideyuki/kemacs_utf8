@@ -95,8 +95,8 @@ gtfun(fname)	/* evaluate a function */
 	case UFLENGTH:	return(itoaa(Cstrlen(arg1)));
 	case UFAND:	return(ltos(stol(arg1) && stol(arg2)));
 	case UFOR:	return(ltos(stol(arg1) || stol(arg2)));
-	case UFUPPER:	return(mkupper(arg1));
-	case UFLOWER:	return(mklower(arg1));
+	case UFUPPER:	(void)Cstrcpy(result, arg1); return(mkupper(result));
+	case UFLOWER:	(void)Cstrcpy(result, arg1); return(mklower(result));
      /*	case UFTRUTH:	return(ltos(stoi(arg1) == 42)); */ /* ?? Nide */
 	case UFTRUTH:	return(ltos(stoi(arg1) != 0));
 	case UFASCII:	return(itoaa((int)arg1[0]));
@@ -155,8 +155,7 @@ gtusr(vname)	/* look up a user var's value */
 }
 
 static Char *
-gtenv(vname)
-	Char *vname;		/* name of environment variable to retrieve */
+gtenv(Char *vname)
 {
 	ENVAR *evp;	/* ordinal number of var refrenced */
 
@@ -193,8 +192,7 @@ get_int_hook(ENVAR * evp)
 }
 
 static Char *
-get_bool_hook(evp)
-	ENVAR *evp;
+get_bool_hook(ENVAR *evp)
 {
 	if (evp->ev_class != EV_LOCAL)
 		return ltos(*((bool *)evp->ev_addr));
@@ -202,8 +200,7 @@ get_bool_hook(evp)
 }
 
 static Char *
-get_str_hook(evp)
-	ENVAR *evp;
+get_str_hook(ENVAR *evp)
 {
 	Char *p;
 
@@ -214,9 +211,7 @@ get_str_hook(evp)
 }
 
 static int
-put_int_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_int_hook(ENVAR *evp, Char *val)
 {
 	if (evp->ev_class != EV_LOCAL)
 		*((int *)evp->ev_addr) = stoi(val);
@@ -226,9 +221,7 @@ put_int_hook(evp, val)
 }
 
 static int
-put_bool_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_bool_hook(ENVAR *evp, Char *val)
 {
 	if (evp->ev_class != EV_LOCAL)
 		*((bool *)evp->ev_addr) = stol(val);
@@ -238,9 +231,7 @@ put_bool_hook(evp, val)
 }
 
 static int
-put_str_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_str_hook(ENVAR *evp, Char *val)
 {
 	Char **p;
 
@@ -253,69 +244,56 @@ put_str_hook(evp, val)
 
 /*ARGSUSED*/
 static Char *
-get_pagelen_hook(evp)
-	ENVAR *evp;
+get_pagelen_hook(ENVAR *evp)
 {
 	return itoaa(term.t_nrow+1);
 }
 
 /*ARGSUSED*/
 static int
-put_pagelen_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_pagelen_hook(ENVAR *evp, Char *val)
 {
 	return newsize(TRUE, stoi(val));
 }
 
 /*ARGSUSED*/
 static Char *
-get_curcol_hook(evp)
-	ENVAR *evp;
+get_curcol_hook(ENVAR *evp)
 {
 	return(itoaa(getccol(FALSE)+1));
 }
 
 /*ARGSUSED*/
 static int
-put_curcol_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_curcol_hook(ENVAR *evp, Char *val)
 {
 	return setccol(stoi(val));
 }
 
 /*ARGSUSED*/
 static Char *
-get_curline_hook(evp)
-	ENVAR *evp;
+get_curline_hook(ENVAR *evp)
 {
 	return(itoaa(getcline()));
 }
 
 /*ARGSUSED*/
 static int
-put_curline_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_curline_hook(ENVAR *evp, Char *val)
 {
 	return gotoline(TRUE, stoi(val));
 }
 
 /*ARGSUSED*/
 static int
-put_curwidth_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_curwidth_hook(ENVAR *evp, Char *val)
 {
 	return newwidth(TRUE, stoi(val));
 }
 
 /*ARGSUSED*/
 static int
-put_cbufname_hook(evp, val)
-	ENVAR *evp;
-	Char*val;
+put_cbufname_hook(ENVAR *evp, Char *val)
 {
 	if (put_str_hook(evp, val) != TRUE)
 		return(FALSE);
@@ -325,9 +303,7 @@ put_cbufname_hook(evp, val)
 
 /*ARGSUSED*/
 static int
-put_cfname_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_cfname_hook(ENVAR *evp, Char *val)
 {
 	if (put_str_hook(evp, val) != TRUE)
 		return(FALSE);
@@ -337,9 +313,7 @@ put_cfname_hook(evp, val)
 
 #if	KANJI
 static int
-put_kterminal_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_kterminal_hook(ENVAR *evp, Char *val)
 {
 	if (put_bool_hook(evp, val) != TRUE)
 		return(FALSE);
@@ -354,8 +328,7 @@ put_kterminal_hook(evp, val)
 }
 
 static Char *
-get_kcode_hook(evp)
-     ENVAR *evp;
+get_kcode_hook(ENVAR *evp)
 {
 	if (evp->ev_class != EV_LOCAL)
 		return code_string(*(KS_FLAG *)evp->ev_addr);
@@ -363,9 +336,7 @@ get_kcode_hook(evp)
 }
 
 static int
-put_kcode_hook(evp, val)
-     ENVAR *evp;
-     Char *val;
+put_kcode_hook(ENVAR *evp, Char *val)
 {
 	if (evp->ev_class != EV_LOCAL)
 		string_code(val, (KS_FLAG *)evp->ev_addr);
@@ -375,9 +346,7 @@ put_kcode_hook(evp, val)
 }
 
 static int
-put_tcode_hook(evp, val)
-     ENVAR *evp;
-     Char *val;
+put_tcode_hook(ENVAR *evp, Char *val)
 {
   if (put_kcode_hook(evp, val) != TRUE)
   	return(FALSE);
@@ -388,9 +357,7 @@ put_tcode_hook(evp, val)
 
 /*ARGSUSED*/
 static int
-put_bufcode_hook(evp, val)
-     ENVAR *evp;
-     Char *val;
+put_bufcode_hook(ENVAR *evp, Char *val)
 {
   if (put_kcode_hook(evp, val) != TRUE)
 	return(FALSE);
@@ -401,17 +368,14 @@ put_bufcode_hook(evp, val)
 
 /*ARGSUSED*/
 static Char *
-get_curchar_hook(evp)
-	ENVAR *evp;
+get_curchar_hook(ENVAR *evp)
 {
 	return(itoaa(lgetc(curwp->w_dotp, curwp->w_doto)));
 }
 
 /*ARGSUSED*/
 static int
-put_curchar_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_curchar_hook(ENVAR *evp, Char *val)
 {
 	Char c;
 
@@ -424,9 +388,7 @@ put_curchar_hook(evp, val)
 }
 
 static int
-put_modeline_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_modeline_hook(ENVAR *evp, Char *val)
 {
 	if (put_str_hook(evp, val) != TRUE)
 		return(FALSE);
@@ -436,9 +398,7 @@ put_modeline_hook(evp, val)
 
 #if	CLOCK
 static int
-put_cperiod_hook(evp, val)
-	ENVAR *evp;
-	Char *val;
+put_cperiod_hook(ENVAR *evp, Char *val)
 {
 	if (put_int_hook(evp, val) != TRUE)
 		return(FALSE);
@@ -544,7 +504,7 @@ setvar(f, n)		/* set a variable */
 
 	case TKENV: /* set an environment variable */
 		status = *evp->ev_puthook ? (*evp->ev_puthook)(evp, val) :
-			NULL != Cstrcpy(evp->ev_addr, val);
+			NULL != Cstrcpy((Char *)evp->ev_addr, val);
 		break;
 	}
 	thisflag = lastflag;	/* "set" should not affect goal column. */
@@ -554,8 +514,7 @@ setvar(f, n)		/* set a variable */
 /*	stoi:	ascii string to integer......This is too
 		inconsistant to use the system's	*/
 int
-stoi(st)
-	Char *st;
+stoi(Char *st)
 {
 	int result;	/* resulting number */
 	int sign;	/* sign of resulting number */
@@ -589,8 +548,7 @@ stoi(st)
 /*	itoaa:	integer to ascii string.......... This is too
 		inconsistant to use the system's	*/
 Char *
-itoaa(i)
-	int i;	/* integer to translate to a string */
+itoaa(int i)
 {
 	int digit;		/* current digit being used */
 	Char *sp;		/* pointer into result */
@@ -765,8 +723,7 @@ ltos(val)		/* numeric logical to string logical */
 
 #if	KANJI
 Char *
-code_string(code)
-     KS_FLAG code;
+code_string(KS_FLAG code)
 {
   static Char b[20]; /* max: CRLF/JIS-NEW-ROMAJI */
 
@@ -832,9 +789,7 @@ code_string(code)
   return b;
 }
 
-string_code(str, code)
-     Char *str;		/* code specifying string */
-     KS_FLAG *code;	/* default value of code */
+string_code(Char *str, KS_FLAG *code)
 {
   Char *p, *q;
 
@@ -903,8 +858,7 @@ string_code(str, code)
 
 /* make a string upper case */
 Char *
-mkupper(str)
-     Char *str;		/* string to upper case */
+mkupper(Char *str)
 {
 	Char *sp;
 
@@ -918,8 +872,7 @@ mkupper(str)
 
 /* make a string lower case */
 Char *
-mklower(str)
-     Char *str;		/* string to lower case */
+mklower(Char *str)
 {
   Char *sp;
 
@@ -934,8 +887,7 @@ mklower(str)
 
 /* take the absolute value of an integer */
 int
-abs(x)
-     int x;
+abs(int x)
 {
 	return(x < 0 ? -x : x);
 }

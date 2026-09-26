@@ -235,7 +235,7 @@ vteeol()
 /* upscreen:	user routine to force a screen update
 		always finishes complete update		*/
 /*ARGSUSED*/
-upscreen(f, n)
+upscreen(int f, int n)
 {
 	update(TRUE);
 	return(TRUE);
@@ -243,7 +243,7 @@ upscreen(f, n)
 
 /* updmode:	user routine to force a modeline update */
 /*ARGSUSED*/
-updmode(f, n)
+updmode(int f, int n)
 {
 	upmode();
 	update(f);
@@ -257,8 +257,7 @@ updmode(f, n)
  * correct for the current window. Third, make the virtual and physical
  * screens the same.
  */
-update(force)
-    int force;	/* force update past type ahead? */
+update(int force)
 {
 #if	CLOCK
 	SIGRET_T (*f)();
@@ -272,8 +271,7 @@ update(force)
 	(void)alarm(t);
 }
 
-do_update(force)
-    int force;
+do_update(int force)
 {
 #endif	/*CLOCK*/
 	WINDOW *wp;
@@ -330,8 +328,7 @@ do_update(force)
 /*	reframe:	check to see if the cursor is on in the window
 			and re-frame it if needed or wanted		*/
 
-reframe(wp)
-	WINDOW *wp;
+reframe(WINDOW *wp)
 {
 	LINE *lp;
 	int i;
@@ -382,8 +379,7 @@ reframe(wp)
 }
 
 /*	updone: update the current line to the virtual screen		*/
-updone(wp)
-    WINDOW *wp;	/* window to update current line in */
+updone(WINDOW *wp)
 {
 	LINE *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
@@ -411,8 +407,7 @@ updone(wp)
 }
 
 /*	updall: update all the lines in a window on the virtual screen */
-updall(wp)
-    WINDOW *wp;	/* window to update lines in */
+updall(WINDOW *wp)
 {
 	LINE *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
@@ -552,8 +547,7 @@ updgar()
 }
 
 /*	updupd: update the physical screen from the virtual screen	*/
-updupd(force)
-    int force;	/* forced update flag */
+updupd(int force)
 {
 	VIDEO *vp1;
 	int i;
@@ -634,10 +628,7 @@ updext()
  * character sequences; we are using VT52 functionality. Update the physical
  * row and column variables. It does try an exploit erase to end of line.
  */
-updateline(row, vp1, vp2)
-    int row;		/* row of screen to update */
-    struct VIDEO *vp1;	/* virtual screen image */
-    struct VIDEO *vp2;	/* physical screen image */
+updateline(int row, struct VIDEO *vp1, struct VIDEO *vp2)
 {
 	Char *cp1;
 	Char *cp2;
@@ -779,8 +770,7 @@ updateline(row, vp1, vp2)
  * return dash character for modeline.
  */
 static Char
-dash(wp)
-	WINDOW *wp;
+dash(WINDOW *wp)
 {
 	return wp == curwp? '=':
 #if	REVSTA
@@ -795,8 +785,7 @@ dash(wp)
  * change the modeline format by hacking at this routine. Called by "update"
  * any time there is a dirty window.
  */
-modeline(wp)
-    WINDOW *wp;
+modeline(WINDOW *wp)
 {
     Char *fp, *cp;
     Char c;
@@ -953,7 +942,7 @@ upmode()	/* update all the mode lines */
  * and column "col". The row and column arguments are origin 0. Optimize out
  * random calls. Update "ttrow" and "ttcol".
  */
-movecursor(row, col)
+movecursor(int row, int col)
 {
     if (row!=ttrow || col!=ttcol) {
 	ttrow = row;
@@ -1137,8 +1126,7 @@ mlwrite(fmt, arg)
 /*
  * kanji characters are treated as of width "2".
  */
-mlputs(s)
-    Char *s;
+mlputs(Char *s)
 {
     Char c;
 
@@ -1155,7 +1143,7 @@ mlputs(s)
  * Write out an integer, in the specified radix. Update the physical cursor
  * position.
  */
-mlputi(i, r)
+mlputi(int i, int r)
 {
     int q;
     static char hexdigits[] = "0123456789ABCDEF";
@@ -1177,8 +1165,7 @@ mlputi(i, r)
 /*
  * do the same except as a long integer.
  */
-mlputli(l, r)
-    long l;
+mlputli(long l, int r)
 {
     long q;
 
@@ -1199,8 +1186,7 @@ mlputli(l, r)
 /*
  *	write out a scaled integer with two decimal places
  */
-mlputf(s)
-    int s;	/* scaled integer to output */
+mlputf(int s)
 {
 	int i;	/* integer portion of number */
 	int f;	/* fractional portion of number */

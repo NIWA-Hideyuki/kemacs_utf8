@@ -37,6 +37,22 @@
  * compile-time options.
  * # see ChangeLog for the details.
  *
+ * Iconv Resource Management modernization (2026):
+ * - Removed all `register` keywords from kanji/*.c, Cstrings/*.c, and .C_ files.
+ * - Converted K&R-style function definitions to ANSI C across all 14 kanji-related
+ *   .C_ files (100+ functions via kpp/kr2ansi.py script) plus eval.C_ and display.C_.
+ * - Removed dead code: `#if 0 / extern int errno; / #endif` block from kanji/kopen.c.
+ *   Added atexit(kanji_term) cleanup before vtinit() in main.c for proper iconv
+ *   resource management. Ensured iconv_close() calls are not double-executed after
+ *   kanji_stream_open() failure.
+ * - Fixed eval.c:551 incompatible pointer type warning by casting ev_addr
+ *   (char *) to Char * when passing to Cstrcpy().
+ * - Fixed eval.c gtfun() local-variable return warning by copying arg1 to
+ *   static result buffer before calling mkupper()/mklower() in UFUPPER/UFLOWER
+ *   cases (these functions return their pointer argument, which pointed to
+ *   the stack-local arg1[NSTRING]).
+ * - Removed -liconv from build (glibc has iconv built-in).
+ *
  * Revision 4.11  1993/06/08  06:51:58  sanewo
  * patch #11
  * add ``realclean'' target to makefile.
