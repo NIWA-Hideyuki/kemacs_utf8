@@ -220,6 +220,18 @@ typedef union ks_un	KS_FLAG;
 /* isunicode: Unicode codepoints (>= 0x10000) stored directly;
    these are characters that have no EUC-JP equivalent (e.g. emojis) */
 #define isunicode(c) ((unsigned int)(c) >= 0x10000)
+/* BMP codepoints that have no EUC-JP equivalent (e.g. U+2764 HEAVY BLACK
+   HEART, U+FE0F VARIATION SELECTOR-16) are also stored directly, but tagged
+   with UNICODE_MARK.  This is needed because such a codepoint's raw value can
+   collide with a JIS X 0208 kanji cell (the 0x2121-0x7E7E kanji range overlaps
+   e.g. U+2764 == kanji cell 0x2764), which would make iskanji() misroute it.
+   UNICODE_MARK (bit 0x200000) lies outside the Unicode code point space
+   (max U+10FFFF uses bits 0-20), so it never overlaps a real codepoint *and*
+   it lifts the tagged value into the ">= 0x10000" range isunicode() already
+   recognizes -- so iskanji() (which excludes isunicode) drops it automatically.
+   Callers that encode such a codepoint must strip the mark with UNICODE_CP(). */
+#define UNICODE_MARK 0x200000U
+#define UNICODE_CP(c) ((unsigned int)(c) & ~UNICODE_MARK)
 /* iswidechar: characters that occupy 2 terminal columns */
 #define iswidechar(c) (isunicode(c) || (iskanji(c) && !is_narrow_kanji(c)))
 

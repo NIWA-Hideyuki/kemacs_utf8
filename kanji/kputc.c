@@ -126,9 +126,10 @@ kputc(int c, KSTREAM * kp)
 	  return c;
 	}
 	if (isunicode(c)) {
-	  /* Unicode codepoint (>= 0x10000) - output as UTF-8 bytes directly */
+	  /* Unicode codepoint stored directly - output as UTF-8 bytes.
+	     Strip UNICODE_MARK (set for BMP codepoints w/o EUC-JP equiv). */
 	  char utf8buf[MAX_U8LEN];
-	  int ulen = codepoint_to_utf8((unsigned int)c, utf8buf);
+	  int ulen = codepoint_to_utf8(UNICODE_CP(c), utf8buf);
 	  (void)(*kp->ks_putf)(kp->ks_id, utf8buf, ulen);
 	  return c;
 	}

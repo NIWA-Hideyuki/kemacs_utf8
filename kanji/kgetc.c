@@ -167,16 +167,21 @@ utf8_to_internal(char *p, int n1)
       /* UTF-32LE output: 4 bytes per codepoint */
       cc = (int)((unsigned char)u32buf[0] | ((unsigned char)u32buf[1] << 8) |
                  ((unsigned char)u32buf[2] << 16) | ((unsigned char)u32buf[3] << 24));
-      return cc; /* >= 0x10000 for non-BMP characters */
+      /* Non-BMP (>= 0x10000) are Unicode already.  BMP codepoints (< 0x10000)
+         here have no EUC-JP representation (e.g. U+2764, U+FE0F), so store
+         them directly, tagged so iskanji() won't mistake them for JIS kanji. */
+      return (cc < 0x10000) ? (cc | UNICODE_MARK) : cc;
     }
     /* iconv failed - fall through to manual decoder */
   }
 
   /* Manual UTF-8 decoding fallback (no iconv dependency).
      For non-BMP (>= 0x10000): return codepoint directly (kemacs handles Unicode).
-     For BMP (0x80-0xFFFF): return -1 (caller outputs raw bytes). */
+     For valid BMP (0x0-0xFFFF): tag and return as direct Unicode so it is not
+     mistaken for a JIS kanji code; only invalid sequences return -1. */
   cc = utf8_to_codepoint(p, n1);
   if (cc >= 0x10000) return cc;
+  if (cc >= 0) return cc | UNICODE_MARK;   /* direct BMP Unicode (no iconv) */
   return -1;
 }
 #endif /* HANDLE_UTF */
