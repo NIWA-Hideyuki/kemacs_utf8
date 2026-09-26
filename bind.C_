@@ -15,8 +15,8 @@ static int unbindchar();
 /*ARGSUSED*/
 deskey(int f, int n)	/* describe the command for a certain key */
 {
-	register Ckey c;	/* command character to describe */
-	register Char *ptr;	/* string pointer to scan output strings */
+	Ckey c;	/* command character to describe */
+	Char *ptr;	/* string pointer to scan output strings */
 	Char outseq[80];	/* output buffer for command sequence */
 	Ckey getckey();
 
@@ -119,8 +119,8 @@ help(f, n)	/* give me some help!!!!
 		   bring up a fake buffer and read the help file
 		   into it with view mode			*/
 {
-	register int status;	/* status of I/O operations */
-	register int i;		/* index into help file names */
+	int status;	/* status of I/O operations */
+	int i;		/* index into help file names */
 	Char fname[NSTRING];	/* buffer to construct file name in */
 	int ready = (hlpbp != NULL);
 
@@ -134,7 +134,7 @@ help(f, n)	/* give me some help!!!!
 		return(FALSE);
 	}
 	if (!ready) {
-		register BUFFER *bp = curbp;
+		BUFFER *bp = curbp;
 
 		/* contents not read in yet */
 		/* search through the list of help files */
@@ -192,7 +192,7 @@ int (*fncmatch(fname))() /* match fname to a function in the names table
 			    and return any match or nullfunc if none	*/
 	Char *fname;	/* name to attempt to match */
 {
-	register NBIND *ffp;	/* pointer to entry in name binding table */
+	NBIND *ffp;	/* pointer to entry in name binding table */
 
 	/* scan through the table, returning any match */
 	ffp = &names[0];
@@ -210,11 +210,11 @@ int (*fncmatch(fname))() /* match fname to a function in the names table
 /*ARGSUSED*/
 bindtokey(int f, int n)
 {
-	register Ckey c;	/* command key to bind */
-	register int (*kfunc)(); /* ptr to the requexted function to bind to */
-	register Char *ptr;	/* ptr to dump out input key string */
-	register KEYTAB *ktp;	/* pointer into the command table */
-	register int found;	/* matched command flag */
+	Ckey c;	/* command key to bind */
+	int (*kfunc)(); /* ptr to the requexted function to bind to */
+	Char *ptr;	/* ptr to dump out input key string */
+	KEYTAB *ktp;	/* pointer into the command table */
+	int found;	/* matched command flag */
 	Char outseq[80];	/* output buffer for keystroke sequence */
 	int (*getname())();
 	Ckey getckey();
@@ -314,8 +314,8 @@ bindtokey(int f, int n)
 /*ARGSUSED*/
 unbindkey(int f, int n)
 {
-	register Ckey c;		/* command key to unbind */
-	register Char *ptr;	/* ptr to dump out input key string */
+	Ckey c;		/* command key to unbind */
+	Char *ptr;	/* ptr to dump out input key string */
 	Char outseq[80];	/* output buffer for keystroke sequence */
 	Ckey getckey();
 
@@ -348,12 +348,11 @@ unbindkey(int f, int n)
 }
 
 static int
-unbindchar(c)
-	Ckey c;		/* command key to unbind */
+unbindchar(Ckey c)
 {
-	register KEYTAB *ktp;	/* pointer into the command table */
-	register KEYTAB *sktp;	/* saved pointer into the command table */
-	register int found;	/* matched command flag */
+	KEYTAB *ktp;	/* pointer into the command table */
+	KEYTAB *sktp;	/* saved pointer into the command table */
+	int found;	/* matched command flag */
 
 	/* search the table to see if the key exists */
 	ktp = &keytab[0];
@@ -428,8 +427,8 @@ buildlist(type, mstring)  /* build a binding list (limited or full) */
 	Char *mstring;	/* match string if a partial list */
 #endif /* APROP */
 {
-	register KEYTAB *ktp;	/* pointer into the command table */
-	register NBIND *nptr;	/* pointer into the name binding table */
+	KEYTAB *ktp;	/* pointer into the command table */
+	NBIND *nptr;	/* pointer into the name binding table */
 	int cpos;		/* current position to use in outseq */
 	Char outseq[256];	/* output buffer for keystroke sequence */
 
@@ -547,10 +546,9 @@ strinc(source, sub)	/* does source include sub? */
 
 /* get a command key sequence from the keyboard */
 Ckey
-getckey(mflag)
-	int mflag;	/* going for a meta sequence? */
+getckey(int mflag)
 {
-	register Ckey c;	/* character fetched */
+	Ckey c;	/* character fetched */
 	Char tok[NSTRING];	/* command incoming */
 	Ckey get1key();
 	Ckey getcmd();
@@ -571,11 +569,10 @@ getckey(mflag)
 
 /* execute the startup file */
 
-startup(sfname)
-	Char *sfname;	/* name of startup file (null if default) */
+startup(Char *sfname)
 {
-	register int status;	/* status of I/O operations */
-	register int i;		/* index into help file names */
+	int status;	/* status of I/O operations */
+	int i;		/* index into help file names */
 	Char fname[NSTRING];	/* buffer to construct file name in */
 	Char *sfroot;		/* root of startup file name */
 	Char *homedir;		/* pointer to your home directory */
@@ -643,9 +640,9 @@ Char *
 key2fname(Ckey c)
 {
 
-    register KEYTAB *ktp;	/* pointer into the command table */
-    register NBIND *nptr;	/* pointer into the name binding table */
-    register int (*fp)();		/* pointer to function bound to key */
+    KEYTAB *ktp;	/* pointer into the command table */
+    NBIND *nptr;	/* pointer into the name binding table */
+    int (*fp)();		/* pointer to function bound to key */
 
     ktp = &keytab[0];
     while (ktp->k_fp != NULL && ktp->k_code != c)
@@ -664,10 +661,9 @@ key2fname(Ckey c)
  *
  */
 Ckey
-strcmd(s)
-    register Char *s;
+strcmd(Char *s)
 {
-    register Ckey c;
+    Ckey c;
 
     c = 0;
 

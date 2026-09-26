@@ -34,12 +34,12 @@ setfillcol(int f, int n)
 /*ARGSUSED*/
 showcpos(int f, int n)
 {
-	register LINE	*lp;		/* current line */
-	register long	numchars;	/* # of chars in file */
-	register int	numlines;	/* # of lines in file */
-	register long	predchars;	/* # chars preceding point */
-	register int	predlines;	/* # lines preceding point */
-	register Char	curchar;	/* character under cursor */
+	LINE	*lp;		/* current line */
+	long	numchars;	/* # of chars in file */
+	int	numlines;	/* # of lines in file */
+	long	predchars;	/* # chars preceding point */
+	int	predlines;	/* # lines preceding point */
+	Char	curchar;	/* character under cursor */
 	int ratio;
 	int col;
 	int savepos;			/* temp save for current offset */
@@ -97,8 +97,8 @@ showcpos(int f, int n)
 
 getcline(void)	/* get the current line number */
 {
-	register LINE	*lp;		/* current line */
-	register int	numlines;	/* # of lines before point */
+	LINE	*lp;		/* current line */
+	int	numlines;	/* # of lines before point */
 
 	/* starting at the beginning of the buffer */
 	lp = lforw(curbp->b_linep);
@@ -123,7 +123,7 @@ getcline(void)	/* get the current line number */
 getccol(int bflg)
 {
 
-	register int c, i, col;
+	int c, i, col;
 	col = 0;
 	for (i=0; i<curwp->w_doto; ++i) {
 		c = lgetc(curwp->w_dotp, i);
@@ -147,13 +147,12 @@ getccol(int bflg)
 /*
  * Set current column.
  */
-setccol(pos)
-	int pos;	/* position to set cursor */
+setccol(int pos)
 {
-	register Char c;	/* character being scanned */
-	register int i;		/* index into current line */
-	register int col;	/* current cursor column   */
-	register int llen;	/* length of line in bytes */
+	Char c;	/* character being scanned */
+	int i;		/* index into current line */
+	int col;	/* current cursor column   */
+	int llen;	/* length of line in bytes */
 
 	col = 0;
 	llen = llength(curwp->w_dotp);
@@ -195,12 +194,12 @@ setccol(pos)
  * to "C-T". This always works within a line, so "WFEDIT" is good enough.
  */
 /*ARGSUSED*/
-twiddle(f, n)
+twiddle(int f, int n)
 {
-	register LINE	*dotp;
-	register int	doto;
-	register Char	cl;
-	register Char	cr;
+	LINE	*dotp;
+	int	doto;
+	Char	cl;
+	Char	cr;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -225,10 +224,10 @@ twiddle(f, n)
  * inserted 0 times, for regularity. Bound to "C-Q"
  */
 /*ARGSUSED*/
-quote(f, n)
+quote(int f, int n)
 {
-	register int	s;
-	register Char	c;
+	int	s;
+	Char	c;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -254,7 +253,7 @@ quote(f, n)
  * into "C-I" (in 10 bit code) already. Bound to "C-I".
  */
 /*ARGSUSED*/
-tab(f, n)
+tab(int f, int n)
 {
 	if (n < 0)
 		return (FALSE);
@@ -270,7 +269,7 @@ tab(f, n)
 #if	AEDIT
 detab(f, n)		/* change tabs to spaces */
 {
-	register int inc;	/* increment to next line [sgn(n)] */
+	int inc;	/* increment to next line [sgn(n)] */
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -305,10 +304,10 @@ detab(f, n)		/* change tabs to spaces */
 
 entab(f, n)		/* change spaces to tabs where posible */
 {
-	register int inc;	/* increment to next line [sgn(n)] */
-	register int fspace;	/* pointer to first space if in a run */
-	register int ccol;	/* current cursor column */
-	register Char cchar;	/* current character */
+	int inc;	/* increment to next line [sgn(n)] */
+	int fspace;	/* pointer to first space if in a run */
+	int ccol;	/* current cursor column */
+	Char cchar;	/* current character */
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -381,10 +380,10 @@ entab(f, n)		/* change spaces to tabs where posible */
 
 trim(f, n)	/* trim trailing whitespace from the point to eol */
 {
-	register LINE *lp;	/* current line pointer */
-	register int offset;	/* original line offset position */
-	register int length;	/* current length */
-	register int inc;	/* increment to next line [sgn(n)] */
+	LINE *lp;	/* current line pointer */
+	int offset;	/* original line offset position */
+	int length;	/* current length */
+	int inc;	/* increment to next line [sgn(n)] */
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -423,10 +422,10 @@ trim(f, n)	/* trim trailing whitespace from the point to eol */
  * and then back up over them. Everything is done by the subcommand
  * procerssors. They even handle the looping. Normally this is bound to "C-O".
  */
-openline(f, n)
+openline(int f, int n)
 {
-	register int	i;
-	register int	s;
+	int	i;
+	int	s;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -448,9 +447,9 @@ openline(f, n)
  * indentation as specified.
  */
 /*ARGSUSED*/
-newline(f, n)
+newline(int f, int n)
 {
-	register int	s;
+	int	s;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -482,10 +481,10 @@ newline(f, n)
 
 cinsert()	/* insert a newline and indentation for C */
 {
-	register Char *cptr;	/* string pointer into text to copy */
-	register int tptr;	/* index to scan into line */
-	register int bracef;	/* was there a brace at the end of line? */
-	register int i;
+	Char *cptr;	/* string pointer into text to copy */
+	int tptr;	/* index to scan into line */
+	int bracef;	/* was there a brace at the end of line? */
+	int i;
 	Char ichar[NSTRING];	/* buffer to hold indent of last line */
 
 	/* grab a pointer to text to copy indentation from */
@@ -524,9 +523,9 @@ insbrace(n, c)	/* insert a brace into the text here...we are in CMODE */
 	int n;	/* repeat count */
 	Char c; /* brace to insert (always { for now) */
 {
-	register Char ch;	/* last character before input */
-	register int i;
-	register int target;	/* column brace should go after */
+	Char ch;	/* last character before input */
+	int i;
+	int target;	/* column brace should go after */
 
 	/* if we are at the beginning of the line, no go */
 	if (curwp->w_doto == 0)
@@ -552,8 +551,8 @@ insbrace(n, c)	/* insert a brace into the text here...we are in CMODE */
 
 inspound()	/* insert a # into the text here...we are in CMODE */
 {
-	register Char ch;	/* last character before input */
-	register int i;
+	Char ch;	/* last character before input */
+	int i;
 
 	/* if we are at the beginning of the line, no go */
 	if (curwp->w_doto == 0)
@@ -583,10 +582,10 @@ inspound()	/* insert a # into the text here...we are in CMODE */
  * ignored.
  */
 /*ARGSUSED*/
-deblank(f, n)
+deblank(int f, int n)
 {
-	register LINE	*lp1;
-	register LINE	*lp2;
+	LINE	*lp1;
+	LINE	*lp2;
 	long nld;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
@@ -614,11 +613,11 @@ deblank(f, n)
  * subcomands failed. Normally bound to "C-J".
  */
 /*ARGSUSED*/
-indent(f, n)
+indent(int f, int n)
 {
-	register int	nicol;
-	register Char	c;
-	register int	i;
+	int	nicol;
+	Char	c;
+	int	i;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -648,7 +647,7 @@ indent(f, n)
  * If any argument is present, it kills rather than deletes, to prevent loss
  * of text if typed with a big argument. Normally bound to "C-D".
  */
-forwdel(f, n)
+forwdel(int f, int n)
 {
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -668,9 +667,9 @@ forwdel(f, n)
  * forward, this actually does a kill if presented with an argument. Bound to
  * both "RUBOUT" and "C-H".
  */
-backdel(f, n)
+backdel(int f, int n)
 {
-	register int	s;
+	int	s;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -694,9 +693,9 @@ backdel(f, n)
  * number of newlines. If called with a negative argument it kills backwards
  * that number of newlines. Normally bound to "C-K".
  */
-killtext(f, n)
+killtext(int f, int n)
 {
-	register LINE	*nextp;
+	LINE	*nextp;
 	long chunk;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
@@ -763,10 +762,10 @@ adjustmode(kind, global)	/* change the editor mode status */
 	int kind;	/* true = set,		false = delete */
 	int global;	/* true = global flag,	false = current buffer flag */
 {
-	register int i;			/* loop index */
-	register int status;		/* error return on input */
+	int i;			/* loop index */
+	int status;		/* error return on input */
 #if	COLOR
-	register int uflag;		/* was modename uppercase?	*/
+	int uflag;		/* was modename uppercase?	*/
 #endif
 	Char prompt[NPAT];		/* string to prompt user with */
 	Char cbuf[NPAT];		/* buffer to recieve mode name into */
@@ -879,7 +878,7 @@ adjustmode(kind, global)	/* change the editor mode status */
 		mainly for macro usage			*/
 
 /*ARGSUSED*/
-clrmes(f, n)
+clrmes(int f, int n)
 {
 	mlwrite(CSTR(""));
 	return(TRUE);
@@ -889,9 +888,9 @@ clrmes(f, n)
 		mainly for macro usage			*/
 
 /*ARGSUSED*/
-writemsg(f, n)
+writemsg(int f, int n)
 {
-	register int status;
+	int status;
 	Char buf[NPAT];		/* buffer to recieve message into */
 
 	if ((status = mlreply(
@@ -910,15 +909,15 @@ writemsg(f, n)
 /*	the cursor is moved to a matching fence */
 
 /*ARGSUSED*/
-getfence(f, n)
+getfence(int f, int n)
 {
-	register LINE *oldlp;	/* original line pointer */
-	register int oldoff;	/* and offset */
-	register int sdir;	/* direction of search (1/-1) */
-	register int count;	/* current fence level count */
-	register Char ch;	/* fence type to match against */
-	register Char ofence;	/* open fence */
-	register Char c;	/* current character in scan */
+	LINE *oldlp;	/* original line pointer */
+	int oldoff;	/* and offset */
+	int sdir;	/* direction of search (1/-1) */
+	int count;	/* current fence level count */
+	Char ch;	/* fence type to match against */
+	Char ofence;	/* open fence */
+	Char c;	/* current character in scan */
 
 	/* save the original cursor position */
 	oldlp = curwp->w_dotp;
@@ -983,16 +982,15 @@ getfence(f, n)
 /*	Close fences are matched against their partners, and if
 	on screen the cursor briefly lights there		*/
 
-fmatch(ch)
-	Char ch;	/* fence type to match against */
+fmatch(Char ch)
 {
-	register LINE *oldlp;	/* original line pointer */
-	register int oldoff;	/* and offset */
-	register LINE *toplp;	/* top line in current window */
-	register int count;	/* current fence level count */
-	register Char opench;	/* open fence */
-	register Char c;	/* current character in scan */
-	register int i;
+	LINE *oldlp;	/* original line pointer */
+	int oldoff;	/* and offset */
+	LINE *toplp;	/* top line in current window */
+	int count;	/* current fence level count */
+	Char opench;	/* open fence */
+	Char c;	/* current character in scan */
+	int i;
 
 	/* first get the display update out there */
 	update(FALSE);
@@ -1047,8 +1045,8 @@ fmatch(ch)
 istring(f, n)	/* ask for and insert a string into the current
 		   buffer at the current point */
 {
-	register Char *tp;	/* pointer into string to add */
-	register int status;	/* status return code */
+	Char *tp;	/* pointer into string to add */
+	int status;	/* status return code */
 	Char tstring[NPAT+1];	/* string to add */
 
 	/* ask for string to insert */
@@ -1087,7 +1085,7 @@ istring(f, n)	/* ask for and insert a string into the current
  * Clear kill buffer
  */
 /*ARGSUSED*/
-clearkill(f, n)
+clearkill(int f, int n)
 {
 	kdelete();
 	thisflag |= CFKILL;
@@ -1098,7 +1096,7 @@ clearkill(f, n)
  * No operation
  */
 /*ARGSUSED*/
-noop(f, n)
+noop(int f, int n)
 {
 	return(TRUE);
 }
@@ -1107,16 +1105,16 @@ noop(f, n)
  * change current working directory
  */
 /*ARGSUSED*/
-changewd(f, n)
+changewd(int f, int n)
 {
-	register int status;	/* status return code */
+	int status;	/* status return code */
 	Char dir[NFILEN+1];	/* name of directory */
 #if !USE_GETCWD
 	char *getwd();
 #else
 	char *getcwd();
 #endif
-	register Char *p;
+	Char *p;
 #if FEXPAND
 	Char *fexpand();
 #endif
@@ -1163,9 +1161,9 @@ changewd(f, n)
 
 #if AUTOMODE
 /*ARGSUSED*/
-automode(f, n)
+automode(int f, int n)
 {
-	register int i;			/* loop index */
+	int i;			/* loop index */
 	int mode;
 	Char fpat[NPAT];		/* pattern */
 	Char cbuf[NPAT];		/* buffer to recieve mode name into */

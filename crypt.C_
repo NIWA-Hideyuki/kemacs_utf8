@@ -14,7 +14,7 @@ static Char *dummy = CSTR("");
 /*ARGSUSED*/
 setcrkey(int f, int n)	/* reset encryption key of current buffer */
 {
-	register int status;	/* return status */
+	int status;	/* return status */
 	int odisinp;		/* original value of disinp */
 	Char key[NPAT];		/* new encryption string */
 
@@ -137,10 +137,10 @@ setcrkey(int f, int n)	/* reset encryption key of current buffer */
  **********/
 
 cryptstr(bptr, len)
-	register Char *bptr;	/* buffer of characters to be encrypted */
-	register unsigned len;	/* number of characters in the buffer */
+	Char *bptr;	/* buffer of characters to be encrypted */
+	unsigned len;	/* number of characters in the buffer */
 {
-	register Char cc;	/* current character being considered */
+	Char cc;	/* current character being considered */
 
 	static long key = 0;	/* 29 bit encipherment key */
 	static int salt = 0;	/* salt to spice up key with */

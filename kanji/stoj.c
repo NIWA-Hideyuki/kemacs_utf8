@@ -8,8 +8,8 @@ int
 stoj(int * s, int * j)
 {
 
-	register int sh = ((*s >> 8) & 0377), sl = (*s & 0377);
-	register int jh, jl;
+	int sh = ((*s >> 8) & 0377), sl = (*s & 0377);
+	int jh, jl;
 
 	if (!(0x81 <= sh && (sh <= 0x9f || (0xe0 <= sh && sh <= 0xfc))) ||
 	    !(0x40 <= sl && sl <= 0xfc && sl != 0x7f)) return 1;

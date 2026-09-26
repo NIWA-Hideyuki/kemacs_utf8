@@ -19,9 +19,9 @@ Cfromc(char * c)
 {
 
 
-    register Char *C;
+    Char *C;
     int len;
-    register KSTREAM *ksp;
+    KSTREAM *ksp;
     struct KS ks;
     static int blen = 0;
     static Char *buf;
@@ -67,7 +67,7 @@ static int
 cget(struct KS * id, char * buf, int len)
 {
 
-    register int n;
+    int n;
 
     if (!*id->p) return -1;
     n = strlen(id->p);

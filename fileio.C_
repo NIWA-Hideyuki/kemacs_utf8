@@ -107,10 +107,9 @@ ffclose()
  * and the "nbuf" is its length, less the free newline. Return the status.
  * Check only at the newline.
  */
-ffputline(buf, nbuf)
-    Char	buf[];
+ffputline(Char buf[], int nbuf)
 {
-	register int	i;
+	int	i;
 #if	CRYPT
 	Char c;		/* character to translate */
 
@@ -161,11 +160,10 @@ ffputline(buf, nbuf)
  * at the end of the file that don't have a newline present. Check for I/O
  * errors too. Return status.
  */
-ffgetline(buf, nbuf)
-    register Char	buf[];
+ffgetline(Char buf[], int nbuf)
 {
-	register int	 c;
-	register int	i;
+	int	 c;
+	int	i;
 #if KANJI
 	Char kfgetc();
 #endif

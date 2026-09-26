@@ -5,7 +5,7 @@ Char *
 Crindex(Char * c, int cc)
 {
 
-    register Char *c1 = c;
+    Char *c1 = c;
 
     if (!c || !cc) return NULL;
     c += Cstrlen(c);

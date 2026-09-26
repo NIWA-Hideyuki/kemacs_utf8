@@ -222,7 +222,7 @@ kdetermine(char *p, int n)
 #else
   int possible = 2;
 #endif
-  register int c;
+  int c;
 
   for(; n && possible > 1; n--, p++){
     c = *p & 0xff;
@@ -283,11 +283,11 @@ int
 kgetc(KSTREAM * kp)
 {
 
-  register int cc;
+  int cc;
   int c1;
-  register int n;
+  int n;
   char buf[BUFSIZ];
-  register char *p;
+  char *p;
   int kst;
 
   for (;;) {

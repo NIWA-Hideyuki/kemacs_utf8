@@ -39,10 +39,10 @@ int
 main(int argc, char *argv[])
 {
 
-    register BUFFER *bp;
-    register int ffile;		/* first file flag */
-    register int carg;		/* current arg to scan */
-    register int startf;	/* startup executed flag */
+    BUFFER *bp;
+    int ffile;		/* first file flag */
+    int carg;		/* current arg to scan */
+    int startf;	/* startup executed flag */
     int viewflag;		/* are we starting in view mode? */
     int gotoflag;		/* do we need to goto a line at start? */
     int gline;			/* if so, what line? */
@@ -215,7 +215,7 @@ main(int argc, char *argv[])
 	    }
 	} else if (argv[carg][0]== '@') {
 	    /* macro file */
-	    register Char *p;
+	    Char *p;
 
 	    if (startup(p=SafeCfromc(&argv[carg][1])) == TRUE)
 		startf = TRUE;	/* don't execute emacs.rc */
@@ -251,7 +251,7 @@ main(int argc, char *argv[])
 
 	    /* if this is the first file, read it in */
 	    if (ffile) {
-		register Char *p;
+		Char *p;
 
 		bp = curbp;
 		(void)copystr(&bp->b_bname, bname);
@@ -330,12 +330,12 @@ static int exitedit = FALSE;
  * if flag argument specifies whether top level or not.
  */
 recedit(toplev, n)
-    register bool toplev;
-    register int n;
+    bool toplev;
+    int n;
 {
-    register bool f;
-    register Ckey c;
-    register int mflag;
+    bool f;
+    Ckey c;
+    int mflag;
     Ckey basec;			/* c stripped of meta character */
     Ckey getcmd();
 
@@ -487,8 +487,8 @@ exitrecedit(f, n)
 edinit(bname)
 	Char	bname[];
 {
-	register BUFFER *bp;
-	register WINDOW *wp;
+	BUFFER *bp;
+	WINDOW *wp;
 
 	bp = bfind(bname, TRUE, 0);		/* First buffer		*/
 	wp = (WINDOW *) malloc(sizeof(WINDOW)); /* First window		*/
@@ -525,8 +525,8 @@ edinit(bname)
 execute(c, f, n)
 	Ckey c;
 {
-	register KEYTAB *ktp;
-	register int	status;
+	KEYTAB *ktp;
+	int	status;
 
 	ktp = &keytab[0];			/* Look in key table.	*/
 	while (ktp->k_fp != NULL) {
@@ -621,8 +621,8 @@ execute(c, f, n)
  */
 quickexit(f, n)
 {
-	register BUFFER *bp;	/* scanning pointer to buffers */
-	register BUFFER *savecur = curbp;
+	BUFFER *bp;	/* scanning pointer to buffers */
+	BUFFER *savecur = curbp;
 
 	bp = bheadp;
 	while (bp != NULL) {
@@ -649,7 +649,7 @@ quickexit(f, n)
 /*ARGSUSED*/
 quit(f, n)
 {
-	register int	s;
+	int	s;
 
 	if (f != FALSE				/* Argument forces it.	*/
 	|| anycb() == FALSE			/* All buffers clean.	*/
@@ -814,7 +814,7 @@ copy(dst, src, size)
 	char **dst, *src;
 	int size;
 {
-	register char *p;
+	char *p;
 
 	if (size <= 0 ||
 	    (p = malloc((unsigned)size)) == NULL) return FALSE;
@@ -833,7 +833,7 @@ copy(dst, src, size)
  * copystr: copy string.
  */
 copystr(dst, src)
-	register Char **dst, *src;
+	Char **dst, *src;
 {
 	return copy((char **)dst, (char *)src, sizeof(Char)*(Cstrlen(src)+1));
 }

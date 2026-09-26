@@ -17,7 +17,7 @@ Char *itoaa(int i);
 
 varinit(void)		/* initialize the user variable list */
 {
-	register int i;
+	int i;
 
 	for (i=0; i < MAXVARS; i++)
 		uv[i].u_name[0] = 0;
@@ -27,7 +27,7 @@ static Char *
 gtfun(fname)	/* evaluate a function */
 	Char *fname;		/* name of function to evaluate */
 {
-	register int fnum;		/* index to function to eval */
+	int fnum;		/* index to function to eval */
 	Char arg1[NSTRING];		/* value of first argument */
 	Char arg2[NSTRING];		/* value of second argument */
 	Char arg3[NSTRING];		/* value of third argument */
@@ -110,7 +110,7 @@ gtfun(fname)	/* evaluate a function */
 	case UFABS:	return(itoaa(abs(stoi(arg1))));
 	case UFBIND:
 	    {
-		register Char *p;
+		Char *p;
 
 		if ((p = key2fname(strcmd(arg1))) == NULL || *p == '\0')
 		    return errorm;
@@ -140,7 +140,7 @@ gtusr(vname)	/* look up a user var's value */
 	Char *vname;		/* name of user variable to fetch */
 {
 
-	register int vnum;	/* ordinal number of user var */
+	int vnum;	/* ordinal number of user var */
 
 	/* scan the list looking for the user var name */
 	for (vnum = 0; vnum < MAXVARS; vnum++)
@@ -158,7 +158,7 @@ static Char *
 gtenv(vname)
 	Char *vname;		/* name of environment variable to retrieve */
 {
-	register ENVAR *evp;	/* ordinal number of var refrenced */
+	ENVAR *evp;	/* ordinal number of var refrenced */
 
 	/* scan the list, looking for the referenced name */
 	for (evp = envars; evp < envars+NEVARS; evp++) {
@@ -194,7 +194,7 @@ get_int_hook(ENVAR * evp)
 
 static Char *
 get_bool_hook(evp)
-	register ENVAR *evp;
+	ENVAR *evp;
 {
 	if (evp->ev_class != EV_LOCAL)
 		return ltos(*((bool *)evp->ev_addr));
@@ -203,9 +203,9 @@ get_bool_hook(evp)
 
 static Char *
 get_str_hook(evp)
-	register ENVAR *evp;
+	ENVAR *evp;
 {
-	register Char *p;
+	Char *p;
 
 	p = (evp->ev_class != EV_LOCAL)?
 		*((Char **)evp->ev_addr):
@@ -215,7 +215,7 @@ get_str_hook(evp)
 
 static int
 put_int_hook(evp, val)
-	register ENVAR *evp;
+	ENVAR *evp;
 	Char *val;
 {
 	if (evp->ev_class != EV_LOCAL)
@@ -227,7 +227,7 @@ put_int_hook(evp, val)
 
 static int
 put_bool_hook(evp, val)
-	register ENVAR *evp;
+	ENVAR *evp;
 	Char *val;
 {
 	if (evp->ev_class != EV_LOCAL)
@@ -239,10 +239,10 @@ put_bool_hook(evp, val)
 
 static int
 put_str_hook(evp, val)
-	register ENVAR *evp;
+	ENVAR *evp;
 	Char *val;
 {
-	register Char **p;
+	Char **p;
 
 	if (evp->ev_class != EV_LOCAL)
 		p = (Char **)evp->ev_addr;
@@ -338,7 +338,7 @@ put_cfname_hook(evp, val)
 #if	KANJI
 static int
 put_kterminal_hook(evp, val)
-	register ENVAR *evp;
+	ENVAR *evp;
 	Char *val;
 {
 	if (put_bool_hook(evp, val) != TRUE)
@@ -355,7 +355,7 @@ put_kterminal_hook(evp, val)
 
 static Char *
 get_kcode_hook(evp)
-     register ENVAR *evp;
+     ENVAR *evp;
 {
 	if (evp->ev_class != EV_LOCAL)
 		return code_string(*(KS_FLAG *)evp->ev_addr);
@@ -364,8 +364,8 @@ get_kcode_hook(evp)
 
 static int
 put_kcode_hook(evp, val)
-     register ENVAR *evp;
-     register Char *val;
+     ENVAR *evp;
+     Char *val;
 {
 	if (evp->ev_class != EV_LOCAL)
 		string_code(val, (KS_FLAG *)evp->ev_addr);
@@ -376,8 +376,8 @@ put_kcode_hook(evp, val)
 
 static int
 put_tcode_hook(evp, val)
-     register ENVAR *evp;
-     register Char *val;
+     ENVAR *evp;
+     Char *val;
 {
   if (put_kcode_hook(evp, val) != TRUE)
   	return(FALSE);
@@ -389,8 +389,8 @@ put_tcode_hook(evp, val)
 /*ARGSUSED*/
 static int
 put_bufcode_hook(evp, val)
-     register ENVAR *evp;
-     register Char *val;
+     ENVAR *evp;
+     Char *val;
 {
   if (put_kcode_hook(evp, val) != TRUE)
 	return(FALSE);
@@ -411,9 +411,9 @@ get_curchar_hook(evp)
 static int
 put_curchar_hook(evp, val)
 	ENVAR *evp;
-	register Char *val;
+	Char *val;
 {
-	register Char c;
+	Char c;
 
 	(void)ldelete(1L, FALSE);	/* delete 1 char */
 	c = stoi(val);
@@ -425,8 +425,8 @@ put_curchar_hook(evp, val)
 
 static int
 put_modeline_hook(evp, val)
-	register ENVAR *evp;
-	register Char *val;
+	ENVAR *evp;
+	Char *val;
 {
 	if (put_str_hook(evp, val) != TRUE)
 		return(FALSE);
@@ -437,8 +437,8 @@ put_modeline_hook(evp, val)
 #if	CLOCK
 static int
 put_cperiod_hook(evp, val)
-	register ENVAR *evp;
-	register Char *val;
+	ENVAR *evp;
+	Char *val;
 {
 	if (put_int_hook(evp, val) != TRUE)
 		return(FALSE);
@@ -450,12 +450,12 @@ put_cperiod_hook(evp, val)
 int
 setvar(f, n)		/* set a variable */
 {
-	register int vnum;	/* ordinal number of var refrenced */
-	register int status;	/* status return */
-	register int vtype;	/* type of variable to set */
+	int vnum;	/* ordinal number of var refrenced */
+	int status;	/* status return */
+	int vtype;	/* type of variable to set */
 	Char var[NVSIZE+1];	/* name of variable to fetch */
 	Char val[NSTRING];	/* value to set variable to */
-	register ENVAR *evp;
+	ENVAR *evp;
 
 	/* first get the variable to set.. */
 	if (clexec == FALSE) {
@@ -592,9 +592,9 @@ Char *
 itoaa(i)
 	int i;	/* integer to translate to a string */
 {
-	register int digit;		/* current digit being used */
-	register Char *sp;		/* pointer into result */
-	register int sign;		/* sign of resulting number */
+	int digit;		/* current digit being used */
+	Char *sp;		/* pointer into result */
+	int sign;		/* sign of resulting number */
 	static Char result[INTWIDTH+1];	/* resulting string */
 
 	/* eliminate the trivial 0 */
@@ -629,7 +629,7 @@ int
 gettyp(tok)	/* find the type of a passed token */
 	Char *tok;	/* token to analyze */
 {
-	register Char c;	/* first char in token */
+	Char c;	/* first char in token */
 
 	/* grab the first char (this is all we need) */
 	c = *tok;
@@ -661,9 +661,9 @@ Char *
 getval(tok)	/* find the value of a token */
 	Char *tok;		/* token to evaluate */
 {
-	register int status;	/* error return */
-	register BUFFER *bp;	/* temp buffer pointer */
-	register int blen;	/* length of buffer argument */
+	int status;	/* error return */
+	BUFFER *bp;	/* temp buffer pointer */
+	int blen;	/* length of buffer argument */
 	static Char buf[NSTRING]; /* string buffer for some returns */
 
 	switch (gettyp(tok)) {
@@ -836,7 +836,7 @@ string_code(str, code)
      Char *str;		/* code specifying string */
      KS_FLAG *code;	/* default value of code */
 {
-  register Char *p, *q;
+  Char *p, *q;
 
   if(p = Cindex(str, '/'), p++ == NULL){ /* Added by Nide */
     p = str;
@@ -906,7 +906,7 @@ Char *
 mkupper(str)
      Char *str;		/* string to upper case */
 {
-	register Char *sp;
+	Char *sp;
 
 	sp = str;
 	while (*sp) {
@@ -921,7 +921,7 @@ Char *
 mklower(str)
      Char *str;		/* string to lower case */
 {
-  register Char *sp;
+  Char *sp;
 
   sp = str;
   while (*sp) {

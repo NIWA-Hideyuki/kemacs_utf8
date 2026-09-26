@@ -25,8 +25,8 @@ LINE	*
 lalloc(int used)
 {
 
-	register LINE	*lp;
-	register int	size;
+	LINE	*lp;
+	int	size;
 
 	size = (used+NBLOCK-1) & ~(NBLOCK-1);
 	if (size == 0)				/* Assume that an empty */
@@ -51,11 +51,10 @@ lalloc(int used)
  * might be in. Release the memory. The buffers are updated too; the magic
  * conditions described in the above comments don't hold here.
  */
-lfree(lp)
-	register LINE	*lp;
+lfree(LINE *lp)
 {
-	register BUFFER *bp;
-	register WINDOW *wp;
+	BUFFER *bp;
+	WINDOW *wp;
 
 	wp = wheadp;
 	while (wp != NULL) {
@@ -97,10 +96,9 @@ lfree(lp)
  * displayed in more than 1 window we change EDIT to HARD. Set MODE if the
  * mode line needs to be updated (the "*" has to be set).
  */
-lchange(flag)
-	register int	flag;
+lchange(int flag)
 {
-	register WINDOW *wp;
+	WINDOW *wp;
 
 	if (curbp->b_nwnd != 1)			/* Ensure hard.		*/
 		flag = WFHARD;
@@ -132,17 +130,16 @@ insspace(f, n)	/* insert spaces forward into text */
  * greater than the place where you did the insert. Return TRUE if all is
  * well, and FALSE on errors.
  */
-linsert(n, c)
-	Char c;
+linsert(int n, Char c)
 {
-	register Char	*cp1;
-	register Char	*cp2;
-	register LINE	*lp1;
-	register LINE	*lp2;
-	register LINE	*lp3;
-	register int	doto;
-	register int	i;
-	register WINDOW *wp;
+	Char	*cp1;
+	Char	*cp2;
+	LINE	*lp1;
+	LINE	*lp2;
+	LINE	*lp3;
+	int	doto;
+	int	i;
+	WINDOW *wp;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -224,12 +221,12 @@ linsert(n, c)
  */
 lnewline()
 {
-	register Char	*cp1;
-	register Char	*cp2;
-	register LINE	*lp1;
-	register LINE	*lp2;
-	register int	doto;
-	register WINDOW *wp;
+	Char	*cp1;
+	Char	*cp2;
+	LINE	*lp1;
+	LINE	*lp2;
+	int	doto;
+	WINDOW *wp;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -277,16 +274,14 @@ lnewline()
  * deleted, and FALSE if they were not (because dot ran into the end of the
  * buffer. The "kflag" is TRUE if the text should be put in the kill buffer.
  */
-ldelete(n, kflag)
-	long n;		/* # of chars to delete */
-	int kflag;	/* put killed text in kill buffer flag */
+ldelete(long n, int kflag)
 {
-	register Char	*cp1;
-	register Char	*cp2;
-	register LINE	*dotp;
-	register int	doto;
-	register int	chunk;
-	register WINDOW *wp;
+	Char	*cp1;
+	Char	*cp2;
+	LINE	*dotp;
+	int	doto;
+	int	chunk;
+	WINDOW *wp;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -350,12 +345,12 @@ ldelete(n, kflag)
  */
 ldelnewline()
 {
-	register Char	*cp1;
-	register Char	*cp2;
-	register LINE	*lp1;
-	register LINE	*lp2;
-	register LINE	*lp3;
-	register WINDOW *wp;
+	Char	*cp1;
+	Char	*cp2;
+	LINE	*lp1;
+	LINE	*lp2;
+	LINE	*lp3;
+	WINDOW *wp;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -457,8 +452,7 @@ kdelete()
  * Return TRUE if all is well, and FALSE on errors.
  */
 
-kinsert(c)
-	Char c;		/* character to insert in the kill buffer */
+kinsert(Char c)
 {
 	KILL *nchunk;	/* ptr to newly malloced chunk */
 
@@ -486,11 +480,11 @@ kinsert(c)
  * check for errors. Bound to "C-Y".
  */
 /*ARGSUSED*/
-yank(f, n)
+yank(int f, int n)
 {
-	register Char	 c;
-	register int	i;
-	register Char	*sp;	/* pointer into string to insert */
+	Char	 c;
+	int	i;
+	Char	*sp;	/* pointer into string to insert */
 	KILL *kp;		/* pointer into kill buffer */
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/

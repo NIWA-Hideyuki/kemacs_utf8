@@ -42,8 +42,8 @@ kopen(FILE * fp, unsigned flag, unsigned totime)
 {
 
 
-	register KSTREAM *kp;
-	register struct KF *kfp;
+	KSTREAM *kp;
+	struct KF *kfp;
 
 	if (!fp
 	    || !(kfp = (struct KF *)malloc(sizeof(struct KF)))) return NULL;
@@ -79,7 +79,7 @@ static int
 f_get(struct KF * id, char * buf, int len)
 {
 
-	register int n;
+	int n;
 #if 0
 	extern int errno;
 #endif

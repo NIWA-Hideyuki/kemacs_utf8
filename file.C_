@@ -20,7 +20,7 @@
 /*ARGSUSED*/
 fileread(int f, int n)
 {
-	register int	s;
+	int	s;
 	Char fname[NFILEN];
 
 	if ((s=mlreply(
@@ -43,7 +43,7 @@ fileread(int f, int n)
 /*ARGSUSED*/
 insfile(int f, int n)
 {
-	register int	s;
+	int	s;
 	Char fname[NFILEN];
 
 #if	RESTRICT
@@ -75,7 +75,7 @@ insfile(int f, int n)
 filefind(int f, int n)
 {
 	Char fname[NFILEN];	/* file user wishes to find */
-	register int s;		/* status return */
+	int s;		/* status return */
 
 #if	RESTRICT
 	if (restflag)		/* don't allow this command if restricted */
@@ -95,7 +95,7 @@ filefind(int f, int n)
 viewfile(int f, int n)	/* visit a file in VIEW mode */
 {
 	Char fname[NFILEN];	/* file user wishes to find */
-	register int s;		/* status return */
+	int s;		/* status return */
 
 #if	RESTRICT
 	if (restflag)		/* don't allow this command if restricted */
@@ -122,7 +122,7 @@ viewfile(int f, int n)	/* visit a file in VIEW mode */
 resetkey(void)	/* reset the encryption key if needed */
 
 {
-	register int s;	/* return status */
+	int s;	/* return status */
 
 	/* turn off the encryption flag */
 	cryptflag = FALSE;
@@ -152,14 +152,12 @@ resetkey(void)	/* reset the encryption key if needed */
 }
 #endif
 
-getfile(fname, lockfl)
-	Char fname[];		/* file name to find */
-	int lockfl;		/* check the file for locks? */
+getfile(Char fname[], int lockfl)
 {
-	register BUFFER *bp;
-	register LINE	*lp;
-	register int	i;
-	register int	s;
+	BUFFER *bp;
+	LINE	*lp;
+	int	i;
+	int	s;
 	Char bname[NBUFN];	/* buffer name to put file */
 
 	for (bp=bheadp; bp!=NULL; bp=bp->b_bufp) {
@@ -225,18 +223,16 @@ getfile(fname, lockfl)
  * set for the current buffer.
  */
 /*ARGSUSED*/
-readin(fname, lockfl)
-	Char	fname[];	/* name of file to read */
-	int	lockfl;		/* check for file locks? */
+readin(Char fname[], int lockfl)
 {
-	register LINE	*lp1;
-	register LINE	*lp2;
-	register int	i;
-	register WINDOW *wp;
-	register BUFFER *bp;
-	register int	s;
-	register int	nbytes;
-	register int	nline;
+	LINE	*lp1;
+	LINE	*lp2;
+	int	i;
+	WINDOW *wp;
+	BUFFER *bp;
+	int	s;
+	int	nbytes;
+	int	nline;
 	int		lflag;		/* any lines longer than allowed? */
 	Char		line[NLINE];
 #if AUTOMODE
@@ -271,7 +267,7 @@ readin(fname, lockfl)
 	  if (re_exec(p))
 #  endif
 #  if USG
-	  register char *re;
+	  char *re;
 	  re = regcmp(pattbl[i].pat, NULL);
 	  if (regex(re, p))
 #  endif
@@ -394,7 +390,7 @@ readin(fname, lockfl)
 makename(Char *bname, Char *fname)
 {
 
-	register Char	*cp1;
+	Char	*cp1;
 
 	cp1 = Crindex(fname, '/');
 	if (!cp1) cp1 = fname; else cp1++;
@@ -411,9 +407,9 @@ makename(Char *bname, Char *fname)
  * with ITS EMACS. Bound to "C-X C-W".
  */
 /*ARGSUSED*/
-filewrite(f, n)
+filewrite(int f, int n)
 {
-	register int	s;
+	int	s;
 	Char		fname[NFILEN];
 
 #if	RESTRICT
@@ -444,9 +440,9 @@ filewrite(f, n)
  * get called by "C-Z".
  */
 /*ARGSUSED*/
-filesave(f, n)
+filesave(int f, int n)
 {
-	register int	s;
+	int	s;
 
 	if (curbp->b_mode & MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -482,12 +478,11 @@ filesave(f, n)
  * a macro for this. Most of the grief is error
  * checking of some sort.
  */
-writeout(fn)
-	Char	*fn;
+writeout(Char *fn)
 {
-	register int	s;
-	register LINE	*lp;
-	register int	nline;
+	int	s;
+	LINE	*lp;
+	int	nline;
 #if FEXPAND
 	Char *fexpand();
 #endif
@@ -559,9 +554,9 @@ writeout(fn)
  * prompt if you wish.
  */
 /*ARGSUSED*/
-filename(f, n)
+filename(int f, int n)
 {
-	register int	s;
+	int	s;
 	Char		fname[NFILEN];
 
 #if	RESTRICT
@@ -589,14 +584,14 @@ filename(f, n)
 ifile(Char *fname)
 {
 
-	register LINE	*lp0;
-	register LINE	*lp1;
-	register LINE	*lp2;
-	register int	i;
-	register BUFFER *bp;
-	register int	s;
-	register int	nbytes;
-	register int	nline;
+	LINE	*lp0;
+	LINE	*lp1;
+	LINE	*lp2;
+	int	i;
+	BUFFER *bp;
+	int	s;
+	int	nbytes;
+	int	nline;
 	int		lflag;		/* any lines longer than allowed? */
 	Char		line[NLINE];
 #if FEXPAND
@@ -727,13 +722,12 @@ out:
 # include <pwd.h>
 
 Char *
-fexpand(fn)
-	Char *fn;
+fexpand(Char *fn)
 {
-	register Char *fn1;
+	Char *fn1;
 	static Char fbuf[NFILEN];
 	char user[256];
-	register char *s;
+	char *s;
 	struct passwd *p;
 #if USG
 	struct passwd *getpwnam();
@@ -762,10 +756,9 @@ fexpand(fn)
 #endif /*FEXPAND*/
 
 /* make sure a buffer name is unique */
-unqname(name)
-     Char *name;	/* name to check on */
+unqname(Char *name)
 {
-  register Char *sp;
+  Char *sp;
 
   /* check to see if it is in the buffer list */
   while (bfind(name, 0, FALSE) != NULL) {

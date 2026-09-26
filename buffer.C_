@@ -18,8 +18,8 @@
 /*ARGSUSED*/
 usebuffer(int f, int n)
 {
-	register BUFFER *bp;
-	register int	s;
+	BUFFER *bp;
+	int	s;
 	Char		bufn[NBUFN];
 
 	if ((s=mlreply(
@@ -37,8 +37,8 @@ usebuffer(int f, int n)
 nextbuffer(int f, int n)	/* switch to the next buffer in the buffer list */
 {
 
-	register BUFFER *bp;
-	register BUFFER *bbp;
+	BUFFER *bp;
+	BUFFER *bbp;
 
 	/* make sure the arg is legit */
 	if (f == FALSE) n = 1;
@@ -67,7 +67,7 @@ nextbuffer(int f, int n)	/* switch to the next buffer in the buffer list */
 swbuffer(bp)	/* make buffer BP current */
 	BUFFER *bp;
 {
-	register WINDOW *wp;
+	WINDOW *wp;
 
 	if (--curbp->b_nwnd == 0) {		/* Last use.		*/
 		curbp->b_dotp  = curwp->w_dotp;
@@ -116,11 +116,10 @@ swbuffer(bp)	/* make buffer BP current */
  * line and the buffer header. Bound to "C-X K".
  */
 /*ARGSUSED*/
-killbuffer(f, n)
-
+killbuffer(int f, int n)
 {
-	register BUFFER *bp;
-	register int	s;
+	BUFFER *bp;
+	int	s;
 	Char bufn[NBUFN];
 
 	if ((s=mlreply(
@@ -138,11 +137,11 @@ killbuffer(f, n)
 }
 
 zotbuf(bp)	/* kill the buffer pointed to by bp */
-	register BUFFER *bp;
+	BUFFER *bp;
 {
-	register BUFFER *bp1;
-	register BUFFER *bp2;
-	register int	s;
+	BUFFER *bp1;
+	BUFFER *bp2;
+	int	s;
 
 	if (bp->b_nwnd != 0) {			/* Error if on screen.	*/
 		mlwrite(
@@ -177,7 +176,7 @@ zotbuf(bp)	/* kill the buffer pointed to by bp */
 /*ARGSUSED*/
 namebuffer(f,n)		/*	Rename the current buffer	*/
 {
-	register BUFFER *bp;	/* pointer to scan through all buffers */
+	BUFFER *bp;	/* pointer to scan through all buffers */
 	Char bufn[NBUFN];	/* buffer to hold buffer name */
 
 	/* prompt for and get the new buffer name */
@@ -231,8 +230,7 @@ buffer_list_buffer_name()
  * A numeric argument forces it to list invisible buffers as well.
  */
 /*ARGSUSED*/
-listbuffers(f, n)
-     int f, n;
+listbuffers(int f, int n)
 {
 	/* Buffer list buffer	*/
 	if (!blistp &&
@@ -259,16 +257,15 @@ listbuffers(f, n)
  * is an error (if there is no memory). Iflag
  * indicates weather to list hidden buffers.
  */
-makelist(iflag)
-     int iflag;
+makelist(int iflag)
 {
-	register Char	*cp1;
-	register Char	*cp2;
-	register Char	c;
-	register BUFFER *bp;
-	register LINE	*lp;
-	register int	s;
-	register int	i;
+	Char	*cp1;
+	Char	*cp2;
+	Char	c;
+	BUFFER *bp;
+	LINE	*lp;
+	int	s;
+	int	i;
 	long	nbytes;		/* # of bytes in current buffer */
 	Char	b[6+1];
 	Char	line[NLINE];
@@ -438,11 +435,10 @@ makelist(iflag)
 /*
  * make specified buffer on screen
  */
-make_onscreen(bp)
-	register BUFFER *bp;
+make_onscreen(BUFFER *bp)
 {
-	register BUFFER *bp1;
-	register WINDOW *wp;
+	BUFFER *bp1;
+	WINDOW *wp;
 
 	if (bp->b_nwnd == 0) {		/* Not on screen yet.	*/
 		/* get one window to use */
@@ -475,10 +471,7 @@ make_onscreen(bp)
 	return(TRUE);
 }
 
-ltoa(buf, width, num)
-	Char   buf[];
-	int    width;
-	long   num;
+ltoa(Char buf[], int width, long num)
 {
 	buf[width] = 0;				/* End of string.	*/
 	while (num >= 10) {			/* Conditional digits.	*/
@@ -497,13 +490,11 @@ ltoa(buf, width, num)
  * on the end. Return TRUE if it worked and
  * FALSE if you ran out of room.
  */
-addline(bp, text)
-	register BUFFER *bp;
-	Char	*text;
+addline(BUFFER *bp, Char *text)
 {
-	register LINE	*lp;
-	register int	i;
-	register int	ntext;
+	LINE	*lp;
+	int	i;
+	int	ntext;
 
 	ntext = Cstrlen(text);
 	if ((lp=lalloc(ntext)) == NULL)
@@ -531,7 +522,7 @@ addline(bp, text)
  */
 anycb()
 {
-	register BUFFER *bp;
+	BUFFER *bp;
 
 	bp = bheadp;
 	while (bp != NULL) {
@@ -550,12 +541,11 @@ anycb()
  * the settings for the flags in in buffer.
  */
 BUFFER	*
-bfind(bname, cflag, bflag)
-	register Char	*bname;
+bfind(Char *bname, int cflag, int bflag)
 {
-	register BUFFER *bp;
-	register BUFFER *sb;	/* buffer to insert after */
-	register LINE	*lp;
+	BUFFER *bp;
+	BUFFER *sb;	/* buffer to insert after */
+	LINE	*lp;
 
 	bp = bheadp;
 	while (bp != NULL) {
@@ -625,11 +615,10 @@ bfind(bname, cflag, bflag)
  * that are required. Return TRUE if everything
  * looks good.
  */
-bclear(bp)
-register BUFFER *bp;
+bclear(BUFFER *bp)
 {
-	register LINE	*lp;
-	register int	s;
+	LINE	*lp;
+	int	s;
 
 	if ((bp->b_flag&BFINVS) == 0		/* Not scratch buffer.	*/
 	&& (bp->b_flag&BFCHG) != 0		/* Something changed	*/

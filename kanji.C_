@@ -50,16 +50,13 @@ kfclose()
 
 /*ARGSUSED*/
 Char
-kfgetc(fp)
-    FILE *fp;
+kfgetc(FILE *fp)
 {
     return kgetc(kfp);
 }
 
 /*ARGSUSED*/
-kfputc(c, fp)
-    Char c;
-    FILE *fp;
+kfputc(Char c, FILE *fp)
 {
     kputc(c, kfp);
 }
@@ -101,25 +98,21 @@ kkclose()
 
 /*ARGSUSED*/
 Char
-kkgetc(fp)
-    FILE *fp;
+kkgetc(FILE *fp)
 {
     return kgetc(kip);
 }
 
 /*ARGSUSED*/
-kkputc(cc, fp)
-    register int cc;
-    FILE *fp;
+kkputc(int cc, FILE *fp)
 {
     kputc(cc, kop);
 }
 
 Char *
-safeC(C)
-	Char *C;
+safeC(Char *C)
 {
-	register Char *CC;
+	Char *CC;
 
 	if (!(CC = (Char *)malloc((unsigned)(Cstrlen(C)+1)*sizeof(Char))))
 		return NULL;
@@ -127,10 +120,9 @@ safeC(C)
 }
 
 char *
-safec(c)
-	char *c;
+safec(char *c)
 {
-	register char *cc;
+	char *cc;
 
 	if (!(cc = malloc((unsigned)strlen(c)+1)))
 		return NULL;

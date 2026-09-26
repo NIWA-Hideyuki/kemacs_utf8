@@ -140,9 +140,9 @@ isearch(int f, int n)
 {
     int			status;		/* Search status */
     int			col;		/* prompt column */
-    register int	cpos;		/* character number in search string  */
-    register Char	c;		/* current input character */
-    register Ckey	expc;		/* function expanded input char	      */
+    int	cpos;		/* character number in search string  */
+    Char	c;		/* current input character */
+    Ckey	expc;		/* function expanded input char	      */
     Char		pat_save[NPAT]; /* Saved copy of the old pattern str  */
     LINE		*curline;	/* Current line on entry	      */
     int			curoff;		/* Current offset on entry	      */
@@ -292,9 +292,9 @@ checknext (chr, patrn, dir) /* Check next character in search string */
 	Char	*patrn;		/* The entire search string (incl chr)   */
 	int	dir;		/* Search direction			 */
 {
-    register LINE *curline;		/* current line during scan	      */
-    register int curoff;		/* position within current line	      */
-    register Char buffchar;		/* character at current position      */
+    LINE *curline;		/* current line during scan	      */
+    int curoff;		/* position within current line	      */
+    Char buffchar;		/* character at current position      */
     int status;				/* how well things go		      */
 
 
@@ -373,10 +373,10 @@ int
 match_pat (patrn)	/* See if the pattern string matches string at "."   */
     Char	*patrn;	/* String to match to buffer			     */
 {
-    register int  i;			/* Generic loop index/offset	      */
-    register Char buffchar;		/* character at current position      */
-    register LINE *curline;		/* current line during scan	      */
-    register int curoff;		/* position within current line	      */
+    int  i;			/* Generic loop index/offset	      */
+    Char buffchar;		/* character at current position      */
+    LINE *curline;		/* current line during scan	      */
+    int curoff;		/* position within current line	      */
 
     /* setup the local scan pointer to current "." */
 
@@ -411,8 +411,8 @@ promptpattern(Char * prompt)
 {
 
     Char tpat[NPAT+20];
-    register Char *p;
-    register int w;
+    Char *p;
+    int w;
 
     (void)Cstrcpy(tpat, prompt);	/* copy prompt to output string */
     (void)Cstrcat(tpat, CSTR(" ["));
@@ -436,9 +436,7 @@ promptpattern(Char * prompt)
 /* routine to echo i-search characters */
 
 static int
-echochar(c,col)
-    Char	c;	/* character to be echoed */
-    int	col;	/* column to be echoed in */
+echochar(Char c, int col)
 {
     movecursor(term.t_nrow,col);		/* Position the cursor	      */
     if ((c < ' ') || (c == 0x7F))		/* Control character?	      */
@@ -529,8 +527,7 @@ uneat()
 }
 
 static void
-reeat(c)
-    Char	c;
+reeat(Char c)
 {
     if (eaten_char != -1)		/* If we've already been here	      */
 	return;				/* Don't do it again		      */

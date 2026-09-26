@@ -25,7 +25,7 @@ cfromC(Char * C)
 
 
     int len;
-    register KSTREAM *ksp;
+    KSTREAM *ksp;
     struct KS ks;
     static int blen = 0;
     static char *buf;

@@ -22,8 +22,8 @@ static int isword_gap(Char c1, Char c2);
 /*ARGSUSED*/
 wrapword(int f, int n)
 {
-	register int cnt;	/* size of word wrapped to next line */
-	register Char c;	/* charector temporary */
+	int cnt;	/* size of word wrapped to next line */
+	Char c;	/* charector temporary */
 
 	/* backup from the <NL> 1 char */
 	if (!backchar(0, 1))
@@ -123,7 +123,7 @@ forwword(int f, int n)
 /*ARGSUSED*/
 upperword(int f, int n)
 {
-	register Char	c;
+	Char	c;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -158,7 +158,7 @@ upperword(int f, int n)
 /*ARGSUSED*/
 lowerword(int f, int n)
 {
-	register Char	c;
+	Char	c;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -194,7 +194,7 @@ lowerword(int f, int n)
 /*ARGSUSED*/
 capword(int f, int n)
 {
-	register Char	c;
+	Char	c;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
@@ -233,8 +233,8 @@ capword(int f, int n)
 /*ARGSUSED*/
 delfword(int f, int n)
 {
-	register LINE	*dotp;
-	register int	doto;
+	LINE	*dotp;
+	int	doto;
 	long size;
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
@@ -333,7 +333,7 @@ delbword(int f, int n)
  */
 inword(void)
 {
-	register Char	c;
+	Char	c;
 
 	if (iseol())
 		return (FALSE);
@@ -353,8 +353,8 @@ inword(void)
  */
 top_of_word(void)
 {
-	register Char c1, c2;
-	register int s;
+	Char c1, c2;
+	int s;
 
 	if (!inword())
 	    return FALSE;
@@ -379,8 +379,8 @@ top_of_word(void)
  */
 end_of_word(void)
 {
-	register Char c1, c2;
-	register int s;
+	Char c1, c2;
+	int s;
 
 	if (!inword())
 	    return FALSE;
@@ -431,10 +431,9 @@ enum ch_type {
     CH_KANJI,
 };
 
-ch_type(c)
-    register Char c;
+ch_type(Char c)
 {
-    register int h;
+    int h;
 
     h = (c >> 8) & 0xff;
     if (h < 0x30) {
@@ -466,25 +465,25 @@ ch_type(c)
 fillpara(f, n)	/* Fill the current paragraph according to the current
 		   fill column						*/
 {
-	register Char c;		/* current char durring scan	*/
-	register int wordlen;		/* length of current word	*/
-	register int clength;		/* position on line during fill */
-	register int eopflag;		/* Are we at the End-Of-Paragraph? */
-	register enum {
+	Char c;		/* current char durring scan	*/
+	int wordlen;		/* length of current word	*/
+	int clength;		/* position on line during fill */
+	int eopflag;		/* Are we at the End-Of-Paragraph? */
+	enum {
 		sf_none,
 		sf_space,
 		sf_nl
 	}	    sflag;		/* separator info */
-	register enum {
+	enum {
 		wf_norm,
 		wf_dot
 	}	    lwflag, cwflag;	/* last and current word info */
-	register LINE *eopline;		/* pointer to line just past EOP */
+	LINE *eopline;		/* pointer to line just past EOP */
 	Char wbuf[NSTRING];		/* buffer for current word	*/
 
 	/* flush current word */
 #define flush_word() BEGIN\
-		register int i;\
+		int i;\
 		/* check this word */\
 		i = 0;\
 		if (lwflag == wf_dot) i++;\
@@ -565,7 +564,7 @@ fillpara(f, n)	/* Fill the current paragraph according to the current
 			/* is there any difference with other KANJI chars? */
 		/* } */
 		else if (iskanji(c) || iskana(c) || isunicode(c)) {
-			register int sp = 0;
+			int sp = 0;
 
 			/* KANJI or KANA character */
 			if (wordlen) {
@@ -611,7 +610,7 @@ int f;	/* default flag */
 int n;	/* # of paras to delete */
 
 {
-	register int status;	/* returned status of functions */
+	int status;	/* returned status of functions */
 
 	while (n--) {		/* for each paragraph to delete */
 
@@ -642,14 +641,14 @@ int n;	/* # of paras to delete */
 			and report on them.			*/
 
 /*ARGSUSED*/
-wordcount(f, n)
+wordcount(int f, int n)
 {
-	register LINE *lp;	/* current line to scan */
-	register int offset;	/* current char to scan */
+	LINE *lp;	/* current line to scan */
+	int offset;	/* current char to scan */
 	long size;		/* size of region left to count */
-	register Char ch;	/* current character to scan */
-	register int wordflag;	/* are we in a word now? */
-	register int lastword;	/* were we just in a word? */
+	Char ch;	/* current character to scan */
+	int wordflag;	/* are we in a word now? */
+	int lastword;	/* were we just in a word? */
 	long nwords;		/* total # of words */
 	long nchars;		/* total number of chars */
 	int nlines;		/* total number of lines in region */
@@ -713,9 +712,7 @@ wordcount(f, n)
 /*
  * return TRUE if character C placed at column COL should be wrapped around.
  */
-should_wrap(c, col)
-    Char c;
-    int col;
+should_wrap(Char c, int col)
 {
     return ((col += 1+(iswidechar(c))) >= fillcol && kinsoku1(c)) ||
 	   (col > fillcol && !kinsoku2(c));
@@ -730,8 +727,7 @@ should_wrap(c, col)
  * return TRUE if C is a character which should never be placed
  * at the end of the line.
  */
-kinsoku1(c)
-    Char c;
+kinsoku1(Char c)
 {
     switch (c) {
     case '(':
@@ -765,8 +761,7 @@ kinsoku1(c)
  * return TRUE if C is a character which should never be placed
  * at the top of line.
  */
-kinsoku2(c)
-    Char c;
+kinsoku2(Char c)
 {
     switch (c) {
     case '!':
@@ -853,7 +848,7 @@ kinsoku2(c)
 
 iswhite()
 {
-  register Char c;
+  Char c;
 
   if (iseol())
     return (FALSE);

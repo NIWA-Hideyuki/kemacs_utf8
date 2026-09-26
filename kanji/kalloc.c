@@ -20,7 +20,7 @@ KSTREAM *
 kalloc(caddr_t id, int (*openf)(caddr_t), int (*closef)(caddr_t), int (*getf)(caddr_t, char *, int), int (*putf)(caddr_t, char *, int), unsigned flag)
 {
 
-	register KSTREAM *ksp;
+	KSTREAM *ksp;
 
 	if ((!getf && !putf) ||
 	     !(ksp = (KSTREAM *)malloc(sizeof(KSTREAM)))) return NULL;

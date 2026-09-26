@@ -69,8 +69,8 @@ VIDEO	**pscreen;			/* Physical screen. */
  */
 vtinit(void)
 {
-    register int i;
-    register VIDEO *vp;
+    int i;
+    VIDEO *vp;
 
     TTopen();		/* open the screen */
     TTkopen();		/* open the keyboard */
@@ -141,13 +141,13 @@ vtmove(int row, int col)
 vtputc(Char c)
 {
 
-    register VIDEO *vp;	/* ptr to line being updated */
+    VIDEO *vp;	/* ptr to line being updated */
 
     vp = vscreen[vtrow];
 
     if (vtcol >= term.t_ncol) {
 #if KANJI
-	register Char	*tp;
+	Char	*tp;
 #endif
 	++vtcol;
 #if KANJI
@@ -224,7 +224,7 @@ vtputc(Char c)
  */
 vteeol()
 {
-    register VIDEO	*vp;
+    VIDEO	*vp;
 
     vp = vscreen[vtrow];
     while (vtcol < term.t_ncol) {
@@ -276,7 +276,7 @@ do_update(force)
     int force;
 {
 #endif	/*CLOCK*/
-	register WINDOW *wp;
+	WINDOW *wp;
 
 #if	TYPEAH
 	if (force == FALSE && typahead())
@@ -333,8 +333,8 @@ do_update(force)
 reframe(wp)
 	WINDOW *wp;
 {
-	register LINE *lp;
-	register int i;
+	LINE *lp;
+	int i;
 
 	/* if not a requested reframe, check for a needed one */
 	if ((wp->w_flag & WFFORCE) == 0) {
@@ -385,9 +385,9 @@ reframe(wp)
 updone(wp)
     WINDOW *wp;	/* window to update current line in */
 {
-	register LINE *lp;	/* line to update */
-	register int sline;	/* physical screen line to update */
-	register int i;
+	LINE *lp;	/* line to update */
+	int sline;	/* physical screen line to update */
+	int i;
 
 	/* search down the line we want */
 	lp = wp->w_linep;
@@ -414,9 +414,9 @@ updone(wp)
 updall(wp)
     WINDOW *wp;	/* window to update lines in */
 {
-	register LINE *lp;	/* line to update */
-	register int sline;	/* physical screen line to update */
-	register int i;
+	LINE *lp;	/* line to update */
+	int sline;	/* physical screen line to update */
+	int i;
 
 	/* search down the lines, updating them */
 	lp = wp->w_linep;
@@ -448,9 +448,9 @@ updall(wp)
 		lines. This is the only update for simple moves.	*/
 updpos()
 {
-	register LINE *lp;
-	register Char c;
-	register int i;
+	LINE *lp;
+	Char c;
+	int i;
 
 	/* find the current row */
 	lp = curwp->w_linep;
@@ -490,9 +490,9 @@ updpos()
 /*	upddex: de-extend any line that derserves it		*/
 upddex()
 {
-	register WINDOW *wp;
-	register LINE *lp;
-	register int i,j;
+	WINDOW *wp;
+	LINE *lp;
+	int i,j;
 
 	wp = wheadp;
 
@@ -526,8 +526,8 @@ upddex()
 		the virtual screen and force a full update		*/
 updgar()
 {
-	register Char *txt;
-	register int i,j;
+	Char *txt;
+	int i,j;
 
 	for (i = 0; i < term.t_nrow; ++i) {
 		vscreen[i]->v_flag |= VFCHG;
@@ -555,8 +555,8 @@ updgar()
 updupd(force)
     int force;	/* forced update flag */
 {
-	register VIDEO *vp1;
-	register int i;
+	VIDEO *vp1;
+	int i;
 
 	for (i = 0; i < term.t_nrow; ++i) {
 		vp1 = vscreen[i];
@@ -579,9 +579,9 @@ updupd(force)
 								*/
 updext()
 {
-	register int rcursor;	/* real cursor location */
-	register LINE *lp;	/* pointer to current line */
-	register int j;		/* index into line */
+	int rcursor;	/* real cursor location */
+	LINE *lp;	/* pointer to current line */
+	int j;		/* index into line */
 
 	/* calculate what column the real cursor will end up in */
 	rcursor = ((curcol - term.t_ncol) % term.t_scrsiz) + term.t_margin;
@@ -639,12 +639,12 @@ updateline(row, vp1, vp2)
     struct VIDEO *vp1;	/* virtual screen image */
     struct VIDEO *vp2;	/* physical screen image */
 {
-	register Char *cp1;
-	register Char *cp2;
-	register Char *cp3;
-	register Char *cp4;
-	register Char *cp5;
-	register int nbflag;	/* non-blanks to the right flag? */
+	Char *cp1;
+	Char *cp2;
+	Char *cp3;
+	Char *cp4;
+	Char *cp5;
+	int nbflag;	/* non-blanks to the right flag? */
 	int rev;		/* reverse video flag */
 	int req;		/* reverse video request flag */
 
@@ -798,12 +798,12 @@ dash(wp)
 modeline(wp)
     WINDOW *wp;
 {
-    register Char *fp, *cp;
-    register Char c;
-    register int n;		/* cursor position count */
-    register BUFFER *bp;
-    register int i;		/* loop index */
-    register int firstm;	/* is this the first mode? */
+    Char *fp, *cp;
+    Char c;
+    int n;		/* cursor position count */
+    BUFFER *bp;
+    int i;		/* loop index */
+    int firstm;	/* is this the first mode? */
     static Char mline[NLINE];	/* buffer for mode line */
 
     n = wp->w_toprow+wp->w_ntrows;		/* Location. */
@@ -939,7 +939,7 @@ modeline(wp)
 
 upmode()	/* update all the mode lines */
 {
-	register WINDOW *wp;
+	WINDOW *wp;
 
 	wp = wheadp;
 	while (wp != NULL) {
@@ -1007,7 +1007,7 @@ mlwrite(fmt, arg)
     Char *fmt;
 #endif
 {
-    register Char c;
+    Char c;
 #ifdef HANDLE_VARIABLE_ARGS
 # if	HAVE_STDARG
     va_list vl;
@@ -1016,7 +1016,7 @@ mlwrite(fmt, arg)
     Char *fmt;
 # endif
 #else
-    register char *ap; /* really a void pointer... */
+    char *ap; /* really a void pointer... */
 #endif
 
     /* if we are not currently echoing on the command line, abort this */
@@ -1140,7 +1140,7 @@ mlwrite(fmt, arg)
 mlputs(s)
     Char *s;
 {
-    register Char c;
+    Char c;
 
     while ((c = *s++) != 0) {
         TTputc(c);
@@ -1157,7 +1157,7 @@ mlputs(s)
  */
 mlputi(i, r)
 {
-    register int q;
+    int q;
     static char hexdigits[] = "0123456789ABCDEF";
 
     if (i < 0) {
@@ -1180,7 +1180,7 @@ mlputi(i, r)
 mlputli(l, r)
     long l;
 {
-    register long q;
+    long q;
 
     if (l < 0) {
 	l = -l;

@@ -4,7 +4,7 @@ int
 Cstrlen(Char * c)
 {
 
-    register int n;
+    int n;
 
     for (n = 0; *c++; n++) ;
     return n;

@@ -16,7 +16,7 @@ static Char outline[NSTRING];	/* global string to hold debug line text */
 
 namedcmd(int f, int n)
 {
-	register int (*kfunc)(); /* ptr to the requested function to bind to */
+	int (*kfunc)(); /* ptr to the requested function to bind to */
 	int (*getname())();
 	int nullfunc();
 
@@ -51,7 +51,7 @@ namedcmd(int f, int n)
 /*ARGSUSED*/
 execcmd(int f, int n)
 {
-	register int status;		/* status return */
+	int status;		/* status return */
 	Char cmdstr[NSTRING];		/* string holding command to execute */
 
 	/* get the line wanted */
@@ -88,12 +88,11 @@ execcmd(int f, int n)
 	if COMPAT option is enabled, old [endm] notation also accepted.
 */
 
-docmd(cline)
-	Char *cline;	/* command line to execute */
+docmd(Char *cline)
 {
-	register int f;		/* default argument flag */
-	register int n;		/* numeric repeat value */
-	register int i;
+	int f;		/* default argument flag */
+	int n;		/* numeric repeat value */
+	int i;
 	int (*fnc)();		/* function to execute */
 	int status;		/* return status of function */
 	int oldcle;		/* old contents of clexec flag */
@@ -335,10 +334,9 @@ docmd(cline)
 */
 
 Char *
-token(src, tok)
-	Char *src, *tok;	/* source string, destination token string */
+token(Char *src, Char *tok)
 {
-	register int quotef;	/* is the current string quoted? */
+	int quotef;	/* is the current string quoted? */
 
 	/* first scan past any whitespace in the source string */
 	while (*src == ' ' || *src == '\t')
@@ -402,11 +400,7 @@ macarg(tok)	/* get a macro line argument */
 
 /*	nextarg:	get the next argument	*/
 
-nextarg(prompt, buffer, size, terminator)
-	Char *prompt;	/* prompt to use if we must be interactive */
-	Char *buffer;	/* buffer to put token into */
-	int size;	/* size of the buffer */
-	Ckey terminator; /* terminating char to be used on interactive fetch */
+nextarg(Char *prompt, Char *buffer, int size, Ckey terminator)
 {
 	/* if we are interactive, go get it! */
 	if (clexec == FALSE)
@@ -425,7 +419,7 @@ nextarg(prompt, buffer, size, terminator)
 
 storemac(int f, int n)
 {
-	register struct BUFFER *bp;	/* pointer to macro buffer */
+	struct BUFFER *bp;	/* pointer to macro buffer */
 	Char bname[NBUFN];		/* name of buffer to use */
 
 	/* must have a numeric argument to this function */
@@ -476,12 +470,10 @@ storemac(int f, int n)
 /*	storeproc:	Set up a procedure buffer and flag to store all
 			executed command lines there			*/
 
-storeproc(f, n)
-     int f;		/* default flag */
-     int n;		/* macro number to use */
+storeproc(int f, int n)
 {
-	register struct BUFFER *bp;	/* pointer to macro buffer */
-	register int status;		/* return status */
+	struct BUFFER *bp;	/* pointer to macro buffer */
+	int status;		/* return status */
 	Char bname[NBUFN];		/* name of buffer to use */
 
 	/* a numeric argument means its a numbered macro */
@@ -524,8 +516,8 @@ storeproc(f, n)
 /*ARGSUSED*/
 execproc(int f, int n)
 {
-  register BUFFER *bp;		/* ptr to buffer to execute */
-  register int status;		/* status return */
+  BUFFER *bp;		/* ptr to buffer to execute */
+  int status;		/* status return */
   Char bufn[NBUFN+2];		/* name of buffer to execute */
 
   /* find out what buffer the user wants to execute */
@@ -564,8 +556,8 @@ execproc(int f, int n)
 /*ARGSUSED*/
 execbuf(int f, int n)
 {
-	register BUFFER *bp;		/* ptr to buffer to execute */
-	register int status;		/* status return */
+	BUFFER *bp;		/* ptr to buffer to execute */
+	int status;		/* status return */
 	Char bufn[NBUFN];		/* name of buffer to execute */
 
 	/* find out what buffer the user wants to execute */
@@ -597,14 +589,13 @@ execbuf(int f, int n)
 /*	dobuf:	execute the contents of the buffer pointed to
 		by the passed BP				*/
 
-dobuf(bp)
-	BUFFER *bp;	/* buffer to execute */
+dobuf(BUFFER *bp)
 {
-	register int status;		/* status return */
-	register LINE *lp;		/* pointer to line to execute */
-	register LINE *hlp;		/* pointer to line header */
-	register int linlen;		/* length of line to execute */
-	register WINDOW *wp;		/* ptr to windows to scan */
+	int status;		/* status return */
+	LINE *lp;		/* pointer to line to execute */
+	LINE *hlp;		/* pointer to line header */
+	int linlen;		/* length of line to execute */
+	WINDOW *wp;		/* ptr to windows to scan */
 	Char *eline;			/* text of line to execute */
 
 	/* clear IF level flags */
@@ -637,12 +628,12 @@ dobuf(bp)
 
 			/* if it is a !GOTO directive, deal with it */
 			if (status == GOLINE) {
-			    register LINE *glp;	/* line to goto */
+			    LINE *glp;	/* line to goto */
 
 			    linlen = Cstrlen(golabel);
 			    glp = hlp->l_fp;
 			    for (glp = hlp->l_fp; glp != hlp; glp = glp->l_fp) {
-				register Char *l = glp->l_text;
+				Char *l = glp->l_text;
 
 				while (*l == ' ' || *l == '\t')
 				    l++;
@@ -708,7 +699,7 @@ dobuf(bp)
 /*ARGSUSED*/
 execfile(int f, int n)	/* execute a series of commands in a file */
 {
-	register int status;	/* return status of name query */
+	int status;	/* return status of name query */
 	Char fname[NSTRING];	/* name of file to execute */
 
 	if ((status = mlreply(
@@ -730,12 +721,11 @@ execfile(int f, int n)	/* execute a series of commands in a file */
 /*	dofile: yank a file into a buffer and execute it
 		if there are no errors, delete the buffer on exit */
 
-dofile(fname)
-	Char *fname;	/* file name to execute */
+dofile(Char *fname)
 {
-	register BUFFER *bp;	/* buffer to place file to exeute */
-	register BUFFER *cb;	/* temp to hold current buf while we read */
-	register int status;	/* results of various calls */
+	BUFFER *bp;	/* buffer to place file to exeute */
+	BUFFER *cb;	/* temp to hold current buf while we read */
+	int status;	/* results of various calls */
 	Char bname[NBUFN];	/* name of buffer */
 
 	makename(bname, fname);		/* derive the name of the buffer */
@@ -766,11 +756,10 @@ dofile(fname)
 /*	cbuf:	Execute the contents of a numbered buffer	*/
 
 /*ARGSUSED*/
-cbuf(f, n, bufnum)
-	int bufnum;	/* number of buffer to execute */
+cbuf(int f, int n, int bufnum)
 {
-	register BUFFER *bp;		/* ptr to buffer to execute */
-	register int status;		/* status return */
+	BUFFER *bp;		/* ptr to buffer to execute */
+	int status;		/* status return */
 	Char bufname[NBUFN];
 
 	/* make the buffer name */

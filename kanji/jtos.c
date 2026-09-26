@@ -8,8 +8,8 @@ int
 jtos(int * j, int * s)
 {
 
-	register int jh = ((*j >> 8) & 0377), jl = (*j & 0377);
-	register int sh, sl;
+	int jh = ((*j >> 8) & 0377), jl = (*j & 0377);
+	int sh, sl;
 
 	if (jh <= ' ' || jh >= '\177' || jl <= ' ' || jl >= '\177') return 1;
 	sh = ((jh - 0x21) >> 1) + 0x81;

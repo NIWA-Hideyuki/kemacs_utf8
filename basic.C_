@@ -32,7 +32,7 @@ gotobol(int f, int n)
  */
 backchar(int f, int n)
 {
-	register LINE	*lp;
+	LINE	*lp;
 
 	if (n < 0)
 		return (forwchar(f, -n));
@@ -89,7 +89,7 @@ gotoline(f, n)		/* move to a particular line.
 			   argument (n) must be a positive integer for
 			   this to actually do anything		*/
 {
-	register int status;	/* status return */
+	int status;	/* status return */
 	Char arg[NSTRING];	/* buffer to hold argument */
 
 	/* get an argument if one doesnt exist */
@@ -125,7 +125,7 @@ gotoline(f, n)		/* move to a particular line.
  * is the same as the new value of dot. Normally bound to "M-<".
  */
 /*ARGSUSED*/
-gotobob(f, n)
+gotobob(int f, int n)
 {
 	curwp->w_dotp  = lforw(curbp->b_linep);
 	curwp->w_doto  = 0;
@@ -139,7 +139,7 @@ gotobob(f, n)
  * Bound to "M->".
  */
 /*ARGSUSED*/
-gotoeob(f, n)
+gotoeob(int f, int n)
 {
 	curwp->w_dotp  = curbp->b_linep;
 	curwp->w_doto  = 0;
@@ -153,9 +153,9 @@ gotoeob(f, n)
  * controls how the goal column is set. Bound to "C-N". No errors are
  * possible.
  */
-forwline(f, n)
+forwline(int f, int n)
 {
-	register LINE	*dlp;
+	LINE	*dlp;
 
 	if (n < 0)
 		return (backline(f, -n));
@@ -190,9 +190,9 @@ forwline(f, n)
  * alternate. Figure out the new line and call "movedot" to perform the
  * motion. No errors are possible. Bound to "C-P".
  */
-backline(f, n)
+backline(int f, int n)
 {
-	register LINE	*dlp;
+	LINE	*dlp;
 
 	if (n < 0)
 		return (forwline(f, -n));
@@ -227,7 +227,7 @@ gotobop(f, n)	/* go back to the beginning of the current paragraph
 		   here we look for a <NL><NL> or <NL><TAB> or <NL><SPACE>
 		   combination to delimit the beginning of a paragraph	*/
 {
-	register int suc;	/* success of last backchar */
+	int suc;	/* success of last backchar */
 
 	if (n < 0)	/* the other way...*/
 		return(gotoeop(f, -n));
@@ -267,7 +267,7 @@ gotoeop(f, n)	/* go forword to the end of the current paragraph
 		   here we look for a <NL><NL> or <NL><TAB> or <NL><SPACE>
 		   combination to delimit the beginning of a paragraph	*/
 {
-	register int suc;	/* success of last backchar */
+	int suc;	/* success of last backchar */
 
 	if (n < 0)	/* the other way...*/
 		return(gotobop(f, -n));
@@ -314,13 +314,12 @@ gotoeop(f, n)	/* go forword to the end of the current paragraph
  * column, return the best choice for the offset. The offset is returned.
  * Used by "C-N" and "C-P".
  */
-getgoal(dlp)
-register LINE	*dlp;
+getgoal(LINE *dlp)
 {
-	register Char	c;
-	register int	col;
-	register int	newcol;
-	register int	dbo;
+	Char	c;
+	int	col;
+	int	newcol;
+	int	dbo;
 
 	col = 0;
 	dbo = 0;
@@ -352,10 +351,9 @@ register LINE	*dlp;
  * the overlap; this value is the default overlap value in ITS EMACS. Because
  * this zaps the top line in the display window, we have to do a hard update.
  */
-forwpage(f, n)
-register int	n;
+forwpage(int f, int n)
 {
-	register LINE	*lp;
+	LINE	*lp;
 
 	if (f == FALSE) {
 		n = curwp->w_ntrows - 2;	/* Default scroll.	*/
@@ -383,10 +381,9 @@ register int	n;
  * EMACS manual. Bound to "M-V". We do a hard update for exactly the same
  * reason.
  */
-backpage(f, n)
-register int	n;
+backpage(int f, int n)
 {
-	register LINE	*lp;
+	LINE	*lp;
 
 	if (f == FALSE) {
 		n = curwp->w_ntrows - 2;	/* Default scroll.	*/
@@ -413,7 +410,7 @@ register int	n;
  * errors are possible. Bound to "M-.".
  */
 /*ARGSUSED*/
-setmark(f, n)
+setmark(int f, int n)
 {
 	curwp->w_markp = curwp->w_dotp;
 	curwp->w_marko = curwp->w_doto;
@@ -433,10 +430,10 @@ setmark(f, n)
  * "C-X C-X".
  */
 /*ARGSUSED*/
-swapmark(f, n)
+swapmark(int f, int n)
 {
-	register LINE	*odotp;
-	register int	odoto;
+	LINE	*odotp;
+	int	odoto;
 
 	if (curwp->w_markp == NULL) {
 		mlwrite(
@@ -458,7 +455,7 @@ swapmark(f, n)
 
 millisleep(f, n)	/* sleep for some milliseconds (Added by N.Nide) */
 {
-	register int status;	/* status return */
+	int status;	/* status return */
 	Char arg[NSTRING];	/* buffer to hold argument */
 #if HAVE_SELECT
 	struct timeval tm;

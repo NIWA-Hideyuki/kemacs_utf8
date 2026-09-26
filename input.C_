@@ -51,17 +51,12 @@ mlyesno(Char * prompt)
  * lets macros run at full speed. The reply is always terminated by a carriage
  * return. Handle erase, kill, and abort keys.
  */
-mlreply(prompt, buf, nbuf)
-    Char *prompt;
-    Char *buf;
+mlreply(Char *prompt, Char *buf, int nbuf)
 {
 	return(nextarg(prompt, buf, nbuf, ctoec('\n')));
 }
 
-mlreplyt(prompt, buf, nbuf, eolchar)
-	Char *prompt;
-	Char *buf;
-	Ckey eolchar;
+mlreplyt(Char *prompt, Char *buf, int nbuf, Ckey eolchar)
 {
 	return(nextarg(prompt, buf, nbuf, eolchar));
 }
@@ -70,8 +65,7 @@ mlreplyt(prompt, buf, nbuf, eolchar)
 		colapse the CTLFLG and SPEC flags back into an ascii code   */
 
 Char
-ectoc(c)
-	Ckey c;
+ectoc(Ckey c)
 {
 	if (c & CTLFLG)
 		c = c & ~(CTLFLG | 0x40);
@@ -83,8 +77,7 @@ ectoc(c)
 /*	ctoec:	character to extended character
 		pull out the CTLFLG and SPEC prefixes (if possible)	*/
 Ckey
-ctoec(c)
-	Char c;
+ctoec(Char c)
 {
         if (c>=0x00 && c<=0x1F)
                 return ((Ckey)(c | CTLFLG | 0x40));
@@ -97,12 +90,12 @@ ctoec(c)
 */
 int (*getname())()
 {
-	register int cpos;	/* current column on screen output */
-	register Char c;
-	register Char *sp;	/* pointer to string for output */
-	register NBIND *ffp;	/* first ptr to entry in name binding table */
-	register NBIND *cffp;	/* current ptr to entry in name binding table */
-	register NBIND *lffp;	/* last ptr to entry in name binding table */
+	int cpos;	/* current column on screen output */
+	Char c;
+	Char *sp;	/* pointer to string for output */
+	NBIND *ffp;	/* first ptr to entry in name binding table */
+	NBIND *cffp;	/* current ptr to entry in name binding table */
+	NBIND *lffp;	/* last ptr to entry in name binding table */
 	Char buf[NSTRING];	/* buffer to hold tentative command name */
 	int (*fncmatch())();
 
@@ -282,8 +275,8 @@ get1key()
 Ckey
 getcmd()
 {
-	register Ckey c;		/* fetched keystroke */
-	register Ckey m;		/* prefix mask */
+	Ckey c;		/* fetched keystroke */
+	Ckey m;		/* prefix mask */
 
 
 	/* get initial character */
@@ -328,14 +321,11 @@ getcmd()
  *	to specify the proper terminator. If the terminator is not
  *	a return ('\n') it will echo as "<NL>"
  */
-getstring(prompt, buf, nbuf, eolchar)
-	Char *prompt;
-	Char *buf;
-	Ckey eolchar;
+getstring(Char *prompt, Char *buf, int nbuf, Ckey eolchar)
 {
-	register int cpos;	/* current character position in string */
-	register Ckey c;
-	register int quotef;	/* are we quoting the next char? */
+	int cpos;	/* current character position in string */
+	Ckey c;
+	int quotef;	/* are we quoting the next char? */
 
 	cpos = 0;
 	quotef = FALSE;
@@ -406,8 +396,7 @@ getstring(prompt, buf, nbuf, eolchar)
  * returns the width of the character.
  */
 static int
-prntchar(c)
-	register Char c;
+prntchar(Char c)
 {
   if (!disinp) return 0;
   if (c == '\n') {
@@ -431,8 +420,7 @@ prntchar(c)
  * kill one character C. returns the width of the character killed.
  */
 static int
-killchar(c)
-	register Char c;
+killchar(Char c)
 {
 	outstring(CSTR("\b \b"));
 	if (c == '\n') {
