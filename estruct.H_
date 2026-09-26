@@ -16,7 +16,9 @@
 #define DEBUGM	1	/* macro debugging				*/
 #define	VISMAC	0	/* update display during keyboard macros	*/
 #define	REVSTA	1	/* Status line appears in reverse video		*/
-#define	COLOR	0	/* color commands and windows			*/
+#define	COLOR	0	/* color commands and windows (set to 0 here;
+			   actual value derived from COLOR_DEPTH in econfig.h
+			   below to maintain backward compatibility) */
 #define ISRCH	1	/* Incremental searches like ITS EMACS		*/
 #define WORDPRO 1	/* Advanced word processing features		*/
 #define	FLABEL	0	/* function key label code			*/
@@ -58,8 +60,21 @@
 #define NKBDM	256			/* # of strokes, keyboard macro */
 #define NPAT	256			/* # of bytes, pattern		*/
 #define HUGE	1000			/* Huge number			*/
-#if COLOR
-# define NCOLORS 8			/* number of supported colors	*/
+#if COLOR_DEPTH > 0
+# undef COLOR
+# define COLOR 1
+# if COLOR_DEPTH >= 2
+#  define NCOLORS 256
+# else
+#  define NCOLORS 8
+# endif
+# if COLOR_DEPTH >= 3
+#  define TRUECOLOR 1
+# endif
+#else
+# ifndef NCOLORS
+#  define NCOLORS 8
+# endif
 #endif
 #define KBLOCK	250			/* sizeof kill buffer chunks	*/
 #define NBLOCK	16			/* line block chunk size	*/

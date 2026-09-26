@@ -1,12 +1,21 @@
-/*	tcap:	Unix V5, V7 and BS4.2 Termcap video driver
+/*
+	tcap:	Unix V5, V7 and BS4.2 Terminfo video driver
 		for MicroEMACS
 */
 
 #define termdef 1			/* don't define "term" external */
 
-#include	"ecomm.h"
-#include	"estruct.h"
-#include	"edef.h"
+#include "ecomm.h"
+#include "estruct.h"
+#include "edef.h"
+
+#include <term.h>
+
+/* setupterm/terminfo return OK (0) on success, ERR (-1) on failure.
+   <term.h> on most systems only declares these via <curses.h>; define locally. */
+#ifndef OK
+# define OK 0
+#endif
 
 static Char *dummy = CSTR("");
 
@@ -19,9 +28,9 @@ static Char *dummy = CSTR("");
 extern int	ttopen();
 extern Char	ttgetc();
 extern int	ttputc();
-extern int	tgetnum();
 extern int	ttflush();
 extern int	ttclose();
+
 extern int	tcapkopen();
 extern int	tcapkclose();
 extern int	tcapmove();
@@ -30,28 +39,44 @@ extern int	tcapeeop();
 extern int	tcapbeep();
 extern int	tcaprev();
 extern int	tcapopen();
-extern char	*tgoto();
-#if	COLOR
-extern	int	tcapfcol();
-extern	int	tcapbcol();
+#if COLOR
+extern int	tcapfcol();
+extern int	tcapbcol();
 #endif
 
-#define TCAPSLEN 1024
-static char tcapbuf[TCAPSLEN];
-char *UP;
-static char PC;
-static char *CM, *CE, *CL, *SO, *SE, *VS, *VE, *TI, *TE, *KS, *KE;
+extern int	putpad();
+extern int	putnpad();
+
+/*
+ * Terminfo capability name to variable mapping.
+ *
+ * Termcap -> Terminfo capability name mapping:
+ *   pc   -> (handled internally by setupterm/terminfo padding)
+ *   up   -> cuu1  (cursor up one line)
+ *   cm   -> cup   (cursor address / motion)
+ *   ce   -> el    (clear to end of line)
+ *   cl   -> clear (clear screen / home)
+ *   so   -> smso  (start standout / reverse video)
+ *   se   -> rmso  (end standout / reverse video)
+ *   vs   -> cvvis (cursor very visible)
+ *   ve   -> cnorm (cursor normal)
+ *   ti   -> smcup (enter alternate screen / cursor_address mode)
+ *   te   -> rmcup (exit alternate screen)
+ *   ks   -> smkx  (start keypad mode / enable function keys)
+ *   ke   -> rmkx  (end keypad mode / disable function keys)
+ */
+static char *UP, *CM, *CE, *CL, *SO, *SE, *VS, *VE, *TI, *TE, *KS, *KE;
 
 struct tctab {
-    char *cap;
-    char **str;
+	char *cap;
+	char **str;
 };
 
 static struct tctab tctab[] = {
-    {"up", &UP}, {"cm", &CM}, {"ce", &CE}, {"cl", &CL}, {"so", &SO},
-    {"se", &SE}, {"vs", &VS}, {"ve", &VE}, {"ti", &TI}, {"te", &TE},
-    {"ks", &KS}, {"ke", &KE},
-    {NULL, NULL}};
+	{"cuu1", &UP}, {"cup", &CM}, {"el", &CE}, {"clear", &CL},
+	{"smso", &SO}, {"rmso", &SE}, {"cvvis", &VS}, {"cnorm", &VE},
+	{"smcup", &TI}, {"rmcup", &TE}, {"smkx", &KS}, {"rmkx", &KE},
+	{NULL, NULL}};
 
 TERM term = {
 	0,	/* these four values are set dynamically at open time */
@@ -79,52 +104,60 @@ TERM term = {
 #endif
 };
 
+/* output a raw string character by character via ttputc.
+   Unlike putpad/tputs, this does NOT interpret $<delay> sequences. */
+out_str(s)
+	char *s;
+{
+	if (s != NULL)
+		while (*s)
+			ttputc(*s++);
+}
+
 tcapopen(void)
 {
-
-	char *t, *p, *tgetstr();
-	char tcbuf[1024];
 	char *tv_stype;
 	char err_str[72];
-#if	KANJI
+	int errret;
+	struct tctab *tp;
+#if KANJI
 	char *kj;
 #endif
-	struct tctab *tp;
 
 	if ((tv_stype = getenv("TERM")) == NULL) {
-		puts("Environment variable TERM not defined!");
-		exit(1);
+	    puts("Environment variable TERM not defined!");
+	    exit(1);
 	}
 
-	if ((tgetent(tcbuf, tv_stype)) != 1) {
-		(void)sprintf(err_str, "Unknown terminal type %s!", tv_stype);
-		puts(err_str);
-		exit(1);
+	/* initialize terminfo database for this terminal type */
+	if (setupterm(tv_stype, fileno(stdout), &errret) != OK) {
+	    (void)sprintf(err_str, "Unknown terminal type %s!", tv_stype);
+	    puts(err_str);
+	    exit(1);
 	}
 
 	get_screen_size(&term.t_nrow, &term.t_ncol);
 	term.t_mrow = term.t_nrow;
 	term.t_mcol = term.t_ncol;
 
-	p = tcapbuf;
-	t = tgetstr("pc", &p);
-	if (t)
-		PC = *t;
-
-	for (tp = tctab; tp->cap; tp++)
-	    *tp->str = tgetstr(tp->cap, &p);
+	/* load terminal capability strings via terminfo tigetstr */
+	for (tp = tctab; tp->cap; tp++) {
+	    *tp->str = tigetstr(tp->cap);
+	    /* tigetstr returns (char *)-1 for boolean/numeric caps */
+	    if (*tp->str == (char *)-1)
+	        *tp->str = NULL;
+	}
 
 	if (SO != NULL)
-		revexist = TRUE;
+	    revexist = TRUE;
 
-	if(CL == NULL || CM == NULL || UP == NULL)
-	{
-		puts("Incomplete termcap entry\n");
-		exit(1);
+	if (CL == NULL || CM == NULL || UP == NULL) {
+	    puts("Incomplete terminfo entry");
+	    exit(1);
 	}
 
 	if (CE == NULL)		/* will we be able to use clear to EOL? */
-		eolexist = FALSE;
+	    eolexist = FALSE;
 
 #if KANJI
 # if defined(DEF_T_CODE)
@@ -144,11 +177,13 @@ tcapopen(void)
 	kterminal = FALSE;
 #  endif
 # endif /* !DEF_T_CODE */
-	KS_EOLINT(term.t_code) = KS_EOLKNOWN; /* EOL type is fixed on KS_LF */
-	KS_EOL(term.t_code) = KS_LF; /* fixed on KS_LF */
+	KS_EOLINT(term.t_code) = KS_EOLKNOWN;
+	KS_EOL(term.t_code) = KS_LF;
 # if defined(KANJI_TERMCAP)
-	/* get terminal's KANJI spec from TERMCAP */
-	if ((kj = tgetstr(KANJI_TERMCAP, &p)) != NULL) {
+	/* get terminal's KANJI spec from terminfo.
+	   "KJ" is a kemacs-specific capability; tigetstr searches for it
+	   as a user-defined capability in the terminfo entry. */
+	if ((kj = tigetstr(KANJI_TERMCAP)) != NULL && kj != (char *)-1) {
 	  /* full spec can be retrieved */
 	  KS_INTERP(term.t_code) = KS_KANJI;
 #  if KMSGS
@@ -195,7 +230,7 @@ tcapopen(void)
 	    break;
 	  #endif
 	  }
-	} else if (tgetflag(KANJI_TERMCAP)) {
+	} else if (tigetflag(KANJI_TERMCAP) > 0) {
 #  if KMSGS
 	  kterminal = TRUE;
 #  endif
@@ -203,12 +238,7 @@ tcapopen(void)
 	}
 # endif /* KANJI_TERMCAP */
 #endif /* KANJI */
-	
-	if (p >= &tcapbuf[TCAPSLEN])
-	{
-		puts("Terminal description too big!\n");
-		exit(1);
-	}
+
 	ttopen();
 }
 
@@ -220,12 +250,23 @@ tcapkopen(void)
 #endif
 	putpad(TI);
 	putpad(VS);
+#if TERM_MODERN
+	/* Enable modern terminal features:
+	   1000: mouse tracking (button press/release)
+	   1004: focus tracking
+	   2004: bracketed paste mode */
+	out_str("\033[?1000h\033[?1004h\033[?2004h");
+#endif
 }
 
 tcapkclose(void)
 {
 	putpad(VE);
 	putpad(TE);
+#if TERM_MODERN
+	/* Disable modern terminal features */
+	out_str("\033[?1000l\033[?1004l\033[?2004l");
+#endif
 #if KANJI
 	putpad(KE);
 	kkclose();
@@ -234,8 +275,8 @@ tcapkclose(void)
 
 tcapmove(int row, int col)
 {
-
-	putpad(tgoto(CM, col, row));
+	if (CM != NULL)
+		putpad(tparm(CM, (long)row, (long)col));
 }
 
 tcapeeol()
@@ -248,7 +289,7 @@ tcapeeop()
 	putpad(CL);
 }
 
-tcaprev(state)		/* change reverse video status */
+tcaprev(state)		/* change reverse video status	*/
 	int state;	/* FALSE = normal video, TRUE = reverse video */
 {
 	static int revstate = FALSE;
@@ -263,15 +304,76 @@ tcaprev(state)		/* change reverse video status */
 	revstate = state;
 }
 
-#if	COLOR
-tcapfcol()	/* no colors here, ignore this */
+#if COLOR
+# if COLOR_DEPTH == 1
+/* 8-color SGR sequences: 3N foreground, 4N background */
+tcapfcol(color)
+	int color;
 {
+	char buf[16];
+	(void)sprintf(buf, "\033[%dm", 30 + (color & 7));
+	out_str(buf);
 }
 
-tcapbcol()	/* no colors here, ignore this */
+tcapbcol(color)
+	int color;
 {
+	char buf[16];
+	(void)sprintf(buf, "\033[%dm", 40 + (color & 7));
+	out_str(buf);
 }
-#endif
+# elif COLOR_DEPTH == 2
+/* 256-color SGR: 38;5;N foreground, 48;5;N background */
+tcapfcol(color)
+	int color;
+{
+	char buf[32];
+	(void)sprintf(buf, "\033[38;5;%dm", color & 0xFF);
+	out_str(buf);
+}
+
+tcapbcol(color)
+	int color;
+{
+	char buf[32];
+	(void)sprintf(buf, "\033[48;5;%dm", color & 0xFF);
+	out_str(buf);
+}
+# elif COLOR_DEPTH >= 3
+/* Truecolor SGR: 38;2;r;g;b foreground, 48;2;r;g;b background.
+   Maps the 8 basic color indices to standard VGA RGB values. */
+static const struct { int r, g, b; } rgb_table[8] = {
+    {   0,   0,   0 },  /* 0 = black   */
+    { 205,   0,   0 },  /* 1 = red     */
+    {   0, 205,   0 },  /* 2 = green   */
+    { 205, 205,   0 },  /* 3 = yellow  */
+    {   0,   0, 238 },  /* 4 = blue    */
+    { 205,   0, 205 },  /* 5 = magenta */
+    {   0, 205, 205 },  /* 6 = cyan    */
+    { 229, 229, 229 }   /* 7 = white   */
+};
+
+tcapfcol(color)
+	int color;
+{
+	char buf[48];
+	int c = color & 7;
+	(void)sprintf(buf, "\033[38;2;%d;%d;%dm",
+		      rgb_table[c].r, rgb_table[c].g, rgb_table[c].b);
+	out_str(buf);
+}
+
+tcapbcol(color)
+	int color;
+{
+	char buf[48];
+	int c = color & 7;
+	(void)sprintf(buf, "\033[48;2;%d;%d;%dm",
+		      rgb_table[c].r, rgb_table[c].g, rgb_table[c].b);
+	out_str(buf);
+}
+# endif /* COLOR_DEPTH */
+#endif /* COLOR */
 
 tcapbeep()
 {
@@ -279,21 +381,22 @@ tcapbeep()
 }
 
 putpad(str)
-	char	*str;
+	char *str;
 {
 	putnpad(str, 1);
 }
 
 putnpad(str, n)
-	char	*str;
+	char *str;
 {
-	if(str != NULL)
+	if (str != NULL)
 		tputs(str, n, ttputc);
 }
 
-#if	FLABEL
+#if FLABEL
 /*ARGSUSED*/
 fnclabel(f, n)		/* label a function key */
+	int f, n;
 {
 	/* on machines with no function keys...don't bother */
 	return(TRUE);
@@ -314,11 +417,9 @@ get_screen_size(rowp, colp)
 int *rowp, *colp;
 {
 	int row, col, i;
-	char	*p;
+	char *p;
 
 #ifdef TIOCGWINSZ
- /* try TIOCGWINSZ first, since some systems have #define TIOCGSIZE TIOCGWINSZ
-    but don't have struct winsize. */
 	struct winsize wsz;
 
 	if(ioctl(fileno(stdout), TIOCGWINSZ, &wsz) == -1)
@@ -333,48 +434,48 @@ int *rowp, *colp;
 #endif
 
 #if USE_ENVSZ
-	if(NULL != (p = getenv("LINES"))){
+	if(NULL != (p = getenv("LINES"))) {
 		row = atoi(p) - 1;
 	} else
 #endif
 #ifdef TIOCGWINSZ
-	if(wsz.ws_row){
+	if(wsz.ws_row) {
 		row = wsz.ws_row - 1;
 	} else
 #else
 #ifdef TIOCGSIZE
-	if(tty.ts_lines){
+	if(tty.ts_lines) {
 		row = tty.ts_lines - 1;
 	} else
 #endif
 #endif
-	if((i = tgetnum("li")) != -1){
+	if((i = tigetnum("lines")) != -1) {
 		row = i - 1;
 	} else {
-		puts("termcap entry incomplete (lines)");
+		puts("Terminfo entry incomplete (lines)");
 		exit(1);
 	}
 
 #if USE_ENVSZ
-	if(NULL != (p = getenv("COLUMNS"))){
+	if(NULL != (p = getenv("COLUMNS"))) {
 		col = atoi(p);
 	} else
 #endif
 #ifdef TIOCGWINSZ
-	if(wsz.ws_col){
+	if(wsz.ws_col) {
 		col = wsz.ws_col;
 	} else
 #else
 #ifdef TIOCGSIZE
-	if(tty.ts_cols){
+	if(tty.ts_cols) {
 		col = tty.ts_cols;
 	} else
 #endif
 #endif
-	if((i = tgetnum("co")) != -1){
+	if((i = tigetnum("cols")) != -1) {
 		col = i;
 	} else {
-		puts("Termcap entry incomplete (columns)");
+		puts("Terminfo entry incomplete (columns)");
 		exit(1);
 	}
 

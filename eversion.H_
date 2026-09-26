@@ -28,6 +28,13 @@
  * $Log: eversion.H,v $
  * Revision 4.12  1993/07/06  06:03:56  sanewo
  * Patch #12 released.
+ *
+ * Termcap -> Terminfo migration (2026):
+ * tcap.C: replaced termcap (tgetent/tgetstr/tgetflag/tgetnum/tgoto)
+ * with ncurses terminfo API (setupterm/tigetstr/tigetflag/tigetnum/tparm).
+ * Added COLOR_DEPTH (0=none, 1=8-color, 2=256-color, 3=truecolor)
+ * and TERM_MODERN (focus tracking, bracketed paste, mouse reporting)
+ * compile-time options.
  * # see ChangeLog for the details.
  *
  * Revision 4.11  1993/06/08  06:51:58  sanewo

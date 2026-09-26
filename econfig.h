@@ -47,6 +47,20 @@
 #define MALLOC_VOIDSTAR	1	/* malloc() returns void* */
 #define HANDLE_UTF	1	/* handle UTF-8 (need iconv) */
 
+/* Color depth (SGR Select Graphic Rendition) support.
+   0 = no color (COLOR=0)
+   1 = 8 basic colors  (SGR 3N / 4N)
+   2 = 256 colors      (SGR 38;5;N / 48;5;N)
+   3 = truecolor       (SGR 38;2;r;g;b / 48;2;r;g;b) */
+#define COLOR_DEPTH	0
+
+/* Modern terminal features (compile-time option).
+   When 1, enables focus tracking (1004), bracketed paste (2004),
+   and mouse reporting (1000) sequences on keyboard open/close.
+   Note: kemacs does not yet parse mouse events — this only
+   configures the terminal. See section 3.16 for event handling. */
+#define TERM_MODERN	0
+
 /* KANJI usage */
 #define KANJI		1		/* use KANJI feature	*/
 
