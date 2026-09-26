@@ -15,17 +15,14 @@
 
 Char *itoaa(int i);
 
-varinit(void)		/* initialize the user variable list */
+int varinit(void)		/* initialize the user variable list */
 {
 	int i;
 
 	for (i=0; i < MAXVARS; i++)
 		uv[i].u_name[0] = 0;
 }
-
-static Char *
-gtfun(fname)	/* evaluate a function */
-	Char *fname;		/* name of function to evaluate */
+static Char *gtfun(Char *fname)  /* evaluate a function */
 {
 	int fnum;		/* index to function to eval */
 	Char arg1[NSTRING];		/* value of first argument */
@@ -134,10 +131,7 @@ gtfun(fname)	/* evaluate a function */
 	exit(-11);	/* never should get here */
 	/*NOTREACHED*/
 }
-
-static Char *
-gtusr(vname)	/* look up a user var's value */
-	Char *vname;		/* name of user variable to fetch */
+static Char *gtusr(Char *vname)  /* look up a user var's value */
 {
 
 	int vnum;	/* ordinal number of user var */
@@ -406,9 +400,7 @@ put_cperiod_hook(ENVAR *evp, Char *val)
 	return(TRUE);
 }
 #endif /* CLOCK */
-
-int
-setvar(f, n)		/* set a variable */
+int setvar(int f, int n)  /* set a variable */
 {
 	int vnum;	/* ordinal number of var refrenced */
 	int status;	/* status return */
@@ -582,10 +574,7 @@ itoaa(int i)
 
 	return(sp);
 }
-
-int
-gettyp(tok)	/* find the type of a passed token */
-	Char *tok;	/* token to analyze */
+int gettyp(Char *tok)  /* find the type of a passed token */
 {
 	Char c;	/* first char in token */
 
@@ -614,10 +603,7 @@ gettyp(tok)	/* find the type of a passed token */
 	default:	return(TKCMD);
 	}
 }
-
-Char *
-getval(tok)	/* find the value of a token */
-	Char *tok;		/* token to evaluate */
+Char *getval(Char *tok)  /* find the value of a token */
 {
 	int status;	/* error return */
 	BUFFER *bp;	/* temp buffer pointer */
@@ -690,16 +676,11 @@ getval(tok)	/* find the value of a token */
 }
 
 /*ARGSUSED*/
-int
-gtlbl(tok)	/* find the line number of the given label */
-	Char *tok;	/* label name to find */
+int gtlbl(Char *tok)  /* find the line number of the given label */
 {
 	return(1);
 }
-
-int
-stol(val)	/* convert a string to a numeric logical */
-	Char *val;	/* value to check for stol */
+int stol(Char *val)  /* convert a string to a numeric logical */
 {
 	/* check for logical values */
 	if (val[0] == 'F' || val[0] == 'f')
@@ -710,10 +691,7 @@ stol(val)	/* convert a string to a numeric logical */
 	/* check for numeric truth (!= 0) */
 	return((stoi(val) != 0));
 }
-
-Char *
-ltos(val)		/* numeric logical to string logical */
-	int val;	/* value to translate */
+Char *ltos(int val)  /* numeric logical to string logical */
 {
 	if (val)
 		return(truem);
@@ -789,7 +767,7 @@ code_string(KS_FLAG code)
   return b;
 }
 
-string_code(Char *str, KS_FLAG *code)
+int string_code(Char *str, KS_FLAG *code)
 {
   Char *p, *q;
 
@@ -893,8 +871,7 @@ abs(int x)
 }
 
 /* returns a random integer */
-int
-ernd()
+int ernd(void)
 {
 	seed = abs(seed * 1721 + 10007);
 	return(seed);

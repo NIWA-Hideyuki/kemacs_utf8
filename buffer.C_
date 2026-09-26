@@ -16,7 +16,7 @@
  * from some other window.
  */
 /*ARGSUSED*/
-usebuffer(int f, int n)
+int usebuffer(int f, int n)
 {
 	BUFFER *bp;
 	int	s;
@@ -34,7 +34,7 @@ usebuffer(int f, int n)
 	return(swbuffer(bp));
 }
 
-nextbuffer(int f, int n)	/* switch to the next buffer in the buffer list */
+int nextbuffer(int f, int n)	/* switch to the next buffer in the buffer list */
 {
 
 	BUFFER *bp;
@@ -64,8 +64,7 @@ nextbuffer(int f, int n)	/* switch to the next buffer in the buffer list */
 	return(swbuffer(bp));
 }
 
-swbuffer(bp)	/* make buffer BP current */
-	BUFFER *bp;
+int swbuffer(BUFFER *bp)  /* make buffer BP current */
 {
 	WINDOW *wp;
 
@@ -116,7 +115,7 @@ swbuffer(bp)	/* make buffer BP current */
  * line and the buffer header. Bound to "C-X K".
  */
 /*ARGSUSED*/
-killbuffer(int f, int n)
+int killbuffer(int f, int n)
 {
 	BUFFER *bp;
 	int	s;
@@ -136,8 +135,7 @@ killbuffer(int f, int n)
 	return(zotbuf(bp));
 }
 
-zotbuf(bp)	/* kill the buffer pointed to by bp */
-	BUFFER *bp;
+int zotbuf(BUFFER *bp)  /* kill the buffer pointed to by bp */
 {
 	BUFFER *bp1;
 	BUFFER *bp2;
@@ -174,7 +172,7 @@ zotbuf(bp)	/* kill the buffer pointed to by bp */
 }
 
 /*ARGSUSED*/
-namebuffer(f,n)		/*	Rename the current buffer	*/
+int namebuffer(int f, int n)  /*	Rename the current buffer	*/
 {
 	BUFFER *bp;	/* pointer to scan through all buffers */
 	Char bufn[NBUFN];	/* buffer to hold buffer name */
@@ -208,8 +206,7 @@ ask:	if (mlreply(
 /*
  * returns the name of Buffer-List buffer
  */
-Char *
-buffer_list_buffer_name()
+Char *buffer_list_buffer_name(void)
 {
 	return (
 #if KMSGS
@@ -230,7 +227,7 @@ buffer_list_buffer_name()
  * A numeric argument forces it to list invisible buffers as well.
  */
 /*ARGSUSED*/
-listbuffers(int f, int n)
+int listbuffers(int f, int n)
 {
 	/* Buffer list buffer	*/
 	if (!blistp &&
@@ -257,7 +254,7 @@ listbuffers(int f, int n)
  * is an error (if there is no memory). Iflag
  * indicates weather to list hidden buffers.
  */
-makelist(int iflag)
+int makelist(int iflag)
 {
 	Char	*cp1;
 	Char	*cp2;
@@ -435,7 +432,7 @@ makelist(int iflag)
 /*
  * make specified buffer on screen
  */
-make_onscreen(BUFFER *bp)
+int make_onscreen(BUFFER *bp)
 {
 	BUFFER *bp1;
 	WINDOW *wp;
@@ -471,7 +468,7 @@ make_onscreen(BUFFER *bp)
 	return(TRUE);
 }
 
-ltoa(Char buf[], int width, long num)
+int ltoa(Char buf[], int width, long num)
 {
 	buf[width] = 0;				/* End of string.	*/
 	while (num >= 10) {			/* Conditional digits.	*/
@@ -490,7 +487,7 @@ ltoa(Char buf[], int width, long num)
  * on the end. Return TRUE if it worked and
  * FALSE if you ran out of room.
  */
-addline(BUFFER *bp, Char *text)
+int addline(BUFFER *bp, Char *text)
 {
 	LINE	*lp;
 	int	i;
@@ -520,7 +517,7 @@ addline(BUFFER *bp, Char *text)
  * Return FALSE if no buffers
  * have been changed.
  */
-anycb()
+int anycb(void)
 {
 	BUFFER *bp;
 
@@ -615,7 +612,7 @@ bfind(Char *bname, int cflag, int bflag)
  * that are required. Return TRUE if everything
  * looks good.
  */
-bclear(BUFFER *bp)
+int bclear(BUFFER *bp)
 {
 	LINE	*lp;
 	int	s;
@@ -640,10 +637,7 @@ bclear(BUFFER *bp)
 }
 
 /*ARGSUSED*/
-unmark(f, n)	/* unmark the current buffers change flag */
-
-int f, n;	/* unused command arguments */
-
+int unmark(int f, int n)  /* unmark the current buffers change flag */
 {
 	curbp->b_flag &= ~BFCHG;
 	curwp->w_flag |= WFMODE;

@@ -67,7 +67,7 @@ VIDEO	**pscreen;			/* Physical screen. */
  * The original window has "WFCHG" set, so that it will get completely
  * redrawn on the first call to "update".
  */
-vtinit(void)
+int vtinit(void)
 {
     int i;
     VIDEO *vp;
@@ -110,7 +110,7 @@ vtinit(void)
  * system prompt will be written in the line). Shut down the channel to the
  * terminal.
  */
-vttidy(void)
+int vttidy(void)
 {
     mlerase();
     movecursor(term.t_nrow, 0);
@@ -124,7 +124,7 @@ vttidy(void)
  * screen. There is no checking for nonsense values; this might be a good
  * idea during the early stages.
  */
-vtmove(int row, int col)
+int vtmove(int row, int col)
 {
     vtrow = row;
     vtcol = col;
@@ -138,7 +138,7 @@ vtmove(int row, int col)
  * terminal buffers. Only column overflow is checked.
  */
 
-vtputc(Char c)
+int vtputc(Char c)
 {
 
     VIDEO *vp;	/* ptr to line being updated */
@@ -222,7 +222,7 @@ vtputc(Char c)
  * Erase from the end of the software cursor to the end of the line on which
  * the software cursor is located.
  */
-vteeol()
+int vteeol(void)
 {
     VIDEO	*vp;
 
@@ -235,7 +235,7 @@ vteeol()
 /* upscreen:	user routine to force a screen update
 		always finishes complete update		*/
 /*ARGSUSED*/
-upscreen(int f, int n)
+int upscreen(int f, int n)
 {
 	update(TRUE);
 	return(TRUE);
@@ -243,7 +243,7 @@ upscreen(int f, int n)
 
 /* updmode:	user routine to force a modeline update */
 /*ARGSUSED*/
-updmode(int f, int n)
+int updmode(int f, int n)
 {
 	upmode();
 	update(f);
@@ -257,7 +257,7 @@ updmode(int f, int n)
  * correct for the current window. Third, make the virtual and physical
  * screens the same.
  */
-update(int force)
+int update(int force)
 {
 #if	CLOCK
 	SIGRET_T (*f)();
@@ -271,7 +271,7 @@ update(int force)
 	(void)alarm(t);
 }
 
-do_update(int force)
+int do_update(int force)
 {
 #endif	/*CLOCK*/
 	WINDOW *wp;
@@ -328,7 +328,7 @@ do_update(int force)
 /*	reframe:	check to see if the cursor is on in the window
 			and re-frame it if needed or wanted		*/
 
-reframe(WINDOW *wp)
+int reframe(WINDOW *wp)
 {
 	LINE *lp;
 	int i;
@@ -379,7 +379,7 @@ reframe(WINDOW *wp)
 }
 
 /*	updone: update the current line to the virtual screen		*/
-updone(WINDOW *wp)
+int updone(WINDOW *wp)
 {
 	LINE *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
@@ -407,7 +407,7 @@ updone(WINDOW *wp)
 }
 
 /*	updall: update all the lines in a window on the virtual screen */
-updall(WINDOW *wp)
+int updall(WINDOW *wp)
 {
 	LINE *lp;	/* line to update */
 	int sline;	/* physical screen line to update */
@@ -441,7 +441,7 @@ updall(WINDOW *wp)
 
 /*	updpos: update the position of the hardware cursor and handle extended
 		lines. This is the only update for simple moves.	*/
-updpos()
+int updpos(void)
 {
 	LINE *lp;
 	Char c;
@@ -483,7 +483,7 @@ updpos()
 }
 
 /*	upddex: de-extend any line that derserves it		*/
-upddex()
+int upddex(void)
 {
 	WINDOW *wp;
 	LINE *lp;
@@ -519,7 +519,7 @@ upddex()
 
 /*	updgar: if the screen is garbage, clear the physical screen and
 		the virtual screen and force a full update		*/
-updgar()
+int updgar(void)
 {
 	Char *txt;
 	int i,j;
@@ -547,7 +547,7 @@ updgar()
 }
 
 /*	updupd: update the physical screen from the virtual screen	*/
-updupd(int force)
+int updupd(int force)
 {
 	VIDEO *vp1;
 	int i;
@@ -571,7 +571,7 @@ updupd(int force)
 		will be scrolled right or left to let the user see where
 		the cursor is
 								*/
-updext()
+int updext(void)
 {
 	int rcursor;	/* real cursor location */
 	LINE *lp;	/* pointer to current line */
@@ -628,7 +628,7 @@ updext()
  * character sequences; we are using VT52 functionality. Update the physical
  * row and column variables. It does try an exploit erase to end of line.
  */
-updateline(int row, struct VIDEO *vp1, struct VIDEO *vp2)
+int updateline(int row, struct VIDEO *vp1, struct VIDEO *vp2)
 {
 	Char *cp1;
 	Char *cp2;
@@ -785,7 +785,7 @@ dash(WINDOW *wp)
  * change the modeline format by hacking at this routine. Called by "update"
  * any time there is a dirty window.
  */
-modeline(WINDOW *wp)
+int modeline(WINDOW *wp)
 {
     Char *fp, *cp;
     Char c;
@@ -926,7 +926,7 @@ modeline(WINDOW *wp)
     }
 }
 
-upmode()	/* update all the mode lines */
+int upmode(void)  /* update all the mode lines */
 {
 	WINDOW *wp;
 
@@ -942,7 +942,7 @@ upmode()	/* update all the mode lines */
  * and column "col". The row and column arguments are origin 0. Optimize out
  * random calls. Update "ttrow" and "ttcol".
  */
-movecursor(int row, int col)
+int movecursor(int row, int col)
 {
     if (row!=ttrow || col!=ttcol) {
 	ttrow = row;
@@ -956,7 +956,7 @@ movecursor(int row, int col)
  * is not considered to be part of the virtual screen. It always works
  * immediately; the terminal buffer is flushed via a call to the flusher.
  */
-mlerase()
+int mlerase(void)
 {
     int i;
     
@@ -986,14 +986,12 @@ mlerase()
  */
 #ifdef HANDLE_VARIABLE_ARGS
 # if	HAVE_STDARG
-mlwrite(Char *fmt, ...)
+int mlwrite(Char *fmt, ...)
 # else
-mlwrite(va_alist) va_dcl
+int mlwrite(int va_alist)  va_dcl
 # endif
 #else
-/*VARARGS1*/
-mlwrite(fmt, arg)
-    Char *fmt;
+int mlwrite(Char *fmt, int arg)
 #endif
 {
     Char c;
@@ -1126,7 +1124,7 @@ mlwrite(fmt, arg)
 /*
  * kanji characters are treated as of width "2".
  */
-mlputs(Char *s)
+int mlputs(Char *s)
 {
     Char c;
 
@@ -1143,7 +1141,7 @@ mlputs(Char *s)
  * Write out an integer, in the specified radix. Update the physical cursor
  * position.
  */
-mlputi(int i, int r)
+int mlputi(int i, int r)
 {
     int q;
     static char hexdigits[] = "0123456789ABCDEF";
@@ -1165,7 +1163,7 @@ mlputi(int i, int r)
 /*
  * do the same except as a long integer.
  */
-mlputli(long l, int r)
+int mlputli(long l, int r)
 {
     long q;
 
@@ -1186,7 +1184,7 @@ mlputli(long l, int r)
 /*
  *	write out a scaled integer with two decimal places
  */
-mlputf(int s)
+int mlputf(int s)
 {
 	int i;	/* integer portion of number */
 	int f;	/* fractional portion of number */

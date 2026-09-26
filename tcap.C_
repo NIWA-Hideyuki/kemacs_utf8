@@ -106,15 +106,14 @@ TERM term = {
 
 /* output a raw string character by character via ttputc.
    Unlike putpad/tputs, this does NOT interpret $<delay> sequences. */
-out_str(s)
-	char *s;
+int out_str(char *s)
 {
 	if (s != NULL)
 		while (*s)
 			ttputc(*s++);
 }
 
-tcapopen(void)
+int tcapopen(void)
 {
 	char *tv_stype;
 	char err_str[72];
@@ -242,7 +241,7 @@ tcapopen(void)
 	ttopen();
 }
 
-tcapkopen(void)
+int tcapkopen(void)
 {
 #if KANJI
 	kkopen();
@@ -259,7 +258,7 @@ tcapkopen(void)
 #endif
 }
 
-tcapkclose(void)
+int tcapkclose(void)
 {
 	putpad(VE);
 	putpad(TE);
@@ -273,24 +272,23 @@ tcapkclose(void)
 #endif
 }
 
-tcapmove(int row, int col)
+int tcapmove(int row, int col)
 {
 	if (CM != NULL)
 		putpad(tparm(CM, (long)row, (long)col));
 }
 
-tcapeeol()
+int tcapeeol(void)
 {
 	putpad(CE);
 }
 
-tcapeeop()
+int tcapeeop(void)
 {
 	putpad(CL);
 }
 
-tcaprev(state)		/* change reverse video status	*/
-	int state;	/* FALSE = normal video, TRUE = reverse video */
+int tcaprev(int state)  /* change reverse video status	*/
 {
 	static int revstate = FALSE;
 	if (state && !revstate) {
@@ -307,16 +305,14 @@ tcaprev(state)		/* change reverse video status	*/
 #if COLOR
 # if COLOR_DEPTH == 1
 /* 8-color SGR sequences: 3N foreground, 4N background */
-tcapfcol(color)
-	int color;
+int tcapfcol(int color)
 {
 	char buf[16];
 	(void)sprintf(buf, "\033[%dm", 30 + (color & 7));
 	out_str(buf);
 }
 
-tcapbcol(color)
-	int color;
+int tcapbcol(int color)
 {
 	char buf[16];
 	(void)sprintf(buf, "\033[%dm", 40 + (color & 7));
@@ -324,16 +320,14 @@ tcapbcol(color)
 }
 # elif COLOR_DEPTH == 2
 /* 256-color SGR: 38;5;N foreground, 48;5;N background */
-tcapfcol(color)
-	int color;
+int tcapfcol(int color)
 {
 	char buf[32];
 	(void)sprintf(buf, "\033[38;5;%dm", color & 0xFF);
 	out_str(buf);
 }
 
-tcapbcol(color)
-	int color;
+int tcapbcol(int color)
 {
 	char buf[32];
 	(void)sprintf(buf, "\033[48;5;%dm", color & 0xFF);
@@ -353,8 +347,7 @@ static const struct { int r, g, b; } rgb_table[8] = {
     { 229, 229, 229 }   /* 7 = white   */
 };
 
-tcapfcol(color)
-	int color;
+int tcapfcol(int color)
 {
 	char buf[48];
 	int c = color & 7;
@@ -363,8 +356,7 @@ tcapfcol(color)
 	out_str(buf);
 }
 
-tcapbcol(color)
-	int color;
+int tcapbcol(int color)
 {
 	char buf[48];
 	int c = color & 7;
@@ -375,19 +367,17 @@ tcapbcol(color)
 # endif /* COLOR_DEPTH */
 #endif /* COLOR */
 
-tcapbeep()
+int tcapbeep(void)
 {
 	ttputc(BEL);
 }
 
-putpad(str)
-	char *str;
+int putpad(char *str)
 {
 	putnpad(str, 1);
 }
 
-putnpad(str, n)
-	char *str;
+int putnpad(char *str, int n)
 {
 	if (str != NULL)
 		tputs(str, n, ttputc);
@@ -395,8 +385,7 @@ putnpad(str, n)
 
 #if FLABEL
 /*ARGSUSED*/
-fnclabel(f, n)		/* label a function key */
-	int f, n;
+int fnclabel(int f, int n)  /* label a function key */
 {
 	/* on machines with no function keys...don't bother */
 	return(TRUE);
@@ -413,8 +402,7 @@ fnclabel(f, n)		/* label a function key */
 
 /* Get terminal size */
  /* modified by N.Nide; use LINES and COLUMNS if we have them (for uum) */
-get_screen_size(rowp, colp)
-int *rowp, *colp;
+int get_screen_size(int *rowp, int *colp)
 {
 	int row, col, i;
 	char *p;

@@ -13,12 +13,9 @@ static	FILE	*ffp;			/* File pointer, all functions. */
  * Open a file for reading.
  */
 #if KANJI
-ffropen(fn, code)
-     Char *fn;
-     unsigned code;
+int ffropen(Char *fn, unsigned code)
 #else
-ffropen(fn)
-    Char	*fn;
+int ffropen(Char *fn)
 #endif
 {
 #if KANJI
@@ -45,12 +42,9 @@ ffropen(fn)
  * (cannot create).
  */
 #if KANJI
-ffwopen(fn, code)
-     Char *fn;
-     unsigned code;
+int ffwopen(Char *fn, unsigned code)
 #else
-ffwopen(fn)
-    Char	*fn;
+int ffwopen(Char *fn)
 #endif
 {
 #if KANJI
@@ -79,10 +73,9 @@ ffwopen(fn)
  * Close a file. Should look at the status in all systems.
  */
 #if KANJI
-ffclose(code)
-  unsigned *code;
+int ffclose(unsigned *code)
 #else
-ffclose()
+int ffclose(void)
 #endif
 {
 #if KANJI
@@ -107,7 +100,7 @@ ffclose()
  * and the "nbuf" is its length, less the free newline. Return the status.
  * Check only at the newline.
  */
-ffputline(Char buf[], int nbuf)
+int ffputline(Char buf[], int nbuf)
 {
 	int	i;
 #if	CRYPT

@@ -27,7 +27,7 @@ static KFILE *kfp;
  * On reading, specified code is used as the default code of stream.
  * On writing, specified code is used.
  */
-kfopen(FILE * ffp, unsigned code)
+int kfopen(FILE * ffp, unsigned code)
 {
 
   kfp = kopen(ffp, code, 0);
@@ -39,7 +39,7 @@ kfopen(FILE * ffp, unsigned code)
  * On writing, code is not used anywhere.
  */
 unsigned
-kfclose()
+kfclose(void)
 {
   unsigned code;
 
@@ -56,7 +56,7 @@ kfgetc(FILE *fp)
 }
 
 /*ARGSUSED*/
-kfputc(Char c, FILE *fp)
+int kfputc(Char c, FILE *fp)
 {
     kputc(c, kfp);
 }
@@ -65,7 +65,7 @@ static KFILE *kip, *kop;
 /*
  * terminal I/O.
  */
-kkopen()
+int kkopen(void)
 {
   KS_FLAG icode
 #if	STRASSOK
@@ -90,7 +90,7 @@ kkopen()
   kop = kopen(stdout, KS_VALUE(term.t_code), 0);
 }
 
-kkclose()
+int kkclose(void)
 {
   kclose(kip);
   kclose(kop);
@@ -104,7 +104,7 @@ kkgetc(FILE *fp)
 }
 
 /*ARGSUSED*/
-kkputc(int cc, FILE *fp)
+int kkputc(int cc, FILE *fp)
 {
     kputc(cc, kop);
 }

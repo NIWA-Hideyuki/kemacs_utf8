@@ -12,7 +12,7 @@ static Char *dummy = CSTR("");
 #else	/*CRYPT*/
 
 /*ARGSUSED*/
-setcrkey(int f, int n)	/* reset encryption key of current buffer */
+int setcrkey(int f, int n)	/* reset encryption key of current buffer */
 {
 	int status;	/* return status */
 	int odisinp;		/* original value of disinp */
@@ -136,9 +136,7 @@ setcrkey(int f, int n)	/* reset encryption key of current buffer */
  *
  **********/
 
-cryptstr(bptr, len)
-	Char *bptr;	/* buffer of characters to be encrypted */
-	unsigned len;	/* number of characters in the buffer */
+int cryptstr(Char *bptr, unsigned len)
 {
 	Char cc;	/* current character being considered */
 

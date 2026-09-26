@@ -20,7 +20,7 @@ static int System();
  * Under some (unknown) condition, you don't get one free when DCL starts up.
  */
 /*ARGSUSED*/
-spawncli(int f, int n)
+int spawncli(int f, int n)
 {
 	char *cp;
 
@@ -48,7 +48,7 @@ spawncli(int f, int n)
 }
 
 #ifdef SIGTSTP
-bktoshell(void)		/* suspend MicroEMACS and wait to wake up */
+int bktoshell(void)		/* suspend MicroEMACS and wait to wake up */
 {
 	movecursor(term.t_nrow, 0);		/* Seek to last line.	*/
 	TTflush();
@@ -69,8 +69,7 @@ rtfrmshell(int SIGARG_T(dummy))
 }
 #endif
 
-static mktmpdir(s)
-    char *s; /* like "/tmp/kmXXXXXX" */
+int mktmpdir(char *s)
 {
 	char	*p;
 	long	l, lbase;
@@ -93,7 +92,7 @@ static mktmpdir(s)
  * done. Bound to "C-X !".
  */
 /*ARGSUSED*/
-spawn(int f, int n)
+int spawn(int f, int n)
 {
 	int	s;
 	Char		line[NLINE];
@@ -128,7 +127,7 @@ spawn(int f, int n)
  * Bound to ^X @
  */
 /*ARGSUSED*/
-pipecmd(int f, int n)
+int pipecmd(int f, int n)
 {
 	int	s;	/* return status from CLI */
 	WINDOW *wp;	/* pointer to new window */
@@ -216,7 +215,7 @@ pipecmd(int f, int n)
  * Bound to ^X #
  */
 /*ARGSUSED*/
-filter(int f, int n)
+int filter(int f, int n)
 {
 	int	s;	/* return status from CLI */
 	BUFFER *bp;	/* pointer to buffer to zot */

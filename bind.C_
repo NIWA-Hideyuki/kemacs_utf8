@@ -13,7 +13,7 @@ extern int meta_pfx(), cex(), unarg(), ctrlg(); /* dummy prefix binding function
 static int unbindchar();
 
 /*ARGSUSED*/
-deskey(int f, int n)	/* describe the command for a certain key */
+int deskey(int f, int n)	/* describe the command for a certain key */
 {
 	Ckey c;	/* command character to describe */
 	Char *ptr;	/* string pointer to scan output strings */
@@ -62,9 +62,7 @@ deskey(int f, int n)	/* describe the command for a certain key */
 		TTputc(*ptr++);
 }
 
-cmdstr(c, seq)	/* change a key command to a string we can print out */
-	Ckey c;		/* sequence to translate */
-	Char *seq;	/* destination string for sequence */
+int cmdstr(Ckey c, Char *seq)  /* change a key command to a string we can print out */
 {
 	Char *ptr;	/* pointer into current position in sequence */
 
@@ -115,7 +113,7 @@ help_buffer_name(void)
 }
 
 /*ARGSUSED*/
-help(f, n)	/* give me some help!!!!
+int help(int f, int n)  /* give me some help!!!!
 		   bring up a fake buffer and read the help file
 		   into it with view mode			*/
 {
@@ -208,7 +206,7 @@ int (*fncmatch(fname))() /* match fname to a function in the names table
 */
 
 /*ARGSUSED*/
-bindtokey(int f, int n)
+int bindtokey(int f, int n)
 {
 	Ckey c;	/* command key to bind */
 	int (*kfunc)(); /* ptr to the requexted function to bind to */
@@ -312,7 +310,7 @@ bindtokey(int f, int n)
 */
 
 /*ARGSUSED*/
-unbindkey(int f, int n)
+int unbindkey(int f, int n)
 {
 	Ckey c;		/* command key to unbind */
 	Char *ptr;	/* ptr to dump out input key string */
@@ -386,7 +384,7 @@ unbindchar(Ckey c)
 }
 
 /*ARGSUSED*/
-desbind(f, n)	/* describe bindings
+int desbind(int f, int n)  /* describe bindings
 		   bring up a fake buffer and list the key bindings
 		   into it with view mode			*/
 #if	APROP
@@ -395,7 +393,7 @@ desbind(f, n)	/* describe bindings
 }
 
 /*ARGSUSED*/
-apro(int f, int n)	/* Apropos (int f, int n) */
+int apro(int f, int n)	/* Apropos (int f, int n) */
 {
 	Char mstring[NSTRING];	/* string to match cmd names to */
 	int status;		/* status return */
@@ -422,9 +420,7 @@ binding_list_buffer_name(void)
 		CSTR("[Binding list]"));
 }
 
-buildlist(type, mstring)  /* build a binding list (limited or full) */
-	int type;	/* true = full list,   false = partial list */
-	Char *mstring;	/* match string if a partial list */
+int buildlist(int type, Char *mstring)  /* build a binding list (limited or full) */
 #endif /* APROP */
 {
 	KEYTAB *ktp;	/* pointer into the command table */
@@ -511,9 +507,7 @@ fail:		/* and on to the next name */
 }
 
 #if	APROP
-strinc(source, sub)	/* does source include sub? */
-	Char *source;	/* string to search in */
-	Char *sub;	/* substring to look for */
+int strinc(Char *source, Char *sub)  /* does source include sub? */
 {
 	Char *sp;	/* ptr into source */
 	Char *nxtsp;	/* next ptr into source */
@@ -569,7 +563,7 @@ getckey(int mflag)
 
 /* execute the startup file */
 
-startup(Char *sfname)
+int startup(Char *sfname)
 {
 	int status;	/* status of I/O operations */
 	int i;		/* index into help file names */

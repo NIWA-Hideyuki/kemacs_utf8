@@ -18,7 +18,7 @@
  * Bound to "C-X C-R".
  */
 /*ARGSUSED*/
-fileread(int f, int n)
+int fileread(int f, int n)
 {
 	int	s;
 	Char fname[NFILEN];
@@ -41,7 +41,7 @@ fileread(int f, int n)
  * Bound to "C-X C-I".
  */
 /*ARGSUSED*/
-insfile(int f, int n)
+int insfile(int f, int n)
 {
 	int	s;
 	Char fname[NFILEN];
@@ -72,7 +72,7 @@ insfile(int f, int n)
  * Bound to C-X C-F.
  */
 /*ARGSUSED*/
-filefind(int f, int n)
+int filefind(int f, int n)
 {
 	Char fname[NFILEN];	/* file user wishes to find */
 	int s;		/* status return */
@@ -92,7 +92,7 @@ filefind(int f, int n)
 }
 
 /*ARGSUSED*/
-viewfile(int f, int n)	/* visit a file in VIEW mode */
+int viewfile(int f, int n)	/* visit a file in VIEW mode */
 {
 	Char fname[NFILEN];	/* file user wishes to find */
 	int s;		/* status return */
@@ -119,7 +119,7 @@ viewfile(int f, int n)	/* visit a file in VIEW mode */
 }
 
 #if	CRYPT
-resetkey(void)	/* reset the encryption key if needed */
+int resetkey(void)	/* reset the encryption key if needed */
 
 {
 	int s;	/* return status */
@@ -152,7 +152,7 @@ resetkey(void)	/* reset the encryption key if needed */
 }
 #endif
 
-getfile(Char fname[], int lockfl)
+int getfile(Char fname[], int lockfl)
 {
 	BUFFER *bp;
 	LINE	*lp;
@@ -223,7 +223,7 @@ getfile(Char fname[], int lockfl)
  * set for the current buffer.
  */
 /*ARGSUSED*/
-readin(Char fname[], int lockfl)
+int readin(Char fname[], int lockfl)
 {
 	LINE	*lp1;
 	LINE	*lp2;
@@ -387,7 +387,7 @@ readin(Char fname[], int lockfl)
  * I suppose that this information could be put in
  * a better place than a line of code.
  */
-makename(Char *bname, Char *fname)
+int makename(Char *bname, Char *fname)
 {
 
 	Char	*cp1;
@@ -407,7 +407,7 @@ makename(Char *bname, Char *fname)
  * with ITS EMACS. Bound to "C-X C-W".
  */
 /*ARGSUSED*/
-filewrite(int f, int n)
+int filewrite(int f, int n)
 {
 	int	s;
 	Char		fname[NFILEN];
@@ -440,7 +440,7 @@ filewrite(int f, int n)
  * get called by "C-Z".
  */
 /*ARGSUSED*/
-filesave(int f, int n)
+int filesave(int f, int n)
 {
 	int	s;
 
@@ -478,7 +478,7 @@ filesave(int f, int n)
  * a macro for this. Most of the grief is error
  * checking of some sort.
  */
-writeout(Char *fn)
+int writeout(Char *fn)
 {
 	int	s;
 	LINE	*lp;

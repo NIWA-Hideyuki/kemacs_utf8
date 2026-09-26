@@ -18,7 +18,7 @@ static int prntchar(), killchar();
  * with a ^G. Used any time a confirmation is required.
  */
 
-mlyesno(Char * prompt)
+int mlyesno(Char * prompt)
 {
 
 	Char c;			/* input character */
@@ -51,12 +51,12 @@ mlyesno(Char * prompt)
  * lets macros run at full speed. The reply is always terminated by a carriage
  * return. Handle erase, kill, and abort keys.
  */
-mlreply(Char *prompt, Char *buf, int nbuf)
+int mlreply(Char *prompt, Char *buf, int nbuf)
 {
 	return(nextarg(prompt, buf, nbuf, ctoec('\n')));
 }
 
-mlreplyt(Char *prompt, Char *buf, int nbuf, Ckey eolchar)
+int mlreplyt(Char *prompt, Char *buf, int nbuf, Ckey eolchar)
 {
 	return(nextarg(prompt, buf, nbuf, eolchar));
 }
@@ -200,9 +200,7 @@ onward:;
 
 /*	tgetc:	Get a key from the terminal driver, resolve any keyboard
 		macro action					*/
-
-Char
-tgetc()
+Char tgetc(void)
 {
 	int c;	/* fetched character */
 
@@ -254,9 +252,7 @@ tgetc()
  *	GET1KEY:	Get one keystroke. The only prefix legal here
  *			is the CTLFLG prefix.
  */
-
-Ckey
-get1key()
+Ckey get1key(void)
 {
 	Ckey	c;
 
@@ -272,8 +268,7 @@ get1key()
  *	GETCMD: Get a command from the keyboard. Process all applicable
  *		prefix keys
  */
-Ckey
-getcmd()
+Ckey getcmd(void)
 {
 	Ckey c;		/* fetched keystroke */
 	Ckey m;		/* prefix mask */
@@ -321,7 +316,7 @@ getcmd()
  *	to specify the proper terminator. If the terminator is not
  *	a return ('\n') it will echo as "<NL>"
  */
-getstring(Char *prompt, Char *buf, int nbuf, Ckey eolchar)
+int getstring(Char *prompt, Char *buf, int nbuf, Ckey eolchar)
 {
 	int cpos;	/* current character position in string */
 	Ckey c;
@@ -440,8 +435,7 @@ killchar(Char c)
 	return 1;
 }
 
-outstring(s)	/* output a string of characters */
-	Char *s;	/* string to output */
+int outstring(Char *s)  /* output a string of characters */
 {
   if (disinp)
     while (*s)

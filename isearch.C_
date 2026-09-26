@@ -136,7 +136,7 @@ fisearch(int f, int n)
  */
  
 /*ARGSUSED*/
-isearch(int f, int n)
+int isearch(int f, int n)
 {
     int			status;		/* Search status */
     int			col;		/* prompt column */
@@ -285,12 +285,7 @@ start_over:
  * If the compare fails, we return FALSE and assume the caller will call
  * scanmore or something.
  */
-
-int
-checknext (chr, patrn, dir) /* Check next character in search string */
-	Char	chr;		/* Next char to look for		 */
-	Char	*patrn;		/* The entire search string (incl chr)   */
-	int	dir;		/* Search direction			 */
+int checknext(Char chr, Char *patrn, int dir)  /* Check next character in search string */
 {
     LINE *curline;		/* current line during scan	      */
     int curoff;		/* position within current line	      */
@@ -334,11 +329,7 @@ checknext (chr, patrn, dir) /* Check next character in search string */
  * forward searches and at the beginning of the matched string for reverse
  * searches.
  */
- 
-int
-scanmore(patrn, dir)	/* search forward or back for a pattern	      */
-	Char	*patrn;		/* string to scan for			      */
-	int	dir;		/* direction to search			      */
+int scanmore(Char *patrn, int dir)  /* search forward or back for a pattern	      */
 {
 	int	sts;			/* search status		      */
 
@@ -368,10 +359,7 @@ scanmore(patrn, dir)	/* search forward or back for a pattern	      */
  * at the end of the search string (instead of in front), so all that needs to
  * be done is match the last char input.
  */
-
-int
-match_pat (patrn)	/* See if the pattern string matches string at "."   */
-    Char	*patrn;	/* String to match to buffer			     */
+int match_pat(Char *patrn)  /* See if the pattern string matches string at "."   */
 {
     int  i;			/* Generic loop index/offset	      */
     Char buffchar;		/* character at current position      */
@@ -477,8 +465,7 @@ echochar(Char c, int col)
  * Otherwise, we must be re-executing the command string, so just return the
  * next character.
  */
-static Ckey
-get_char ()
+static Ckey get_char(void)
 {
     Ckey c;				/* A place to get a character	      */
 
@@ -514,9 +501,7 @@ get_char ()
  */
 
 /* Come here on the next term.t_getchar call: */
-
-static Char
-uneat()
+static Char uneat(void)
 {
     Char c;
 

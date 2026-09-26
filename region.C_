@@ -16,7 +16,7 @@
  * Bound to "C-W".
  */
 /*ARGSUSED*/
-killregion(int f, int n)
+int killregion(int f, int n)
 {
 	int	s;
 	REGION		region;
@@ -40,7 +40,7 @@ killregion(int f, int n)
  * by a yank. Bound to "M-W".
  */
 /*ARGSUSED*/
-copyregion(int f, int n)
+int copyregion(int f, int n)
 {
 	LINE	*linep;
 	int	loffs;
@@ -78,7 +78,7 @@ copyregion(int f, int n)
  * "C-X C-L".
  */
 /*ARGSUSED*/
-lowerregion(int f, int n)
+int lowerregion(int f, int n)
 {
 	LINE	*linep;
 	int	loffs;
@@ -116,7 +116,7 @@ lowerregion(int f, int n)
  * "C-X C-L".
  */
 /*ARGSUSED*/
-upperregion(int f, int n)
+int upperregion(int f, int n)
 {
 	LINE	*linep;
 	int	loffs;
@@ -156,7 +156,7 @@ upperregion(int f, int n)
  * an "ABORT" status; we might make this have the
  * conform thing later.
  */
-getregion(REGION * rp)
+int getregion(REGION * rp)
 {
 
 	LINE	*flp;

@@ -20,7 +20,7 @@ static int isword_gap(Char c1, Char c2);
  * Returns TRUE on success, FALSE on errors.
  */
 /*ARGSUSED*/
-wrapword(int f, int n)
+int wrapword(int f, int n)
 {
 	int cnt;	/* size of word wrapped to next line */
 	Char c;	/* charector temporary */
@@ -76,7 +76,7 @@ wrapword(int f, int n)
  * performed by the "backchar" and "forwchar" routines. Error if you try to
  * move beyond the buffers.
  */
-backword(int f, int n)
+int backword(int f, int n)
 {
 	if (n < 0)
 		return (forwword(f, -n));
@@ -93,7 +93,7 @@ backword(int f, int n)
  * Move the cursor forward by the specified number of words. All of the motion
  * is done by "forwchar". Error if you try and move beyond the buffer's end.
  */
-forwword(int f, int n)
+int forwword(int f, int n)
 {
 	if (n < 0)
 		return (backword(f, -n));
@@ -121,7 +121,7 @@ forwword(int f, int n)
  * end of the buffer. Bound to "M-U".
  */
 /*ARGSUSED*/
-upperword(int f, int n)
+int upperword(int f, int n)
 {
 	Char	c;
 
@@ -156,7 +156,7 @@ upperword(int f, int n)
  * the buffer. Bound to "M-L".
  */
 /*ARGSUSED*/
-lowerword(int f, int n)
+int lowerword(int f, int n)
 {
 	Char	c;
 
@@ -192,7 +192,7 @@ lowerword(int f, int n)
  * buffer. Bound to "M-C".
  */
 /*ARGSUSED*/
-capword(int f, int n)
+int capword(int f, int n)
 {
 	Char	c;
 
@@ -231,7 +231,7 @@ capword(int f, int n)
  * command for the right number of characters. Bound to "M-D".
  */
 /*ARGSUSED*/
-delfword(int f, int n)
+int delfword(int f, int n)
 {
 	LINE	*dotp;
 	int	doto;
@@ -305,7 +305,7 @@ delfword(int f, int n)
  * fire off the kill command. Bound to "M-Rubout" and to "M-Backspace".
  */
 /*ARGSUSED*/
-delbword(int f, int n)
+int delbword(int f, int n)
 {
 	long size;
 
@@ -331,7 +331,7 @@ delbword(int f, int n)
  * Return TRUE if the character at dot is a character that is considered to be
  * part of a word. The word character list is hard coded. Should be setable.
  */
-inword(void)
+int inword(void)
 {
 	Char	c;
 
@@ -351,7 +351,7 @@ inword(void)
 /*
  * Return TRUE if dot points to the top of a word.
  */
-top_of_word(void)
+int top_of_word(void)
 {
 	Char c1, c2;
 	int s;
@@ -377,7 +377,7 @@ top_of_word(void)
 /*
  * Return TRUE if dot points to the end of a word.
  */
-end_of_word(void)
+int end_of_word(void)
 {
 	Char c1, c2;
 	int s;
@@ -404,7 +404,7 @@ end_of_word(void)
 /*
  * Return TRUE if there is gap between c1 and c2.
  */
-isword_gap(Char c1, Char c2)
+int isword_gap(Char c1, Char c2)
 {
 
     if (isascii(c1) && isascii(c2) ||
@@ -431,7 +431,7 @@ enum ch_type {
     CH_KANJI,
 };
 
-ch_type(Char c)
+int ch_type(Char c)
 {
     int h;
 
@@ -462,7 +462,7 @@ ch_type(Char c)
 #define END	} else
 
 /*ARGSUSED*/
-fillpara(f, n)	/* Fill the current paragraph according to the current
+int fillpara(int f, int n)  /* Fill the current paragraph according to the current
 		   fill column						*/
 {
 	Char c;		/* current char durring scan	*/
@@ -604,11 +604,7 @@ fillpara(f, n)	/* Fill the current paragraph according to the current
 }
 
 /*ARGSUSED*/
-killpara(f, n)	/* delete n paragraphs starting with the current one */
-
-int f;	/* default flag */
-int n;	/* # of paras to delete */
-
+int killpara(int f, int n)  /* delete n paragraphs starting with the current one */
 {
 	int status;	/* returned status of functions */
 
@@ -641,7 +637,7 @@ int n;	/* # of paras to delete */
 			and report on them.			*/
 
 /*ARGSUSED*/
-wordcount(int f, int n)
+int wordcount(int f, int n)
 {
 	LINE *lp;	/* current line to scan */
 	int offset;	/* current char to scan */
@@ -712,7 +708,7 @@ wordcount(int f, int n)
 /*
  * return TRUE if character C placed at column COL should be wrapped around.
  */
-should_wrap(Char c, int col)
+int should_wrap(Char c, int col)
 {
     return ((col += 1+(iswidechar(c))) >= fillcol && kinsoku1(c)) ||
 	   (col > fillcol && !kinsoku2(c));
@@ -727,7 +723,7 @@ should_wrap(Char c, int col)
  * return TRUE if C is a character which should never be placed
  * at the end of the line.
  */
-kinsoku1(Char c)
+int kinsoku1(Char c)
 {
     switch (c) {
     case '(':
@@ -761,7 +757,7 @@ kinsoku1(Char c)
  * return TRUE if C is a character which should never be placed
  * at the top of line.
  */
-kinsoku2(Char c)
+int kinsoku2(Char c)
 {
     switch (c) {
     case '!':
@@ -846,7 +842,7 @@ kinsoku2(Char c)
  *  else return FALSE.
  */
 
-iswhite()
+int iswhite(void)
 {
   Char c;
 
@@ -857,7 +853,7 @@ iswhite()
   return (FALSE);
 }
 
-iseol()
+int iseol(void)
 {
     return (curwp->w_doto == llength(curwp->w_dotp));
 }

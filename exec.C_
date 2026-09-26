@@ -14,7 +14,7 @@ static Char outline[NSTRING];	/* global string to hold debug line text */
 /* namedcmd:	execute a named command even if it is not bound
 */
 
-namedcmd(int f, int n)
+int namedcmd(int f, int n)
 {
 	int (*kfunc)(); /* ptr to the requested function to bind to */
 	int (*getname())();
@@ -49,7 +49,7 @@ namedcmd(int f, int n)
 			by the user					*/
 
 /*ARGSUSED*/
-execcmd(int f, int n)
+int execcmd(int f, int n)
 {
 	int status;		/* status return */
 	Char cmdstr[NSTRING];		/* string holding command to execute */
@@ -88,7 +88,7 @@ execcmd(int f, int n)
 	if COMPAT option is enabled, old [endm] notation also accepted.
 */
 
-docmd(Char *cline)
+int docmd(Char *cline)
 {
 	int f;		/* default argument flag */
 	int n;		/* numeric repeat value */
@@ -384,8 +384,7 @@ token(Char *src, Char *tok)
 	return(src);
 }
 
-macarg(tok)	/* get a macro line argument */
-	Char *tok;	/* buffer to place argument */
+int macarg(Char *tok)  /* get a macro line argument */
 {
 	int savcle;	/* buffer to store original clexec */
 	int status;
@@ -400,7 +399,7 @@ macarg(tok)	/* get a macro line argument */
 
 /*	nextarg:	get the next argument	*/
 
-nextarg(Char *prompt, Char *buffer, int size, Ckey terminator)
+int nextarg(Char *prompt, Char *buffer, int size, Ckey terminator)
 {
 	/* if we are interactive, go get it! */
 	if (clexec == FALSE)
@@ -417,7 +416,7 @@ nextarg(Char *prompt, Char *buffer, int size, Ckey terminator)
 /*	storemac:	Set up a macro buffer and flag to store all
 			executed command lines there			*/
 
-storemac(int f, int n)
+int storemac(int f, int n)
 {
 	struct BUFFER *bp;	/* pointer to macro buffer */
 	Char bname[NBUFN];		/* name of buffer to use */
@@ -470,7 +469,7 @@ storemac(int f, int n)
 /*	storeproc:	Set up a procedure buffer and flag to store all
 			executed command lines there			*/
 
-storeproc(int f, int n)
+int storeproc(int f, int n)
 {
 	struct BUFFER *bp;	/* pointer to macro buffer */
 	int status;		/* return status */
@@ -514,7 +513,7 @@ storeproc(int f, int n)
 
 /*	execproc:	Execute a procedure				*/
 /*ARGSUSED*/
-execproc(int f, int n)
+int execproc(int f, int n)
 {
   BUFFER *bp;		/* ptr to buffer to execute */
   int status;		/* status return */
@@ -554,7 +553,7 @@ execproc(int f, int n)
 /*	execbuf:	Execute the contents of a buffer of commands	*/
 
 /*ARGSUSED*/
-execbuf(int f, int n)
+int execbuf(int f, int n)
 {
 	BUFFER *bp;		/* ptr to buffer to execute */
 	int status;		/* status return */
@@ -589,7 +588,7 @@ execbuf(int f, int n)
 /*	dobuf:	execute the contents of the buffer pointed to
 		by the passed BP				*/
 
-dobuf(BUFFER *bp)
+int dobuf(BUFFER *bp)
 {
 	int status;		/* status return */
 	LINE *lp;		/* pointer to line to execute */
@@ -697,7 +696,7 @@ dobuf(BUFFER *bp)
 }
 
 /*ARGSUSED*/
-execfile(int f, int n)	/* execute a series of commands in a file */
+int execfile(int f, int n)	/* execute a series of commands in a file */
 {
 	int status;	/* return status of name query */
 	Char fname[NSTRING];	/* name of file to execute */
@@ -721,7 +720,7 @@ execfile(int f, int n)	/* execute a series of commands in a file */
 /*	dofile: yank a file into a buffer and execute it
 		if there are no errors, delete the buffer on exit */
 
-dofile(Char *fname)
+int dofile(Char *fname)
 {
 	BUFFER *bp;	/* buffer to place file to exeute */
 	BUFFER *cb;	/* temp to hold current buf while we read */
@@ -756,7 +755,7 @@ dofile(Char *fname)
 /*	cbuf:	Execute the contents of a numbered buffer	*/
 
 /*ARGSUSED*/
-cbuf(int f, int n, int bufnum)
+int cbuf(int f, int n, int bufnum)
 {
 	BUFFER *bp;		/* ptr to buffer to execute */
 	int status;		/* status return */
@@ -784,7 +783,7 @@ cbuf(int f, int n, int bufnum)
 	return(TRUE);
 }
 
-cbufn(int f, int n)
+int cbufn(int f, int n)
 {
 	Char buf[NSTRING];
 	/*
@@ -801,202 +800,202 @@ cbufn(int f, int n)
 	return cbuf(f, n, stoi(buf));
 }
 
-cbuf1(int f, int n)
+int cbuf1(int f, int n)
 {
 	return cbuf(f, n, 1);
 }
 
-cbuf2(int f, int n)
+int cbuf2(int f, int n)
 {
 	return cbuf(f, n, 2);
 }
 
-cbuf3(int f, int n)
+int cbuf3(int f, int n)
 {
 	return cbuf(f, n, 3);
 }
 
-cbuf4(int f, int n)
+int cbuf4(int f, int n)
 {
 	return cbuf(f, n, 4);
 }
 
-cbuf5(int f, int n)
+int cbuf5(int f, int n)
 {
 	return cbuf(f, n, 5);
 }
 
-cbuf6(int f, int n)
+int cbuf6(int f, int n)
 {
 	return cbuf(f, n, 6);
 }
 
-cbuf7(int f, int n)
+int cbuf7(int f, int n)
 {
 	return cbuf(f, n, 7);
 }
 
-cbuf8(int f, int n)
+int cbuf8(int f, int n)
 {
 	return cbuf(f, n, 8);
 }
 
-cbuf9(int f, int n)
+int cbuf9(int f, int n)
 {
 	return cbuf(f, n, 9);
 }
 
-cbuf10(int f, int n)
+int cbuf10(int f, int n)
 {
 	return cbuf(f, n, 10);
 }
 
-cbuf11(int f, int n)
+int cbuf11(int f, int n)
 {
 	return cbuf(f, n, 11);
 }
 
-cbuf12(int f, int n)
+int cbuf12(int f, int n)
 {
 	return cbuf(f, n, 12);
 }
 
-cbuf13(int f, int n)
+int cbuf13(int f, int n)
 {
 	return cbuf(f, n, 13);
 }
 
-cbuf14(int f, int n)
+int cbuf14(int f, int n)
 {
 	return cbuf(f, n, 14);
 }
 
-cbuf15(int f, int n)
+int cbuf15(int f, int n)
 {
 	return cbuf(f, n, 15);
 }
 
-cbuf16(int f, int n)
+int cbuf16(int f, int n)
 {
 	return cbuf(f, n, 16);
 }
 
-cbuf17(int f, int n)
+int cbuf17(int f, int n)
 {
 	return cbuf(f, n, 17);
 }
 
-cbuf18(int f, int n)
+int cbuf18(int f, int n)
 {
 	return cbuf(f, n, 18);
 }
 
-cbuf19(int f, int n)
+int cbuf19(int f, int n)
 {
 	return cbuf(f, n, 19);
 }
 
-cbuf20(int f, int n)
+int cbuf20(int f, int n)
 {
 	return cbuf(f, n, 20);
 }
 
-cbuf21(int f, int n)
+int cbuf21(int f, int n)
 {
 	return cbuf(f, n, 21);
 }
 
-cbuf22(int f, int n)
+int cbuf22(int f, int n)
 {
 	return cbuf(f, n, 22);
 }
 
-cbuf23(int f, int n)
+int cbuf23(int f, int n)
 {
 	return cbuf(f, n, 23);
 }
 
-cbuf24(int f, int n)
+int cbuf24(int f, int n)
 {
 	return cbuf(f, n, 24);
 }
 
-cbuf25(int f, int n)
+int cbuf25(int f, int n)
 {
 	return cbuf(f, n, 25);
 }
 
-cbuf26(int f, int n)
+int cbuf26(int f, int n)
 {
 	return cbuf(f, n, 26);
 }
 
-cbuf27(int f, int n)
+int cbuf27(int f, int n)
 {
 	return cbuf(f, n, 27);
 }
 
-cbuf28(int f, int n)
+int cbuf28(int f, int n)
 {
 	return cbuf(f, n, 28);
 }
 
-cbuf29(int f, int n)
+int cbuf29(int f, int n)
 {
 	return cbuf(f, n, 29);
 }
 
-cbuf30(int f, int n)
+int cbuf30(int f, int n)
 {
 	return cbuf(f, n, 30);
 }
 
-cbuf31(int f, int n)
+int cbuf31(int f, int n)
 {
 	return cbuf(f, n, 31);
 }
 
-cbuf32(int f, int n)
+int cbuf32(int f, int n)
 {
 	return cbuf(f, n, 32);
 }
 
-cbuf33(int f, int n)
+int cbuf33(int f, int n)
 {
 	return cbuf(f, n, 33);
 }
 
-cbuf34(int f, int n)
+int cbuf34(int f, int n)
 {
 	return cbuf(f, n, 34);
 }
 
-cbuf35(int f, int n)
+int cbuf35(int f, int n)
 {
 	return cbuf(f, n, 35);
 }
 
-cbuf36(int f, int n)
+int cbuf36(int f, int n)
 {
 	return cbuf(f, n, 36);
 }
 
-cbuf37(int f, int n)
+int cbuf37(int f, int n)
 {
 	return cbuf(f, n, 37);
 }
 
-cbuf38(int f, int n)
+int cbuf38(int f, int n)
 {
 	return cbuf(f, n, 38);
 }
 
-cbuf39(int f, int n)
+int cbuf39(int f, int n)
 {
 	return cbuf(f, n, 39);
 }
 
-cbuf40(int f, int n)
+int cbuf40(int f, int n)
 {
 	return cbuf(f, n, 40);
 }

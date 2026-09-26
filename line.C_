@@ -51,7 +51,7 @@ lalloc(int used)
  * might be in. Release the memory. The buffers are updated too; the magic
  * conditions described in the above comments don't hold here.
  */
-lfree(LINE *lp)
+int lfree(LINE *lp)
 {
 	BUFFER *bp;
 	WINDOW *wp;
@@ -96,7 +96,7 @@ lfree(LINE *lp)
  * displayed in more than 1 window we change EDIT to HARD. Set MODE if the
  * mode line needs to be updated (the "*" has to be set).
  */
-lchange(int flag)
+int lchange(int flag)
 {
 	WINDOW *wp;
 
@@ -114,7 +114,7 @@ lchange(int flag)
 	}
 }
 
-insspace(f, n)	/* insert spaces forward into text */
+int insspace(int f, int n)  /* insert spaces forward into text */
 {
 	(void)linsert(n, ' ');
 	(void)backchar(f, n);
@@ -130,7 +130,7 @@ insspace(f, n)	/* insert spaces forward into text */
  * greater than the place where you did the insert. Return TRUE if all is
  * well, and FALSE on errors.
  */
-linsert(int n, Char c)
+int linsert(int n, Char c)
 {
 	Char	*cp1;
 	Char	*cp2;
@@ -219,7 +219,7 @@ linsert(int n, Char c)
  * update of dot and mark is a bit easier then in the above case, because the
  * split forces more updating.
  */
-lnewline()
+int lnewline(void)
 {
 	Char	*cp1;
 	Char	*cp2;
@@ -274,7 +274,7 @@ lnewline()
  * deleted, and FALSE if they were not (because dot ran into the end of the
  * buffer. The "kflag" is TRUE if the text should be put in the kill buffer.
  */
-ldelete(long n, int kflag)
+int ldelete(long n, int kflag)
 {
 	Char	*cp1;
 	Char	*cp2;
@@ -343,7 +343,7 @@ ldelete(long n, int kflag)
  * about in memory. Return FALSE on error and TRUE if all looks ok. Called by
  * "ldelete" only.
  */
-ldelnewline()
+int ldelnewline(void)
 {
 	Char	*cp1;
 	Char	*cp2;
@@ -427,7 +427,7 @@ ldelnewline()
  * new kill context is being created. The kill buffer array is released, just
  * in case the buffer has grown to immense size. No errors.
  */
-kdelete()
+int kdelete(void)
 {
 	KILL *kp;	/* ptr to scan kill buffer chunk list */
 
@@ -452,7 +452,7 @@ kdelete()
  * Return TRUE if all is well, and FALSE on errors.
  */
 
-kinsert(Char c)
+int kinsert(Char c)
 {
 	KILL *nchunk;	/* ptr to newly malloced chunk */
 
@@ -480,7 +480,7 @@ kinsert(Char c)
  * check for errors. Bound to "C-Y".
  */
 /*ARGSUSED*/
-yank(int f, int n)
+int yank(int f, int n)
 {
 	Char	 c;
 	int	i;
