@@ -129,6 +129,8 @@ ENVAR envars[] = {
 	   (char *)&seed, get_int_hook, put_int_hook},
 	{CSTR("disinp"), EV_GLOBAL,	/* display command line input characters */
 	   (char *)&disinp, get_bool_hook, put_bool_hook},
+	{CSTR("shell-command-mode"), EV_GLOBAL,	/* always escape shell arguments */
+	   (char *)&shell_escape_mode, get_bool_hook, put_bool_hook},
 	{CSTR("gmodeline"), EV_GLOBAL,	/* global mode line format */
 	   (char *)&gmodeline, get_str_hook, put_modeline_hook},
 	{CSTR("bmodeline"), EV_LOCAL,	/* buffer mode line format */
@@ -197,6 +199,7 @@ UFUNC funcs[] = {
 
 	CSTR("bmo"), MONAMIC,
 	CSTR("gmo"), MONAMIC,
+	CSTR("shell-command-escape"), MONAMIC,	/* shell-escape a string argument */
 };
 
 #define	NFUNCS	sizeof(funcs) / sizeof(UFUNC)
@@ -238,4 +241,5 @@ enum UF_NUMBERS {
 
 	UFBMODE,
 	UFGMODE,
+	UFESCAPE,
 };

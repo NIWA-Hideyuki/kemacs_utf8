@@ -14,6 +14,7 @@
 #include	"evar.h"
 
 Char *itoaa(int i);
+extern char *shell_command_escape_char(const char *);
 
 int varinit(void)		/* initialize the user variable list */
 {
@@ -32,7 +33,6 @@ static Char *gtfun(Char *fname)  /* evaluate a function */
 	int len;
 
 	/* look the function up in the function table */
-	fname[3] = 0;	/* only first 3 chars significant */
 	(void)mklower(fname);	/* and let it be upper or lower case */
 	for (fnum = 0; fnum < NFUNCS; fnum++)
 		if (Cstrcmp(fname, funcs[fnum].f_name) == 0)
@@ -125,6 +125,15 @@ static Char *gtfun(Char *fname)  /* evaluate a function */
 				return ltos((i << i) & (fnum == UFGMODE ?
 					gmode : curwp->w_bufp->b_mode));
 		return errorm;
+	    }
+	case UFESCAPE:
+	    {
+		char *escaped;
+		char *cmd = cfromC(arg1);
+		escaped = shell_command_escape_char(cmd);
+		if (escaped == NULL)
+		    return errorm;
+		return Cfromc(escaped);
 	    }
 	}
 

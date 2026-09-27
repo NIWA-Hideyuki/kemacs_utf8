@@ -387,7 +387,8 @@ EXT int		lastkey		INIT(0);			/* last keystoke		*/
 
 EXT int		seed		INIT(0);			/* random number seed		*/
 
-EXT int		macbug		INIT(FALSE);		/* macro debuging flag		*/
+EXT int		macbug		INIT(FALSE);		/* macro debuging flag	*/
+EXT int		shell_escape_mode INIT(FALSE);	/* $shell-command-mode: 0=raw, 1=always-quote */
 
 EXT Char	*errorm		INIT(CSTR("ERROR")); /* error literal		*/
 

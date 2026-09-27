@@ -13,6 +13,9 @@
 extern int vttidy();
 static int System();
 
+static char shell_esc_buf[NLINE * 5];	/* buffer for shell_command_escape_char */
+char *shell_command_escape_char(const char *);
+
 /*
  * Create a subjob with a copy of the command intrepreter in it. When the
  * command interpreter exits, mark the screen as garbage so that you do a full
@@ -303,6 +306,72 @@ int filter(int f, int n)
 }
 
 /*
+ * Shell-escape a string for safe use as a single POSIX shell argument.
+ * Wraps the string in single quotes, escaping embedded single quotes
+ * with the '\'' sequence.  Returns a pointer to a static buffer,
+ * or NULL if the result would overflow the buffer.
+ */
+char *
+shell_command_escape_char(const char *s)
+{
+	const char *p;
+	char *q;
+	int qlen, slen;
+
+	if (!s) s = "";
+	slen = strlen(s);
+	qlen = 0;
+	for (p = s; *p; p++)
+		if (*p == '\'') qlen++;
+
+	if (slen + qlen * 3 + 3 > (int)sizeof(shell_esc_buf))
+		return NULL;
+
+	q = shell_esc_buf;
+	*q++ = '\'';
+	for (p = s; *p; p++) {
+		if (*p == '\'') {
+			*q++ = '\'';
+			*q++ = '\\';
+			*q++ = '\'';
+			*q++ = '\'';
+		} else {
+			*q++ = *p;
+		}
+	}
+	*q++ = '\'';
+	*q = '\0';
+	return shell_esc_buf;
+}
+
+/*
+ * Editor command: prompt for a string and display its shell-escaped form.
+ * Useful for verifying escaping before embedding a value in a macro.
+ */
+/*ARGSUSED*/
+int
+shell_escape_cmd(int f, int n)
+{
+	Char	line[NLINE];
+	int	s;
+	char	*cmd;
+	char	*escaped;
+	Char	result[NLINE * 5];
+
+	if ((s=mlreply(CSTR("Shell-escape: "), line, NLINE)) != TRUE)
+		return (s);
+
+	cmd = cfromC(line);
+	escaped = shell_command_escape_char(cmd);
+	if (escaped) {
+		(void)Cstrcpy(result, CSTR("Escaped: "));
+		(void)Cstrcat(result, Cfromc(escaped));
+		mlwrite(result);
+	}
+	return (TRUE);
+}
+
+/*
  * execute shell command.
  */
 static int
@@ -315,6 +384,10 @@ System(char * cmd, bool via_shell_p, char * inf, char * outf)
     unsigned t;
 #endif
 
+    /* shell escaping is done at the call site (e.g. via the
+       &shell-command-escape macro function in .kemacsrc) so that
+       individual filenames/arguments are quoted, not the whole cmd.
+       $shell-command-mode is available for macros to test. */
 #if	CLOCK
     f = signal(SIGALRM, SIG_IGN);
     t = alarm((unsigned)0);

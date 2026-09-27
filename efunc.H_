@@ -89,6 +89,8 @@ extern	int	killregion(int f, int n);
 extern	int	copyregion(int f, int n);
 extern	int	spawncli(int f, int n);
 extern	int	spawn(int f, int n);
+extern	int	shell_escape_cmd(int f, int n);
+char *shell_command_escape_char(const char *);
 #ifdef SIGTSTP
 
 extern	int	bktoshell(void);
@@ -644,6 +646,7 @@ NBIND	names[] = {
 	{CSTR("set-mark"),		setmark},
 
 	{CSTR("shell-command"),		spawn},
+	{CSTR("shell-command-escape"),	shell_escape_cmd},
 
 	{CSTR("shrink-window"),		shrinkwind},
 

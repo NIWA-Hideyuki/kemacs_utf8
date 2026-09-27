@@ -103,6 +103,7 @@ set %term &env "TERM"
 bind-to-key execute-macro-40 M-T
 
 ; ESC Eでコンパイル&実行(単一ソースファイルのCプログラムに限る)
+; &shell-command-escapeでファイル名をシェルエスケープ (3.23)
 39 store-macro
 	set %args @"Args: "
 	save-file
@@ -110,8 +111,7 @@ bind-to-key execute-macro-40 M-T
 		write-message &cat "~nArgs: " %args
 	!endif
 	write-message "~nCompiling...~r~n"
-	set %args &cat " " %args
-	set %args &cat $cfname %args
+	set %args &cat &shell-command-escape $cfname " " %args
 	shell-command &cat "exec _PREFIX_/lib/kemacs/ccg " %args 
 !endm
 bind-to-key execute-macro-39	M-E
