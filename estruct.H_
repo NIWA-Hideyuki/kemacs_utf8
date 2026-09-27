@@ -6,6 +6,9 @@
 			greatly modified by Daniel Lawrence
 */
 
+#ifndef ESTRUCT_H_
+#define ESTRUCT_H_
+
 /*	Configuration options	*/
 
 #define CVMVAS	0	/* arguments to page forward/back in pages	*/
@@ -465,3 +468,5 @@ typedef	struct {
 	} u;
 } MC;
 #endif
+
+#endif /* ESTRUCT_H_ */

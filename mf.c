@@ -298,6 +298,10 @@ $(DEST)/$(PROGRAM): $(PROGRAM)
 lint:		$(CSRCS) $(HHDRS)
 	      @ "$(LINT)" $(LINTFLAGS) $(CSRCS) 2>&1 | egrep -v 'possible pointer alignment'
 
+test:		$(STROBJ) $(LIBS) $(PROGRAM)
+	      @ echo "Running kemacs test suite ..."
+	      @ cd tests; $(MAKE) run
+
 tags:           $(HHDRS) $(CSRCS)
 	      @ echo Making tags ...
 	      @ $(CTAGS) -t $(HHDRS) $(CSRCS)

@@ -20,6 +20,7 @@ realclean \
 depend \
 debug \
 lint \
+test \
 co \
 inst-bin \
 inst-man \

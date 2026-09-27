@@ -9,8 +9,11 @@
 			modified by Steve Wilhite, George Jones
 
 			greatly modified by Daniel Lawrence
+			*/
 
-*/
+			#ifndef EDEF_H_
+			#define EDEF_H_
+
 
 
 
@@ -543,3 +546,5 @@ extern	TERM	term;			/* Terminal information.	*/
 #undef EXT
 
 #undef INIT
+
+#endif /* EDEF_H_ */
