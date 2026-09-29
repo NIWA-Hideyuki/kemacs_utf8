@@ -1,4 +1,4 @@
-HDRS	      = kanji.h
+HDRS	      = kanji.h wcwidth.h
 
 # ORDER IS IMPORTANT! DO NOT REORDER.
 OBJS	      = kclose.o \
@@ -8,7 +8,8 @@ OBJS	      = kclose.o \
 		kalloc.o \
 		kputc.o \
 		jtos.o \
-		stoj.o
+		stoj.o \
+		wcwidth.o
 
 SRCS	      = jtos.c \
 		kalloc.c \
@@ -17,7 +18,8 @@ SRCS	      = jtos.c \
 		kgetc.c \
 		kopen.c \
 		kputc.c \
-		stoj.c
+		stoj.c \
+		wcwidth.c
 
 LIBRARY       = libconv.a kanji.a
 
@@ -37,4 +39,5 @@ realclean: clean
 		@rm -f $(LIBRARY)
 
 kopen.o: ../econfig.h
+wcwidth.o: ../econfig.h
 $(OBJS): $(HDRS)

@@ -406,9 +406,10 @@ prntchar(Char c)
   TTputc(c);
   return
 #if KANJI
-    (iswidechar(c))? 2:
+    char_width(c);
+#else
+	1;
 #endif
-		1;
 }
 
 /*
@@ -427,7 +428,7 @@ killchar(Char c)
 		return 2;
 	}
 #if KANJI
-	if (iswidechar(c)) {
+	if (char_width(c) == 2) {
 		outstring(CSTR("\b \b"));
 		return 2;
 	}

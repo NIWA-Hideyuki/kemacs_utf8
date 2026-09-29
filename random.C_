@@ -136,10 +136,10 @@ int getccol(int bflg)
 		else if (c >= 0x80 && c < 0x100)
 		  col += 3;
 #if KANJI
-		else if (iswidechar(c))
-			++col;
+	else if (isunicode(c) || iskanji(c))
+	    col += char_width(c) - 1;
 #endif
-		++col;
+	++col;
 	}
 	return(col);
 }
@@ -172,10 +172,10 @@ int setccol(int pos)
 		else if (c >= 0x80 && c < 0x100)
 		  col += 3;
 #if KANJI
-		else if (iswidechar(c))
-			++col;
+	else if (isunicode(c) || iskanji(c))
+	    col += char_width(c) - 1;
 #endif
-		++col;
+	++col;
 	}
 	/* if not long enough... */
 	if (col < pos)
@@ -359,10 +359,11 @@ int entab(int f, int n)  /* change spaces to tabs where posible */
 			  else if (cchar >= 0x80 && cchar < 0x100)
 			    /* takes 4 columns */
 			    ccol += 3;
-#if KANJI
-			  else if (iswidechar(cchar)) ccol++;
-#endif
-			  fspace = -1;
+			    #if KANJI
+			    else if (isunicode(cchar) || iskanji(cchar))
+			    ccol += char_width(cchar) - 1;
+			    #endif
+			    fspace = -1;
 			  break;
 			}
 			(void)forwchar(FALSE, 1);

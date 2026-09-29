@@ -389,7 +389,7 @@ int makelist(int iflag)
 			*cp1++ = c;
 			s++;
 #if	KANJI
-			if (iswidechar(c)) s++;
+			s += char_width(c) - 1;
 #endif
 		}
 		cp2 = bp->b_fname;		/* File name		*/
@@ -404,7 +404,7 @@ int makelist(int iflag)
 				*cp1++ = c;
 				i++;
 #if	KANJI
-				if (iswidechar(c)) i++;
+			i += char_width(c) - 1;
 #endif
 			}
 		} else

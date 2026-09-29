@@ -168,48 +168,41 @@ int vtputc(Char c)
       vtputc('0'+((c & 0070) >> 3));
       vtputc('0'+((c & 0007) >> 0));
 #if KANJI
-    } else if (isunicode(c)) {
-      /* Unicode codepoints (>= 0x10000): 2-column wide, output as UTF-8 */
-      if (vtcol >= term.t_ncol-1 || vtcol < 0) {
-          /* abandon to display */
-          vtputc(' ');
-          vtputc(' ');
-      } else {
-          if (vtcol >= 0) {
-              /* first col */
-              vp->v_text[vtcol] = c;
-              /* second col */
-              vp->v_text[vtcol+1] = TRAILER;
+    } else if (iskanji(c) || isunicode(c)) {
+      /* JIS X 0208 or Unicode: use East Asian Width to determine size */
+      int w = char_width(c);
+      if (w == 2) {
+          /* wide character: occupies two columns */
+          if (vtcol >= term.t_ncol-1 || vtcol < 0) {
+              /* abandon to display */
+              vtputc(' ');
+              vtputc(' ');
+          } else {
+              if (vtcol >= 0) {
+                  /* first col */
+                  vp->v_text[vtcol] = c;
+                  /* second col */
+                  vp->v_text[vtcol+1] = TRAILER;
+              }
+              vtcol += 2;
           }
-          vtcol += 2;
+      } else if (w == 1) {
+          /* narrow: one column */
+          if (vtcol >= term.t_ncol || vtcol < 0) {
+              /* abandon to display */
+              vtputc(' ');
+          } else {
+              if (vtcol >= 0)
+                  vp->v_text[vtcol] = c;
+              ++vtcol;
+          }
+      } else {
+          /* w == 0: zero-width (combining marks, ZWJ, etc.)
+             Store at current position without advancing cursor. */
+          if (vtcol >= 0 && vtcol < term.t_ncol)
+              vp->v_text[vtcol] = c;
+          /* do not advance vtcol */
       }
-    } else if (iskanji(c)) {
-	/* narrow characters (e.g. Greek mu 0x264c) need only one column */
-	if (is_narrow_kanji(c)) {
-	    if (vtcol >= term.t_ncol || vtcol < 0) {
-		/* abandon to display */
-		vtputc(' ');
-	    } else {
-		if (vtcol >= 0)
-		    vp->v_text[vtcol] = c;
-		++vtcol;
-	    }
-	} else {
-	    /* two columns are needed to display */
-	    if (vtcol >= term.t_ncol-1 || vtcol < 0) {
-		/* abandon to display */
-		vtputc(' ');
-		vtputc(' ');
-	    } else {
-		if (vtcol >= 0) {
-		    /* first col */
-		    vp->v_text[vtcol] = c;
-		    /* second col */
-		    vp->v_text[vtcol+1] = TRAILER;
-		}
-		vtcol += 2;
-	    }
-	}
 #endif /*KANJI*/
     } else {
 	if (vtcol >= 0)
@@ -467,10 +460,9 @@ int updpos(void)
 		else if (c >= 0x80 && c < 0x100)
 		  curcol += 3;
 #if KANJI
-		else if (iswidechar(c))
-			++curcol;
+		else if (isunicode(c) || iskanji(c))
+			curcol += char_width(c) - 1;
 #endif
-
 		++curcol;
 	}
 
@@ -600,6 +592,10 @@ int updext(void)
 		} else if (c < ' ' || c == 0x7f || (iswidechar(c))) {
 		    col++;
 		}
+#if KANJI
+		else if (isunicode(c) || iskanji(c))
+		    col += char_width(c) - 1;
+#endif
 		col++;
 		}
 		if (col > lbound+1 && iswidechar(c)) taboff = lbound = lcol-1;
@@ -672,6 +668,9 @@ int updateline(int row, struct VIDEO *vp1, struct VIDEO *vp2)
 		    if (*cp1 != TRAILER)
 # endif
 			TTputc(*cp1);
+# if KANJI
+		    if (!iscombchar(*cp1))
+# endif
 		    ++ttcol;
 		    *cp2++ = *cp1++;
 		}
@@ -745,11 +744,14 @@ int updateline(int row, struct VIDEO *vp1, struct VIDEO *vp2)
 	TTrev(rev);
 # endif
 
-	while (cp1 < cp5) {		/* Ordinary. */
+	while (cp1 < cp5) {	/* Ordinary. */
 # if KANJI
 	    if (*cp1 != TRAILER)
 # endif
 		TTputc(*cp1);
+# if KANJI
+	    if (!iscombchar(*cp1))
+# endif
 	    ++ttcol;
 	    *cp2++ = *cp1++;
 	}
@@ -811,10 +813,11 @@ int modeline(WINDOW *wp)
 	if ((c = *fp++) != '%') {
 	    /* normal char. just echo. */
 	    vtputc(c);
+	    #if	KANJI
+	    n += char_width(c);
+	    #else
 	    n++;
-#if	KANJI
-	    if (iswidechar(c)) n++;
-#endif
+	    #endif
 	    continue;
 	}
 	/* special code */
@@ -826,10 +829,11 @@ int modeline(WINDOW *wp)
 	default:
 	    /* itself */
 	    vtputc(c);
+	    #if	KANJI
+	    n += char_width(c);
+	    #else
 	    n++;
-#if	KANJI
-	    if (iswidechar(c)) n++;
-#endif
+	    #endif
 	    continue;
 	case '*':
 	    vtputc((bp->b_mode & MDVIEW)? '%':
@@ -913,10 +917,11 @@ int modeline(WINDOW *wp)
 	/* put string pointed by cp */
 	while (*cp && n < term.t_ncol) {
 	    vtputc(*cp);
+	    #if	KANJI
+	    n += char_width(*cp);
+	    #else
 	    n++;
-#if	KANJI
-	    if (iswidechar(*cp)) n++;
-#endif
+	    #endif
 	    cp++;
 	}
     }
@@ -1036,12 +1041,13 @@ int mlwrite(Char *fmt, int arg)
     while ((c = *fmt++) != 0) {
 	if (c != '%') {
             TTputc(c);
+	    #if KANJI
+	    ttcol += char_width(c);
+	    #else
 	    ++ttcol;
-#if KANJI
-	    if (iswidechar(c)) ++ttcol;
-#endif
+	    #endif
 	} else {
-	    c = *fmt++;
+    c = *fmt++;
 	    switch (c) {
 	    case 'd':
 #ifdef HANDLE_VARIABLE_ARGS
@@ -1099,10 +1105,11 @@ int mlwrite(Char *fmt, int arg)
 
 	    default:
 	                    TTputc(c);
+	    # if KANJI
+	    ttcol += char_width(c);
+	    # else
 	    ++ttcol;
-	    #if KANJI
-	    if (iswidechar(c)) ++ttcol;
-	    #endif
+	    # endif
 	    }
 	}
     }
@@ -1130,9 +1137,10 @@ int mlputs(Char *s)
 
     while ((c = *s++) != 0) {
         TTputc(c);
-	++ttcol;
 #if KANJI
-	if (iswidechar(c)) ++ttcol;
+	ttcol += char_width(c);
+#else
+	++ttcol;
 #endif
     }
 }

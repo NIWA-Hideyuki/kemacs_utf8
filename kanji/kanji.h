@@ -232,8 +232,19 @@ typedef union ks_un	KS_FLAG;
    Callers that encode such a codepoint must strip the mark with UNICODE_CP(). */
 #define UNICODE_MARK 0x200000U
 #define UNICODE_CP(c) ((unsigned int)(c) & ~UNICODE_MARK)
-/* iswidechar: characters that occupy 2 terminal columns */
-#define iswidechar(c) (isunicode(c) || (iskanji(c) && !is_narrow_kanji(c)))
+/* iswidechar: characters that occupy 2 terminal columns.
+   Now derived from char_width(), which implements the Unicode
+   East Asian Width algorithm (UAX #11) via wcwidth.c.  Previously
+   this macro treated ALL Unicode codepoints >= 0x10000 as wide (2
+   columns), which incorrectly gave combining characters, ZWJ, and
+   variation selectors a width of 2 instead of 0, and gave some
+   ambiguous-width characters a width of 2 instead of 1. */
+#define iswidechar(c) (char_width(c) == 2)
+/* iscombchar: non-zero if c is a zero-width (combining) character
+   such as a combining diacritical mark, ZWJ (U+200D), ZWNJ (U+200C),
+   or variation selector (U+FE00-U+FE0F).  These occupy 0 terminal
+   columns and should not advance the cursor. */
+#define iscombchar(c) (char_width(c) == 0)
 
 /*
  * Characters that are stored as "kanji" (high byte > 0x01) but are actually
@@ -289,6 +300,13 @@ extern int		stoj(int * s, int * j);
 /* Close all iconv handles for clean shutdown.
    Register via atexit() or call directly before exit(). */
 extern void		kanji_term(void);
+
+/* Unicode East Asian Width display width (0=zero-width, 1=narrow, 2=wide).
+   Implemented in wcwidth.c (part of the kanji library).  Replaces the
+   old iswidechar() macro that naively treated all codepoints >= 0x10000
+   as 2-column wide.  The iswidechar() and iscombchar() macros now delegate
+   to char_width(). */
+extern int		char_width(unsigned int c);
 
 
 #endif /* !KFILE */

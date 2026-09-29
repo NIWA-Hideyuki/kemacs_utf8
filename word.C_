@@ -581,7 +581,7 @@ int fillpara(int f, int n)  /* Fill the current paragraph according to the curre
 				clength += sp;
 			}
 			(void)linsert(1, c);
-			clength += 1+(iswidechar(c));
+			clength += char_width(c);
 			lwflag = wf_norm;
 			sflag = sf_none;
 		}
@@ -710,7 +710,7 @@ int wordcount(int f, int n)
  */
 int should_wrap(Char c, int col)
 {
-    return ((col += 1+(iswidechar(c))) >= fillcol && kinsoku1(c)) ||
+    return ((col += char_width(c)) >= fillcol && kinsoku1(c)) ||
 	   (col > fillcol && !kinsoku2(c));
 }
 
