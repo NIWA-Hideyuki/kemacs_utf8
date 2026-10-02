@@ -248,16 +248,29 @@ typedef union ks_un	KS_FLAG;
 
 /*
  * Characters that are stored as "kanji" (high byte > 0x01) but are actually
- * narrow (1-column wide) on the terminal.  In JIS X 0208, rows 0x21-0x24
- * contain symbols, Greek, and Latin letters that are narrow.  Additionally,
- * the character 0x264c (which iconv maps to U+03BC, Greek mu) is narrow.
- * These must be treated as 1-column, not 2-column, in the virtual screen
- * and ttcol tracking.  Otherwise, cursor positioning via movecursor/TTmove
- * becomes off by one per narrow character, causing leftover characters on
- * mode line updates (e.g., "CUTF8" instead of "UTF8").
+ * narrow (1-column wide) on the terminal.
+ *
+ * In the JIS X 0208 encoding produced by iconv (EUC-JP / ISO-2022-JP), the
+ * row-to-character mapping is:
+ *   Row 0x21-0x22: Symbols (brackets, wave dash, etc.)    — narrow
+ *   Row 0x23:      Greek letters (γδεζηθ)                   — narrow
+ *   Row 0x24:      **Hiragana** (あいうえお...)              — WIDE (2-column)
+ *   Row 0x25:      **Katakana** (アイウエオ...)                — WIDE (2-column)
+ *   Row 0x26:      Greek letters (αβγ...)                  — narrow
+ *   Row 0x27:      Cyrillic letters (АБВ...)                 — narrow
+ *   Rows 0x28+:    Box drawing, Kanji                       — WIDE
+ *
+ * Hiragana (row 0x24) and katakana (row 0x25) are treated as wide (2
+ * columns), same as kanji.  Unicode UAX #11 classifies these as "W" (Wide),
+ * and treating them as 2-column wide is consistent with that standard.
+ * Note: half-width katakana (enkana, 0x0100-0x017F) remain narrow by their
+ * own nature (encoded separately as 0x01xx).
  */
 #define is_narrow_kanji(c) \
-    (iskanji(c) && (((c) & 0xff00) <= 0x2400 || (c) == 0x264c))
+    (iskanji(c) && ((((c) & 0xff00) <= 0x2300 || \
+                     ((c) & 0xff00) == 0x2600 || \
+                     ((c) & 0xff00) == 0x2700 || \
+                     (c) == 0x264c)))
 
   
 

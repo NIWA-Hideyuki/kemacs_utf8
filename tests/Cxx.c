@@ -189,7 +189,6 @@ int vtputc(Char c)
       }
     } else if (iskanji(c)) {
 	/* narrow characters (e.g. Greek mu 0x264c) need only one column */
-	if (is_narrow_kanji(c)) {
 	    if (vtcol >= term.t_ncol || vtcol < 0) {
 		/* abandon to display */
 		vtputc(' ');
