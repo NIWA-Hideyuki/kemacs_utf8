@@ -85,12 +85,13 @@ KEYTAB	keytab[NBINDS] = {
 	{CTLX|'O',		nextwind},
 	{CTLX|'P',		prevwind},
 #if	ISRCH
-	{CTLX|'R',		risearch},
 	{CTLX|'S',		fisearch},
 #endif
 	{CTLX|'W',		resize},
 	{CTLX|'X',		nextbuffer},
 	{CTLX|'Z',		enlargewind},
+	{CTLX|'R',		redo},
+	{CTLX|'U',		undo},
 #if	WORDPRO
 	{META|CTLFLG|'C',	wordcount},
 #endif
