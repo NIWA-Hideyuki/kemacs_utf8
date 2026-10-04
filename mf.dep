@@ -53,6 +53,8 @@ tcap.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h tcap.c
 
 termio.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h \
 	termio.c
+undo.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h \
+	undo.c
 
 version.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h eversion.h \
 	$B/kanji.h version.c

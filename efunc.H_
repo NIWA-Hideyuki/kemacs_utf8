@@ -249,6 +249,8 @@ extern	int	execproc(int f, int n);
 
 extern	int	updmode(int f, int n);
 extern	int	millisleep(int f, int n);
+extern	int	undo(int f, int n);
+extern	int	redo(int f, int n);
 
 
 /*	Name to function binding table
@@ -668,6 +670,7 @@ NBIND	names[] = {
 
 #endif
 
+	{CSTR("redo"),		redo},
 	{CSTR("transpose-characters"),	twiddle},
 
 #if	AEDIT
@@ -682,6 +685,7 @@ NBIND	names[] = {
 
 	{CSTR("unmark-buffer"),		unmark},
 
+	{CSTR("undo"),		undo},
 	{CSTR("update-modeline"),	updmode},
 
 	{CSTR("update-screen"),		upscreen},

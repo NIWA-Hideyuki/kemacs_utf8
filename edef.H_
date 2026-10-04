@@ -544,8 +544,18 @@ extern	TERM	term;			/* Terminal information.	*/
 
 
 
+EXT int	undo_limit	INIT(0);	/* $undo-limit: 0 = unlimited */
+EXT int	u_in_undo	INIT(FALSE);	/* TRUE while undo/redo in progress */
+EXT int	u_new_bndry	INIT(TRUE);	/* set TRUE before each command	*/
+
 #undef EXT
 
 #undef INIT
+
+/*	Undo utility functions (used by line.c, buffer.c)	*/
+extern void u_record(int type, LINE *lp, int offset, int length,
+                     Char *data, int datalen, int eob);
+extern void u_clear_undo(BUFFER *bp);
+extern void u_prune(BUFFER *bp);
 
 #endif /* EDEF_H_ */

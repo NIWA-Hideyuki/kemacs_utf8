@@ -164,6 +164,7 @@ int linsert(int n, Char c)
 		for (i=0; i<n; ++i) lp2->l_text[i] = c;
 		curwp->w_dotp = lp2;
 		curwp->w_doto = n;
+		u_record(UNDO_T_INSERT, lp2, 0, n, &c, 1, TRUE);
 		return (TRUE);
 	}
 	doto = curwp->w_doto;			/* Save for later.	*/
@@ -190,9 +191,10 @@ int linsert(int n, Char c)
 		while (cp1 != &lp1->l_text[doto])
 			*--cp2 = *--cp1;
 	}
-	for (i=0; i<n; ++i)			/* Add the characters	*/
+	for (i=0; i<n; ++i)		/* Add the characters	*/
 		lp2->l_text[doto+i] = c;
-	wp = wheadp;				/* Update windows	*/
+	u_record(UNDO_T_INSERT, lp2, doto, n, &c, 1, FALSE);
+	wp = wheadp;			/* Update windows	*/
 	while (wp != NULL) {
 		if (wp->w_linep == lp1)
 			wp->w_linep = lp2;
@@ -243,6 +245,7 @@ int lnewline(void)
 	while (cp1 != &lp1->l_text[lp1->l_used])
 		*cp2++ = *cp1++;
 	lp1->l_used -= doto;
+	u_record(UNDO_T_NEWLINE, lp1, doto, 0, NULL, 0, FALSE);
 	lp2->l_bp = lp1->l_bp;
 	lp1->l_bp = lp2;
 	lp2->l_bp->l_fp = lp2;
@@ -304,6 +307,7 @@ int ldelete(long n, int kflag)
 		lchange(WFEDIT);
 		cp1 = &dotp->l_text[doto];	/* Scrunch text.	*/
 		cp2 = cp1 + chunk;
+		u_record(UNDO_T_DELETE, dotp, doto, chunk, cp1, chunk, FALSE);
 		if (kflag != FALSE) {		/* Kill?		*/
 			while (cp1 != cp2) {
 				if (kinsert(*cp1) == FALSE)
@@ -350,15 +354,18 @@ int ldelnewline(void)
 	LINE	*lp1;
 	LINE	*lp2;
 	LINE	*lp3;
-	WINDOW *wp;
+	WINDOW	*wp;
+	int	split;		/* original lp1->l_used before merge	*/
 
 	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
 		return(rdonly());	/* we are in read only mode	*/
 	lp1 = curwp->w_dotp;
 	lp2 = lp1->l_fp;
 	if (lp2 == curbp->b_linep) {		/* At the buffer end.	*/
-		if (lp1->l_used == 0)		/* Blank line.		*/
+		if (lp1->l_used == 0)		/* Blank line.		*/ {
+			u_record(UNDO_T_JOIN, NULL, 0, 0, NULL, 0, TRUE);
 			lfree(lp1);
+		}
 		return (TRUE);
 	}
 	if (lp2->l_used <= lp1->l_size-lp1->l_used) {
@@ -380,7 +387,9 @@ int ldelnewline(void)
 			}
 			wp = wp->w_wndp;
 		}
+		split = lp1->l_used;
 		lp1->l_used += lp2->l_used;
+		u_record(UNDO_T_JOIN, lp1, split, 0, NULL, 0, FALSE);
 		lp1->l_fp = lp2->l_fp;
 		lp2->l_fp->l_bp = lp1;
 		free((char *) lp2);
@@ -399,6 +408,7 @@ int ldelnewline(void)
 	lp3->l_fp = lp2->l_fp;
 	lp2->l_fp->l_bp = lp3;
 	lp3->l_bp = lp1->l_bp;
+	split = lp1->l_used;
 	wp = wheadp;
 	while (wp != NULL) {
 		if (wp->w_linep==lp1 || wp->w_linep==lp2)
@@ -417,6 +427,7 @@ int ldelnewline(void)
 		}
 		wp = wp->w_wndp;
 	}
+	u_record(UNDO_T_JOIN, lp3, split, 0, NULL, 0, FALSE);
 	free((char *) lp1);
 	free((char *) lp2);
 	return (TRUE);

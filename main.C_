@@ -524,6 +524,7 @@ int execute(Ckey c, int f, int n)
 	KEYTAB *ktp;
 	int	status;
 
+	u_new_bndry = TRUE;		/* start a new undo boundary	*/
 	ktp = &keytab[0];			/* Look in key table.	*/
 	while (ktp->k_fp != NULL) {
 		if (ktp->k_code == c) {

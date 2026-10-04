@@ -12,10 +12,11 @@
 | test_kanji | 23 | 9007 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 |
 | test_search | 18 | 37 成功 / 0 失敗 | 検索エンジン (scanner/amatch/mceq/eq) |
 | test_line | 12 | 65 成功 / 0 失敗 | バッファ行操作 (linsert/ldelete/lnewline) |
+| test_undo | 13 | 73 成功 / 0 失敗 | undo/redo システム (INSERT/DELETE/NEWLINE/JOIN) |
 | test_eval | 9 | 45 成功 / 0 失敗 | 式評価器ヘルパー (stoi/itoaa/gettyp/stol/ltos) |
 | test_batch | 4 | 8 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O) |
 
-> **合計: 66 テスト関数 / 695 アサーション群 — 全テスト合格 (exit code 0)**
+> **合計: 67 テスト関数 / 730 アサーション群 — 全テスト合格 (exit code 0)**
 >
 > test_kanji の「9007 アサーション」は23関数のうちの1つのアサーションを反復回した合計である。
 > 各関数が実行する個別アサーション数は test.h の `test_count` でカウントされる。
@@ -98,7 +99,29 @@
 | 9 | ldelete all | ldelete (全削除) |
 | 10 | lnewline split | lnewline (行分割) |
 | 11 | lnewline at start | lnewline (行頭での改行) |
-| 12 | lnewline at end | lnewline (行末での改行) |
+|| 12 | lnewline at end | lnewline (行末での改行) |
+
+---
+
+## 3.5. test_undo — Undo/Redo システムユニットテスト
+
+undo.C_ の undo/redo システムを検証する。INSERT, DELETE, NEWLINE, JOIN の各操作の undo/redo、undo 境界グループ化、undo_limit 枝刈り、u_clear_undo、および何もない場合の処理をテストする。
+
+| # | テスト項目 (英) | テスト項目 (日本語) |
+|---|---|---|
+| 1 | undo insert single | INSERT undo (単一文字) |
+| 2 | undo insert multi (boundary) | INSERT undo (複数文字・境界グループ) |
+| 3 | redo insert single | INSERT redo |
+| 4 | undo delete single | DELETE undo (単一文字) |
+| 5 | undo delete multi (boundary) | DELETE undo (複数文字・境界グループ) |
+| 6 | redo delete single | DELETE redo |
+| 7 | undo newline split | NEWLINE undo (行分割の undo = 行結合) |
+| 8 | redo newline split | NEWLINE redo (行結合後の再分割) |
+| 9 | undo join lines | JOIN undo/redo (行結合の undo = 行再分割) |
+| 10 | clear undo | u_clear_undo (バッファクリア時の undo リスト解放) |
+| 11 | undo limit pruning | undo_limit 枝刈り (最大記録数保持) |
+| 12 | boundary grouping | undo 境界グループ化 (u_new_bndry) |
+| 13 | undo nothing to undo | undo/redo 空リスト時の "Nothing to ..." メッセージ |
 
 ---
 
@@ -140,7 +163,7 @@ stdin は `/dev/null` にリダイレクトしてイベントループのハン�
 1. `make` (ルート) → `make -f make.file test`
 2. `make.file` の `test:` ターゲット → `cd tests; make run`
 3. `tests/Makefile` の `run:` ターゲット → `make all` でビルド後、
-   `test_kanji / test_search / test_line / test_eval` を順次実行し、最後に `test_batch` を実行する。
+   `test_kanji / test_search / test_line / test_undo / test_eval` を順次実行し、最後に `test_batch` を実行する。
    (test_batch は kemacs バイナリの存在に依存する。)
 
 ## 補足
@@ -152,3 +175,4 @@ stdin は `/dev/null` にリダイレクトしてイベントループのハン�
   - `repro.py` (UTF-8 絵文字ハートのエンコーディング復元確認)
   - `test_mouse_logic.py`, `test_mouse3.py` (マウスロジック検証)
   - `check_strings.py` (文字列テーブル検証)
+- undo テスト用スタブ: `tests/test_line.c` に `u_record` スタブを追加 (linsert/ldelete/lnewline が undo.C_ なしでコンパイル可能にするため)

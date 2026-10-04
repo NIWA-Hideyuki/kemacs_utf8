@@ -118,7 +118,7 @@ LIBS          = kanji/kanji.a Cstrings/Cstrings.a
 LIBS	      =
 #endif
 
-OBJS	      = basic.o \\
+OBJS		= basic.o \\
 		bind.o \\
 		buffer.o \\
 		crypt.o \\
@@ -138,6 +138,7 @@ OBJS	      = basic.o \\
 		spawn.o \\
 		tcap.o \\
 		termio.o \\
+		undo.o \\
 		version.o \\
 		window.o \\
 		word.o
@@ -162,6 +163,7 @@ SRCS	      = basic.C_ \\
 		spawn.C_ \\
 		tcap.C_ \\
 		termio.C_ \\
+		undo.C_ \\
 		version.C_ \\
 		window.C_ \\
 		word.C_
@@ -186,6 +188,7 @@ CSRCS	      = basic.c \\
 		spawn.c \\
 		tcap.c \\
 		termio.c \\
+		undo.c \\
 		version.c \\
 		window.c \\
 		word.c
@@ -393,6 +396,7 @@ search.c: search.C_
 spawn.c: spawn.C_
 tcap.c: tcap.C_
 termio.c: termio.C_
+undo.c: undo.C_
 version.c: version.C_
 window.c: window.C_
 word.c: word.C_

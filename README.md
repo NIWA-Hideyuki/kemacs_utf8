@@ -100,6 +100,7 @@ kemacs には `tests/` ディレクトリに自動テストスイートが配置
 | `test_kanji`     | `kanji/` (エンコーディング) | stoj, jtos, utf8_to_internal, codepoint_to_utf8, ujis_to_utf8, 文字幅計算 (iswidechar, is_narrow_kanji) |
 | `test_search`    | `search.c` (正規表現)      | scanner, amatch, mceq, eq — 正規表現のマッチング、キャラクタクラス、大文字小文字無視 |
 | `test_line`      | `line.c` (行操作)          | linsert, ldelete, lnewline — 行の挿入・削除・分割 |
+| `test_undo`      | `undo.C_` (undo/redo)       | INSERT/DELETE/NEWLINE/JOIN undo+redo, boundary grouping, prune, clear |
 | `test_eval`      | `eval.c` (式評価)          | stoi, itoaa, gettyp, stol, ltos — 文字列↔数値変換、トークン型判定 |
 | `test_batch`     | `kemacs` バイナリ (バッチ)  | `-x` フラグによるコマンド実行、ファイル入出力検証 |
 
@@ -216,6 +217,36 @@ Ctrl-X A    →   Variable to set: $bcode
 | `exit-emacs`   | `Ctrl-X Ctrl-C` | 保存確認後終了              |
 
 ファイルはバッファの `$bcode` で指定されたエンコーディングで保存されます。
+
+### 4.5 Undo / Redo
+
+kemacs は包括的な undo/redo システムを搭載しています。各コマンド実行の開始時に
+undo 境界 (boundary) が設定され、1回の `undo` コマンドで1つのコマンドグループを
+まとめて取り消すことができます。
+
+| 機能 | キー | 説明 |
+|------|------|------|
+| `undo` | `Ctrl-X u` | 直前のコマンドグループを取り消す。繰り返し押すとさらに過去へ |
+| `redo` | `Ctrl-_ u` / `Ctrl-\ u` | 取り消したコマンドグループをやり直す。繰り返し押すと未来へ |
+
+**対象操作:** 文字の挿入 (INSERT)、文字の削除 (DELETE)、改行 (NEWLINE)、行結合 (JOIN)
+
+**環境変数:**
+
+| 変数 | デフォルト | 説明 |
+|------|-----------|------|
+| `$undo-limit` | `1000` | 保持する undo レコードの最大数。この値を超えると古いレコードが枝刈りされる |
+
+```lisp
+; .kemacsrc で undo 上限を変更
+set $undo-limit 500
+```
+
+**実装の特徴:**
+- `undo.C_` に doubly-linked UNDO レコードリストを実装
+- BUFFER 構造体に `b_undo_head` / `b_undo_tail` / `b_undo_ptr` / `b_undo_count` を追加
+- 境界グループ化: `execute()` で `u_new_bndry = TRUE` を設定し、各コマンドの最初のレコードに boundary フラグを立てる
+- 行結合 (JOIN) の undo はハードマージ時のメモリ安全性に配慮し、cursor position (`curwp->w_dotp`) を使用
 
 ---
 

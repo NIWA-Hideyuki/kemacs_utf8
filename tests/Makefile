@@ -51,10 +51,14 @@ test_eval: test_eval.c test.h eval_gc.o $(CSSO)
 test_batch: test_batch.c test.h
 	$(CC) $(CFLAGS) test_batch.c -o test_batch
 
-all: test_kanji test_search test_line test_eval test_batch
+# --- test_undo ---
+test_undo: test_undo.c test.h $(CSSO) $(CSTR_A)
+	$(CC) $(CFLAGS) test_undo.c $(CSSO) $(CSTR_A) -o test_undo
+
+all: test_kanji test_search test_line test_eval test_undo test_batch
 
 run: all
-	@for t in test_kanji test_search test_line test_eval; do \
+	@for t in test_kanji test_search test_line test_eval test_undo; do \
 		echo "=== Running $$t ==="; \
 		./$$t || exit 1; \
 	done

@@ -142,6 +142,9 @@ ENVAR envars[] = {
 	{CSTR("time"),	EV_GLOBAL,	/* current time string */
 		NULL, getclock, readonly_hook},
 
+	{CSTR("undo-limit"), EV_GLOBAL, /* max undo records per buffer (0=unlim) */
+	   (char *)&undo_limit, get_int_hook, put_int_hook},
+
 	{CSTR("searchpat"), EV_GLOBAL,	/* current search pattern */
 		(char *)pat, NULL, NULL},
 	{CSTR("replacepat"), EV_GLOBAL,	/* current replace pattern */

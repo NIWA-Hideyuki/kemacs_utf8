@@ -591,11 +591,15 @@ bfind(Char *bname, int cflag, int bflag)
 		bp->b_fname = bp->b_bname = NULL;
 		(void)copystr(&bp->b_fname, CSTR(""));
 		(void)copystr(&bp->b_bname, bname);
-#if	CRYPT
+		#if	CRYPT
 		bp->b_key = NULL;
 		(void)copystr(&bp->b_key, CSTR(""));
-#endif
+		#endif
 		bp->b_modeline = NULL;
+		bp->b_undo_head = NULL;
+		bp->b_undo_tail = NULL;
+		bp->b_undo_ptr  = NULL;
+		bp->b_undo_count = 0;
 		lp->l_fp = lp;
 		lp->l_bp = lp;
 	}
@@ -626,7 +630,8 @@ int bclear(BUFFER *bp)
 		CSTR("Discard changes")))
 						!= TRUE)
 		return (s);
-	bp->b_flag  &= ~BFCHG;			/* Not changed		*/
+	bp->b_flag  &= ~BFCHG;		/* Not changed		*/
+	u_clear_undo(bp);
 	while ((lp=lforw(bp->b_linep)) != bp->b_linep)
 		lfree(lp);
 	bp->b_dotp  = bp->b_linep;		/* Fix "."		*/

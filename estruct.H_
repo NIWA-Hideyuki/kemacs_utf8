@@ -239,6 +239,10 @@ typedef struct	BUFFER {
 	KS_FLAG	b_code;			/* KANJI code used when output	*/
 #endif
 	Char	*b_modeline;		/* mode line format string	*/
+	struct UNDO *b_undo_head;	/* head of undo log		*/
+	struct UNDO *b_undo_tail;	/* tail of undo log		*/
+	struct UNDO *b_undo_ptr;	/* current position in undo log*/
+	int	b_undo_count;		/* # undo records on this buffer */
 }	BUFFER;
 
 #define BFINVS	0x01			/* Internal invisable buffer	*/
@@ -307,6 +311,25 @@ typedef struct	LINE {
 #define lgetc(lp, n)	((lp)->l_text[(n)])
 #define lputc(lp, n, c) ((lp)->l_text[(n)]=(c))
 #define llength(lp)	((lp)->l_used)
+
+/*	Undo record types	*/
+#define UNDO_T_INSERT	1	/* character(s) inserted		*/
+#define UNDO_T_DELETE	2	/* character(s) deleted		*/
+#define UNDO_T_NEWLINE	3	/* line split (newline inserted)	*/
+#define UNDO_T_JOIN	4	/* line joined (newline deleted)	*/
+
+/*	Undo record: one edit primitive on one buffer	*/
+typedef struct	UNDO {
+	struct UNDO *u_prev;		/* previous record in the log	*/
+	struct UNDO *u_next;		/* next record in the log		*/
+	int	u_type;			/* UNDO_T_* above		*/
+	struct LINE *u_linep;		/* line that was affected		*/
+	int	u_offset;		/* character offset within the line	*/
+	int	u_length;		/* number of characters affected	*/
+	Char	*u_data;		/* deep-copy of affected character data	*/
+	int	u_boundary;		/* command-boundary marker (1 = start)	*/
+	int	u_eob;			/* TRUE: op at end-of-buffer line	*/
+}	UNDO;
 
 /*
  * The editor communicates with the display using a high level interface. A

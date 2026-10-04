@@ -36,6 +36,10 @@ int mlwrite()   { return TRUE; }
 int rdonly()    { return FALSE; }
 int backchar()  { return TRUE; }
 
+/* Undo-stub: no-op record (line.c calls this, but tests don't validate undo) */
+void u_record(int type, LINE *lp, int offset, int length,
+              Char *data, int datalen, int eob) { (void)type; }
+
 /* ================================================================ */
 /*  Test fixtures                                                    */
 /* ================================================================ */

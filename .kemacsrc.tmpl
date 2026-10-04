@@ -1,6 +1,9 @@
 ;;sample .kemacsrc file
 
-bind-to-key beginning-of-file M-FN^@	; Home
+bind-to-key undo ^Xu                   ; Ctrl-X u (undo)
+bind-to-key redo ^_u                   ; Ctrl-_ u (redo)
+bind-to-key redo ^\u                   ; Ctrl-\ u (redo alt)
+bind-to-key beginning-of-file M-FN^@    ; Home
 bind-to-key end-of-file M-FNX		; End
 
 ;;if you can't use ^S and ^Q because of flow control...
@@ -21,6 +24,7 @@ bind-to-key end-of-file M-FNX		; End
 ;set $cperiod 0
 
 set %term &env "TERM"
+set $undo-limit 1000
 !if &or &seq %term "xterm" &or &seq %term "sun" &seq %term "linux"
 	set $kanji FALSE
 !endif
