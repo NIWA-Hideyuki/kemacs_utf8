@@ -313,12 +313,13 @@ static void test_is_narrow_kanji(void)
     /* JIS rows 1-3 (symbols, Greek, Latin): narrow */
     TEST_ASSERT(is_narrow_kanji(0x2121), "row 1 narrow");
     TEST_ASSERT(is_narrow_kanji(0x237A), "row 3 narrow");
-    /* JIS row 4 (Hiragana): WIDE — same width as kanji */
-    TEST_ASSERT(!is_narrow_kanji(0x2421), "row 4 (hiragana) wide");
-    TEST_ASSERT(!is_narrow_kanji(0x2447), "row 4 hiragana で wide");
-    TEST_ASSERT(!is_narrow_kanji(0x2439), "row 4 hiragana す wide");
-    /* JIS row 5 (Katakana): WIDE — same width as kanji */
-    TEST_ASSERT(!is_narrow_kanji(0x2521), "row 5 (katakana) wide");
+    /* JIS row 4 (Hiragana) and row 5 (Katakana): WIDE per UAX #11.
+       is_narrow_kanji() classifies them as wide using the <= 0x2300
+       threshold. vtputc() adjusts display width for Western terminals. */
+    TEST_ASSERT(!is_narrow_kanji(0x2421), "row 4 (hiragana) wide (UAX #11)");
+    TEST_ASSERT(!is_narrow_kanji(0x2447), "row 4 hiragana で wide (UAX #11)");
+    TEST_ASSERT(!is_narrow_kanji(0x2439), "row 4 hiragana す wide (UAX #11)");
+    TEST_ASSERT(!is_narrow_kanji(0x2521), "row 5 (katakana) wide (UAX #11)");
     /* JIS rows 0x28+ (box drawing, kanji): WIDE */
     TEST_ASSERT(!is_narrow_kanji(0x4E42), "high kanji not narrow");
     /* Special: 0x264C (Greek mu) is narrow */
@@ -328,24 +329,66 @@ static void test_is_narrow_kanji(void)
     TEST_ASSERT(is_narrow_kanji(0x2701), "row 7 (Cyrillic) narrow");
 }
 
+/* Test the CJK wide path: kana is WIDE per is_narrow_kanji (UAX #11)
+   regardless of locale. The locale-specific display adjustment is in
+   vtputc(), not is_narrow_kanji. Also verify init_kana_width(). */
+static void test_is_narrow_kanji_cjk(void)
+{
+    /* Hiragana and katakana are WIDE per UAX #11 regardless of locale.
+       is_narrow_kanji does not depend on kana_is_wide. */
+    TEST_ASSERT(!is_narrow_kanji(0x2421), "row 4 (hiragana) wide (UAX #11)");
+    TEST_ASSERT(!is_narrow_kanji(0x2521), "row 5 (katakana) wide (UAX #11)");
+    TEST_ASSERT(!is_narrow_kanji(0x2447), "row 4 hiragana で wide (UAX #11)");
+    /* Non-kana rows unchanged */
+    TEST_ASSERT(is_narrow_kanji(0x2121), "row 1 narrow");
+    TEST_ASSERT(is_narrow_kanji(0x264C), "0x264C narrow");
+    TEST_ASSERT(!is_narrow_kanji(0x4E42), "high kanji not narrow");
+    /* Verify init_kana_width sets kana_is_wide based on locale.
+     * Force LC_ALL=C so the test is deterministic regardless of the
+     * host environment's locale settings. */
+    {
+        char *saved_lc_all = getenv("LC_ALL");
+        char *saved_val = saved_lc_all ? strdup(saved_lc_all) : NULL;
+        setenv("LC_ALL", "C", 1);
+
+        kana_is_wide = 99;  /* sentinel to verify init runs */
+        init_kana_width();
+        TEST_ASSERT(kana_is_wide == 0 || kana_is_wide == 1,
+                    "kana_is_wide is 0 or 1 after init");
+        /* Western locale (C): kana should be narrow */
+        TEST_ASSERT(kana_is_wide == 0,
+                    "kana_is_wide == 0 for Western locale (C)");
+
+        /* Restore original locale */
+        if (saved_val) {
+            setenv("LC_ALL", saved_val, 1);
+            free(saved_val);
+        } else {
+            unsetenv("LC_ALL");
+        }
+    }
+}
+
 static void test_iswidechar_kanji(void)
 {
     TEST_ASSERT(iswidechar(0x4E42), "high kanji wide");
-    /* Hiragana and katakana are WIDE (same as kanji) */
-    TEST_ASSERT(iswidechar(0x2521), "row 5 katakana WIDE");
-    TEST_ASSERT(iswidechar(0x2422), "row 4 hiragana あ WIDE");
-    TEST_ASSERT(iswidechar(0x2447), "row 4 hiragana で WIDE");
-    TEST_ASSERT(iswidechar(0x2421), "row 4 hiragana 0x2421 WIDE");
+    /* Hiragana (row 0x24) and katakana (row 0x25) are WIDE (2 columns) per
+       UAX #11. char_width() returns 2; vtputc() adjusts for Western locale. */
+    TEST_ASSERT(iswidechar(0x2521), "row 5 katakana wide (UAX #11)");
+    TEST_ASSERT(iswidechar(0x2422), "row 4 hiragana あ wide (UAX #11)");
+    TEST_ASSERT(iswidechar(0x2447), "row 4 hiragana で wide (UAX #11)");
+    TEST_ASSERT(iswidechar(0x2421), "row 4 hiragana 0x2421 wide (UAX #11)");
     TEST_ASSERT(iswidechar(0x3021), "row 0x30 wide");
     TEST_ASSERT(iswidechar(0x4E42), "high kanji wide");
-    /* Unicode_MARK | codepoint: real wide characters */
+    /* Tagged wide characters */
     TEST_ASSERT(iswidechar(0x3000 | 0x200000), "tagged ideographic space wide");
     TEST_ASSERT(iswidechar(0x1F600 | 0x200000), "tagged emoji wide");
-    /* Hiragana U+3042 is WIDE (same as kanji) */
-    TEST_ASSERT(iswidechar(0x3042 | 0x200000), "tagged hiragana WIDE");
-    /* Katakana U+30A2 is WIDE (same as kanji) */
-    TEST_ASSERT(iswidechar(0x30A2 | 0x200000), "tagged katakana WIDE");
-    TEST_ASSERT(!iswidechar(0x2121), "row 1 not wide");
+    /* Hiragana U+3042 stored as Unicode (tagged with UNICODE_MARK) is WIDE (2)
+       per UAX #11.  char_width() returns the canonical width. */
+    TEST_ASSERT(iswidechar(0x3042 | 0x200000), "tagged hiragana wide (UAX #11)");
+    /* Katakana U+30A2 stored as Unicode (tagged with UNICODE_MARK) is WIDE (2) */
+    TEST_ASSERT(iswidechar(0x30A2 | 0x200000), "tagged katakana wide (UAX #11)");
+    TEST_ASSERT(iswidechar(0x2121), "0x2121 (U+3000 ideographic space) wide (UAX #11)");
     TEST_ASSERT(!iswidechar(0x264C), "0x264C not wide");
     /* Narrow BMP Unicode (e-acute U+00E9) is NOT wide */
     TEST_ASSERT(!iswidechar(0x00E9 | 0x200000), "U+00E9 not wide");
@@ -366,20 +409,28 @@ static void test_char_width_ascii(void)
 
 static void test_char_width_kanji(void)
 {
-    /* JIS X 0208 narrow rows (1-3, symbols, Greek): width 1 */
-    TEST_ASSERT_INT(char_width(0x2121), 1, "0x2121 (row 1) narrow");
-    TEST_ASSERT_INT(char_width(0x237A), 1, "0x237A (row 3) narrow");
-    TEST_ASSERT_INT(char_width(0x264C), 1, "0x264C (Greek mu) narrow");
+    /* JIS X 0208 narrow rows (6-7, Greek, Cyrillic): width 1.
+       Rows 1-3 contain CJK symbols/punctuation and fullwidth forms — most
+       are WIDE per UAX #11, with a few ambiguous-width exceptions.
+       char_width() uses jis_to_codepoint() + ucswidth() to determine
+       the precise Unicode width for these rows via the is_narrow_kanji
+       lookup path. */
+    TEST_ASSERT_INT(char_width(0x2121), 2, "0x2121 (U+3000 ideographic space) wide");
+    TEST_ASSERT_INT(char_width(0x2122), 2, "0x2122 (U+3001 '、') wide");
+    TEST_ASSERT_INT(char_width(0x237A), 2, "0x237A (U+FF5A fullwidth z) wide");
+    TEST_ASSERT_INT(char_width(0x264C), 1, "0x264C (U+03BC Greek mu) narrow");
     TEST_ASSERT_INT(char_width(0x2601), 1, "0x2601 (Greek alpha) narrow");
     /* JIS X 0208 wide rows: width 2 */
     TEST_ASSERT_INT(char_width(0x3021), 2, "0x3021 wide");
     TEST_ASSERT_INT(char_width(0x4E42), 2, "0x4E42 wide");
-    /* Hiragana in row 0x24 is WIDE (same as kanji) */
-    TEST_ASSERT_INT(char_width(0x2422), 2, "0x2422 (hiragana あ) wide (same as kanji)");
-    TEST_ASSERT_INT(char_width(0x2447), 2, "0x2447 (hiragana で) wide (same as kanji)");
-    TEST_ASSERT_INT(char_width(0x2439), 2, "0x2439 (hiragana す) wide (same as kanji)");
-    /* Katakana in row 0x25 is WIDE (same as kanji) */
-    TEST_ASSERT_INT(char_width(0x2522), 2, "0x2522 (katakana ア) wide (same as kanji)");
+    /* Hiragana in row 0x24 is WIDE (2 columns) per UAX #11.
+       vtputc() adjusts to 1-column for Western-locale terminal display,
+       but char_width() returns the canonical width. */
+    TEST_ASSERT_INT(char_width(0x2422), 2, "0x2422 (hiragana あ) wide (UAX #11)");
+    TEST_ASSERT_INT(char_width(0x2447), 2, "0x2447 (hiragana で) wide (UAX #11)");
+    TEST_ASSERT_INT(char_width(0x2439), 2, "0x2439 (hiragana す) wide (UAX #11)");
+    /* Katakana in row 0x25 is WIDE (2 columns) per UAX #11 */
+    TEST_ASSERT_INT(char_width(0x2522), 2, "0x2522 (katakana ア) wide (UAX #11)");
     TEST_ASSERT_INT(char_width(0x3D29), 2, "0x3D29 (kanji 秋) wide");
 }
 
@@ -398,12 +449,13 @@ static void test_char_width_unicode_cjk(void)
     TEST_ASSERT_INT(char_width(0x3000 | 0x200000), 2, "U+3000 ideographic space wide");
     /* Direct codepoints >= 0x10000 */
     TEST_ASSERT_INT(char_width(0x1F600), 2, "U+1F600 emoji wide");
-    /* Hiragana U+3042 stored as Unicode (tagged with UNICODE_MARK) is WIDE
-       (same as kanji) */
-    TEST_ASSERT_INT(char_width(0x3042 | 0x200000), 2, "U+3042 hiragana wide (tagged, same as kanji)");
-    /* Katakana U+30A2 stored as Unicode (tagged with UNICODE_MARK) is WIDE
-       (same as kanji) */
-    TEST_ASSERT_INT(char_width(0x30A2 | 0x200000), 2, "U+30A2 katakana wide (tagged, same as kanji)");
+    /* Hiragana U+3042 stored as Unicode (tagged with UNICODE_MARK) is WIDE (2)
+       per UAX #11.  char_width() returns the canonical width; vtputc()
+       adjusts to 1-column for Western-locale terminal display. */
+    TEST_ASSERT_INT(char_width(0x3042 | 0x200000), 2, "U+3042 hiragana wide (UAX #11)");
+    /* Katakana U+30A2 stored as Unicode (tagged with UNICODE_MARK) is WIDE (2)
+       per UAX #11.  char_width() returns the canonical width. */
+    TEST_ASSERT_INT(char_width(0x30A2 | 0x200000), 2, "U+30A2 katakana wide (UAX #11)");
     /* Note: 0x3042 without UNICODE_MARK is treated as JIS row 0x30 (kanji, wide) */
     TEST_ASSERT_INT(char_width(0xAC00), 2, "U+AC00 hangul wide");
     TEST_ASSERT_INT(char_width(0x4E00), 2, "U+4E00 CJK wide");
@@ -460,41 +512,45 @@ static void test_char_width_8bit(void)
  * 秋 (U+79CB) -> EUC-JP 0xBD 0xA9 -> internal 0x3D29 (row 0x3D, kanji, wide)
  * で (U+3067) -> EUC-JP 0xA4 0xC7 -> internal 0x2447 (row 0x24, hiragana)
  * す (U+3059) -> EUC-JP 0xA4 0xB9 -> internal 0x2439 (row 0x24, hiragana)
+ * ア (U+30A2) -> EUC-JP 0xA5 0xA2 -> internal 0x2522 (row 0x25, katakana)
  *
- * Hiragana (row 0x24) and katakana (row 0x25) are now treated as WIDE (width 2),
- * same as kanji.  The total width of "秋です" is 6 (2 + 2 + 2).
+ * char_width() returns the canonical UAX #11 width: hiragana/katakana
+ * are WIDE (2 columns), same as kanji. vtputc() adjusts to 1-column
+ * for Western-locale terminal display using kana_is_wide, but
+ * char_width() itself always returns 2 for kana.
+ * Total width of "秋です" is 6 (2+2+2) per char_width().
  * Half-width katakana (enkana, 0x0100-0x017F) remain narrow (width 1).
  */
 static void test_hiragana_katakana_width(void)
 {
     /* 秋 (U+79CB) -> internal 0x3D29 (row 0x3D, kanji, wide) */
     unsigned int kaku = 0x3D29;
-    /* で (U+3067) -> internal 0x2447 (row 0x24, hiragana, WIDE) */
+    /* で (U+3067) -> internal 0x2447 (row 0x24, hiragana) */
     unsigned int de = 0x2447;
-    /* す (U+3059) -> internal 0x2439 (row 0x24, hiragana, WIDE) */
+    /* す (U+3059) -> internal 0x2439 (row 0x24, hiragana) */
     unsigned int su = 0x2439;
-    /* ア (U+30A2) -> internal 0x2522 (row 0x25, katakana, WIDE) */
+    /* ア (U+30A2) -> internal 0x2522 (row 0x25, katakana) */
     unsigned int a = 0x2522;
 
-    /* All three characters are wide (width 2), same as kanji */
+    /* char_width() returns canonical UAX #11 width: all are 2 (wide) */
     TEST_ASSERT_INT(char_width(kaku), 2, "秋 width 2 (wide, kanji)");
-    TEST_ASSERT_INT(char_width(de),  2, "で width 2 (wide, hiragana same as kanji)");
-    TEST_ASSERT_INT(char_width(su),  2, "す width 2 (wide, hiragana same as kanji)");
-    TEST_ASSERT_INT(char_width(a),   2, "ア width 2 (wide, katakana same as kanji)");
+    TEST_ASSERT_INT(char_width(de),  2, "で width 2 (wide, hiragana, UAX #11)");
+    TEST_ASSERT_INT(char_width(su),  2, "す width 2 (wide, hiragana, UAX #11)");
+    TEST_ASSERT_INT(char_width(a),   2, "ア width 2 (wide, katakana, UAX #11)");
 
-    /* is_narrow_kanji must return false for hiragana (row 0x24) and katakana */
-    TEST_ASSERT(!is_narrow_kanji(de), "で is NOT narrow kanji (wide)");
-    TEST_ASSERT(!is_narrow_kanji(su), "す is NOT narrow kanji (wide)");
-    TEST_ASSERT(!is_narrow_kanji(a),  "ア is NOT narrow kanji (wide)");
+    /* is_narrow_kanji returns false for kana (kana is WIDE per UAX #11) */
+    TEST_ASSERT(!is_narrow_kanji(de), "で is NOT narrow kanji (wide per UAX #11)");
+    TEST_ASSERT(!is_narrow_kanji(su), "す is NOT narrow kanji (wide per UAX #11)");
+    TEST_ASSERT(!is_narrow_kanji(a),  "ア is NOT narrow kanji (wide per UAX #11)");
     /* is_narrow_kanji must still return true for genuinely narrow rows */
     TEST_ASSERT(is_narrow_kanji(0x264C), "0x264C (Greek mu) still narrow");
 
-    /* Total width of "秋です" is 6 (2 + 2 + 2) */
+    /* Total width of "秋です" is 6 (2+2+2) per UAX #11 */
     unsigned int total = 0;
     total += char_width(kaku);
     total += char_width(de);
     total += char_width(su);
-    TEST_ASSERT_INT(total, 6, "total width of 秋です is 6 (2+2+2)");
+    TEST_ASSERT_INT(total, 6, "total width of 秋です is 6 (2+2+2) per UAX #11");
 
     /* Half-width katakana (enkana 0x0100-0x017F) remain narrow */
     TEST_ASSERT_INT(char_width(0x0141), 1, "half-width katakana 0x0141 still narrow");
@@ -514,6 +570,7 @@ TEST_LIST({
     {"iswidechar ascii",       test_iswidechar_ascii},
     {"iswidechar kana",        test_iswidechar_kana},
     {"is_narrow_kanji",        test_is_narrow_kanji},
+    {"is_narrow_kanji_cjk",    test_is_narrow_kanji_cjk},
     {"iswidechar kanji",       test_iswidechar_kanji},
     {"char_width ascii",       test_char_width_ascii},
     {"char_width kanji",       test_char_width_kanji},
@@ -528,5 +585,10 @@ TEST_LIST({
 
 int main(void)
 {
+    /* Set default locale for tests: kana_is_wide = 0 (Western).
+       char_width() returns canonical UAX #11 width (kana = 2) regardless.
+       test_is_narrow_kanji_cjk checks init_kana_width() sets kana_is_wide
+       correctly, and vtputc() tests check display width with both locales. */
+    kana_is_wide = 0;
     RUN_TESTS();
 }

@@ -227,6 +227,8 @@ extern	int	newsize(int f, int n);
 extern	int	setvar(int f, int n);
 extern	int	newwidth(int f, int n);
 extern	int	changewd(int f, int n);
+extern	int	toggle_line_numbers(int f, int n);
+extern	int	set_line_number_width(int f, int n);
 #if AUTOMODE
 
 extern	int	automode(int f, int n);
@@ -699,8 +701,8 @@ NBIND	names[] = {
 	{CSTR("write-message"),		writemsg},
 
 	{CSTR("yank"),			yank},
-
-
+	{CSTR("toggle-line-numbers"),	toggle_line_numbers},
+	{CSTR("set-line-number-width"),	set_line_number_width},
 
 	{CSTR(""),			NULL}
 

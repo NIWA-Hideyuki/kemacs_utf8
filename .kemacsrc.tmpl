@@ -25,6 +25,12 @@ bind-to-key end-of-file M-FNX		; End
 
 set %term &env "TERM"
 set $undo-limit 1000
+
+;; line number gutter
+;; default off; set $linenumbers TRUE to enable at startup
+;set $linenumbers FALSE
+;set $linenumwidth 6
+;; runtime: Ctrl-X l toggles display, Ctrl-X L sets width (default 6)
 !if &or &seq %term "xterm" &or &seq %term "sun" &seq %term "linux"
 	set $kanji FALSE
 !endif

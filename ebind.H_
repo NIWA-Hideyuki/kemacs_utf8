@@ -84,6 +84,8 @@ KEYTAB	keytab[NBINDS] = {
 	{CTLX|'N',		filename},
 	{CTLX|'O',		nextwind},
 	{CTLX|'P',		prevwind},
+	{CTLX|'l',		toggle_line_numbers},
+	{CTLX|'L',		set_line_number_width},
 #if	ISRCH
 	{CTLX|'S',		fisearch},
 #endif

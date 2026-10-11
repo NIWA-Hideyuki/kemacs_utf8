@@ -399,6 +399,34 @@ put_modeline_hook(ENVAR *evp, Char *val)
 	return(TRUE);
 }
 
+/*
+ * Custom hook for $linenumbers: set the value then force a
+ * full screen redraw so the gutter appears or disappears correctly.
+ */
+static int
+put_showlinenum_hook(ENVAR *evp, Char *val)
+{
+	if (put_bool_hook(evp, val) != TRUE)
+		return(FALSE);
+	sgarbf = TRUE;
+	curwp->w_flag |= WFHARD | WFMOVE | WFMODE;
+	return(TRUE);
+}
+
+/*
+ * Custom hook for $linenumwidth: set the value then force a
+ * full screen redraw so the gutter width changes take effect.
+ */
+static int
+put_linenumwidth_hook(ENVAR *evp, Char *val)
+{
+	if (put_int_hook(evp, val) != TRUE)
+		return(FALSE);
+	sgarbf = TRUE;
+	curwp->w_flag |= WFHARD | WFMOVE | WFMODE;
+	return(TRUE);
+}
+
 #if	CLOCK
 static int
 put_cperiod_hook(ENVAR *evp, Char *val)

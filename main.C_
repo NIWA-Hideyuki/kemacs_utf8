@@ -525,7 +525,7 @@ int execute(Ckey c, int f, int n)
 	int	status;
 
 	u_new_bndry = TRUE;		/* start a new undo boundary	*/
-	ktp = &keytab[0];			/* Look in key table.	*/
+	ktp = &keytab[0];		/* Look in key table.	*/
 	while (ktp->k_fp != NULL) {
 		if (ktp->k_code == c) {
 			thisflag = 0;
@@ -534,6 +534,31 @@ int execute(Ckey c, int f, int n)
 			return (status);
 		}
 		++ktp;
+	}
+
+	/* Case-insensitive fallback for Ctrl-X letter keys.
+	 * getcmd() no longer folds lowercase to uppercase after the
+	 * Ctrl-X prefix, so Ctrl-X l and Ctrl-X L are distinct.  For
+	 * backward compatibility, if no exact binding exists for a
+	 * Ctrl-X letter, try the case-swapped letter.  This keeps all
+	 * existing Ctrl-X <letter> commands usable regardless of case. */
+	if ((c & CTLX) && !(c & CTLFLG)) {
+		int letter = (int)(c & 0xff);
+		if (isletter(letter)) {
+			Ckey c2 = (c & CK_FLAGS) | (Ckey)CHCASE(letter);
+			if (c2 != c) {
+				ktp = &keytab[0];
+				while (ktp->k_fp != NULL) {
+					if (ktp->k_code == c2) {
+						thisflag = 0;
+						status = (*ktp->k_fp)(f, n);
+						lastflag = thisflag;
+						return (status);
+					}
+					++ktp;
+				}
+			}
+		}
 	}
 
 	if ((curwp->w_bufp->b_mode & MDWRAP) &&

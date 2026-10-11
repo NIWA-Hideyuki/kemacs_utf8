@@ -21,6 +21,13 @@
 
 #include "kanji.h"
 #include "wcwidth.h"
+#include <locale.h>   /* setlocale() -- enables system wcwidth() tables */
+#include <wchar.h>    /* wcwidth(), wint_t */
+
+/* Runtime: 1 if the terminal locale renders hiragana/katakana as 2-column
+   (CJK locales: ja, ko, zh).  0 for Western-locale terminals where kana
+   render as 1-column narrow.  Initialized by init_kana_width(). */
+int kana_is_wide = 0;
 
 /* ---- Data tables (must be sorted by start codepoint) ---- */
 
@@ -138,15 +145,15 @@ static const struct wchar_tab wide_table[] = {
     {0x2728, 0x2728}, {0x274C, 0x274C}, {0x274E, 0x274E},
     {0x2753, 0x2755}, {0x2757, 0x2757}, {0x2795, 0x2797},
     {0x27B0, 0x27B0}, {0x27BF, 0x27BF}, {0x2B1B, 0x2B1C},
-    {0x2B50, 0x2B50}, {0x2B55, 0x2B55}, {0x2E80, 0x303E},
-    /* Hiragana (U+3041-U+3096) and Katakana (U+30A0-U+30FF):
-       Wide (2-column), same as kanji.  Unicode UAX #11 classifies
-       these as "W" (Wide).  See is_narrow_kanji() in kanji/kanji.h
-       for the matching JIS X 0208 row logic (rows 0x24/0x25).
+    {0x2B50, 0x2B50}, {0x2B55, 0x2B55}, {0x2E80, 0x30FF},
+    /* Hiragana (U+3041-U+309F), Katakana (U+30A0-U+30FF), and CJK
+       Symbols/Punctuation (U+3000-U+303E) are WIDE (2-column) per
+       Unicode UAX #11.  char_width() returns this canonical width; vtputc()
+       adjusts to 1-column for kana on Western-locale terminals (kana_is_wide=0).
+       Note: combining marks U+3099-U+309A within this range are
+       caught by zero_table first in ucswidth().
        Note: half-width katakana (U+FF61-U+FF9F, enkana 0x0100-0x017F)
        remain narrow by their own nature. */
-    {0x3041, 0x3096}, /* Hiragana */
-    {0x30A0, 0x30FF}, /* Katakana */
     {0x3105, 0x312F}, {0x3130, 0x318F}, {0x3190, 0x3190},
     {0x3196, 0x319F}, {0x31A0, 0x31BA}, {0x31C0, 0x31E3},
     {0x31F0, 0x31FF}, {0x3200, 0x32FF}, {0x3300, 0x33FF},
@@ -211,6 +218,127 @@ ucswidth(unsigned int cp)
 }
 
 /*
+ * init_kana_width: detect whether the current terminal locale renders
+ * hiragana/katakana as 2-column (wide) or 1-column (narrow).
+ *
+ * On CJK locales (ja, ko, zh), terminals typically render kana as
+ * 2-column wide per Unicode UAX #11.  On Western-locale terminals
+ * (C, en_US, etc.), kana render as 1-column narrow.
+ *
+ * char_width() returns the canonical UAX #11 width (kana = 2) regardless
+ * of locale.  vtputc() checks kana_is_wide to adjust the terminal display
+ * width: when !kana_is_wide, kana is drawn as 1-column narrow to match
+ * the actual terminal rendering.
+ *
+ * This function checks LC_ALL, LC_CTYPE, and LANG environment
+ * variables (in that order of precedence) for a CJK locale prefix.
+ * Default (no locale or non-CJK) leaves kana_is_wide = 0 (narrow).
+ */
+void
+init_kana_width(void)
+{
+    const char *locale;
+
+    locale = getenv("LC_ALL");
+    if (locale == NULL || locale[0] == '\0')
+        locale = getenv("LC_CTYPE");
+    if (locale == NULL || locale[0] == '\0')
+        locale = getenv("LANG");
+
+    /* Set the CTYPE locale from the environment so that the system's
+       wcwidth() uses the correct Unicode East Asian Width tables.
+       In a UTF-8 locale (e.g. C.UTF-8, ja_JP.UTF-8) wcwidth() returns
+       accurate widths for all Unicode codepoints.  In a non-UTF-8 locale
+       wcwidth() returns -1 for non-ASCII; char_width() falls back to the
+       table-based ucswidth() in that case. */
+    setlocale(LC_CTYPE, "");
+
+    if (locale != NULL && locale[0] != '\0') {
+        /* CJK locales render hiragana/katakana as 2-column wide */
+        if (strncmp(locale, "ja", 2) == 0 ||
+            strncmp(locale, "ko", 2) == 0 ||
+            strncmp(locale, "zh", 2) == 0)
+            kana_is_wide = 1;
+        else
+            kana_is_wide = 0;
+    }
+    /* No locale set (e.g. C locale without LANG): kana is narrow */
+    else
+        kana_is_wide = 0;
+}
+
+/* ---- JIS-to-Unicode conversion for precise width of narrow-row kanji ---- */
+#if HANDLE_UTF
+static iconv_t conv_j2u = (iconv_t)(-1);       /* EUC-JP -> UTF-8 */
+static int conv_j2u_failed = 0;
+
+/* Convert a kemcs internal JIS code (0x2121-0x7E7E) to a Unicode codepoint
+   by round-tripping through EUC-JP -> UTF-8 via iconv.
+   Returns the codepoint (>= 0) on success, -1 on failure. */
+static int
+jis_to_codepoint(unsigned int jis)
+{
+    char eucbuf[2], utf8buf[8];
+    char *in, *out;
+    size_t inbytes, outbytes;
+    int len, cp;
+
+    /* Lazy-init iconv handle (EUC-JP -> UTF-8) */
+    if (!conv_j2u_failed && conv_j2u == (iconv_t)(-1)) {
+        conv_j2u = iconv_open("UTF-8", "EUC-JP");
+        if (conv_j2u == (iconv_t)(-1)) {
+            conv_j2u_failed = 1;
+            return -1;
+        }
+    }
+    if (conv_j2u_failed)
+        return -1;
+
+    /* Reconstruct EUC-JP bytes from JIS code (add 0x80 to each byte) */
+    eucbuf[0] = (jis >> 8) | 0x80;
+    eucbuf[1] = (jis & 0xff) | 0x80;
+    in = eucbuf;
+    inbytes = 2;
+    out = utf8buf;
+    outbytes = sizeof(utf8buf);
+
+    /* Reset iconv state for a fresh conversion */
+    iconv(conv_j2u, NULL, NULL, NULL, NULL);
+
+    if (iconv(conv_j2u, &in, &inbytes, &out, &outbytes) == (size_t)-1)
+        return -1;
+
+    /* Decode the resulting UTF-8 to get the Unicode codepoint */
+    len = (int)(sizeof(utf8buf) - outbytes);
+    if (len == 1)
+        cp = (unsigned char)utf8buf[0];
+    else if (len == 2)
+        cp = ((unsigned char)utf8buf[0] & 0x1F) << 6 |
+             ((unsigned char)utf8buf[1] & 0x3F);
+    else if (len == 3)
+        cp = ((unsigned char)utf8buf[0] & 0x0F) << 12 |
+             ((unsigned char)utf8buf[1] & 0x3F) << 6 |
+             ((unsigned char)utf8buf[2] & 0x3F);
+    else
+        cp = -1;
+
+    return cp;
+}
+
+/* Close the iconv handle used by jis_to_codepoint().
+   Called from kanji_term() at program exit. */
+void
+wcwidth_iconv_close(void)
+{
+    if (conv_j2u != (iconv_t)(-1)) {
+        iconv_close(conv_j2u);
+        conv_j2u = (iconv_t)(-1);
+    }
+    conv_j2u_failed = 0;
+}
+#endif /* HANDLE_UTF */
+
+/*
  * char_width: return the terminal display width of a kemacs internal
  * Char value.
  *
@@ -240,18 +368,78 @@ char_width(unsigned int c)
     if (c >= 0x0100 && c <= 0x017F)
         return 1;
 
-    /* JIS X 0208 kanji: use existing narrow-kanji logic */
-    if (iskanji(c))
-        return is_narrow_kanji(c) ? 1 : 2;
+    /* JIS X 0208 kanji: check the Unicode codepoint for precise UAX #11 width. */
+    if (iskanji(c)) {
+        if (is_narrow_kanji(c)) {
+#if HANDLE_UTF
+            int unicode = jis_to_codepoint(c);
+            if (unicode >= 0) {
+                /* Use system wcwidth() for accurate Unicode width.
+                   Falls back to ucswidth() when wcwidth() returns -1
+                   (unassigned codepoints or non-UTF-8 locale). */
+                int w = wcwidth((wint_t)unicode);
+                if (w >= 0)
+                    return w;          /* 0, 1, or 2 per UAX #11 */
+                w = ucswidth((unsigned int)unicode);
+                if (w >= 0)
+                    return w;
+            }
+#endif
+            return 1;                  /* fallback: narrow */
+        }
+        return 2;                      /* wide kanji rows (0x28+) */
+    }
 
     /* Unicode codepoints (>= 0x10000, or tagged BMP with UNICODE_MARK) */
     if (isunicode(c)) {
         uc = (unsigned int)UNICODE_CP(c);   /* strip UNICODE_MARK if present */
-        int w = ucswidth(uc);
+        /* UAX #11: hiragana/katakana (U+3040-U+30FF) are Wide (2-column).
+           char_width() returns the canonical UAX #11 width; terminal
+           display width on Western locales is adjusted in vtputc().
+
+           Use the system wcwidth() for accurate Unicode East Asian Width.
+           Falls back to the table-based ucswidth() when wcwidth() returns
+           -1 (control chars, unassigned codepoints, or non-UTF-8 locale). */
+        int w = wcwidth((wint_t)uc);
+        if (w >= 0)
+            return w;                            /* 0, 1, or 2 */
+        w = ucswidth(uc);
         if (w < 0) return 1;                /* invalid: fallback to 1 */
-        return w;                            /* 0, 1, or 2 */
+        return w;
     }
 
     /* 8-bit characters (0x80-0xFF): shouldn't occur in normal operation */
     return 1;
+}
+
+/*
+ * kcol_width: return the ACTUAL terminal display width of character c,
+ * matching vtputc()'s rendering.
+ *
+ * char_width() returns the canonical UAX #11 width (kana = 2), but the
+ * terminal may render kana as 1-column narrow on Western-locale terminals
+ * (kana_is_wide = 0).  This function applies the same locale adjustment
+ * that vtputc() does internally, so that column tracking in updpos(),
+ * updext(), and modeline() matches what vtputc() actually writes.
+ */
+int
+kcol_width(unsigned int c)
+{
+    int w = char_width(c);
+
+#if KANJI
+    if (w == 2 && !kana_is_wide) {
+        if (iskanji(c)) {
+            /* JIS rows 0x24 (hiragana) and 0x25 (katakana) render as 1-col */
+            if (((c & 0xff00) == 0x2400) || ((c & 0xff00) == 0x2500))
+                return 1;
+        } else if (isunicode(c)) {
+            /* Unicode hiragana U+3040-U+309F, katakana U+30A0-U+30FF */
+            unsigned int uc = UNICODE_CP(c);
+            if (uc >= 0x3040 && uc <= 0x30FF)
+                return 1;
+        }
+    }
+#endif
+    return w;
 }

@@ -298,8 +298,6 @@ Ckey getcmd(void)
 	if (c == ctlxc) {
 		m = CTLX;
 		if ((c = get1key()) == abortc) return(c);
-	        if (islower(c))		/* Force to upper */
-        	        c ^= DIFCASE;
 		if (c < ' ') {		/* control key */
 			c += '@';
 			m |= CTLFLG;

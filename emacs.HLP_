@@ -123,6 +123,9 @@ different parts of the same buffer, or each may display a different one.
 ^X ^P   Move window up
 M-^L    Reposition window
 ^L      Refresh the screen
+^X l     Toggle line number display
+^X L <n> Set line number gutter width (default 6)
+         Use $linenumbers / $linenumwidth in .kemacsrc
 -----------------------------------------------------------------------
 =>		(13) MULTIPLE BUFFERS
 A BUFFER is a named area containing a document being edited.  Many buffers

@@ -289,7 +289,9 @@ EXT int		mstore		INIT(FALSE);		/* storing text to macro flag	*/
 
 EXT int		discmd		INIT(TRUE);			/* display command flag		*/
 
-EXT int		disinp		INIT(TRUE);			/* display input characters	*/
+EXT int		disinp		INIT(TRUE);		/* display input characters	*/
+EXT int		show_line_numbers	INIT(FALSE);	/* show line number gutter	*/
+EXT int		line_number_width	INIT(6);	/* width of line number gutter */
 
 EXT struct BUFFER *bstore INIT(NULL);		/* buffer to store macro text to */
 
@@ -305,9 +307,10 @@ EXT int		lbound		INIT(0);			/* leftmost column of current	*/
 
 											/* line being displayed 		*/
 
-EXT int		taboff		INIT(0);			/* tab offset for display	*/
+EXT int		taboff		INIT(0);		/* tab offset for display	*/
+EXT int		gbound		INIT(0);		/* gutter boundary (left margin)	*/
 
-EXT Ckey	metac		INIT(CTLFLG|'[');		/* current meta character */
+EXT Ckey		metac		INIT(CTLFLG|'[');		/* current meta character */
 
 EXT Ckey	ctlxc		INIT(CTLFLG|'X');		/* current control X prefix char */
 

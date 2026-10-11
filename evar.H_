@@ -73,6 +73,7 @@ static int put_bufcode_hook();
 static Char *get_curchar_hook();
 static int put_curchar_hook();
 static int put_modeline_hook();
+static int put_showlinenum_hook(), put_linenumwidth_hook();
 #if	CLOCK
 static int put_cperiod_hook();
 #endif
@@ -149,6 +150,10 @@ ENVAR envars[] = {
 		(char *)pat, NULL, NULL},
 	{CSTR("replacepat"), EV_GLOBAL,	/* current replace pattern */
 		(char *)rpat, NULL, NULL},
+	{CSTR("linenumbers"), EV_GLOBAL,	/* show line number gutter */
+	   (char *)&show_line_numbers, get_bool_hook, put_showlinenum_hook},
+	{CSTR("linenumwidth"), EV_GLOBAL,	/* width of line number gutter */
+	   (char *)&line_number_width, get_int_hook, put_linenumwidth_hook},
 };
 
 #define	NEVARS	(sizeof(envars) / sizeof(ENVAR))

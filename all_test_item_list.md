@@ -2,24 +2,25 @@
 
 最終更新: kemacs UTF-8 ブランチ
 
-`make test` は `tests/` ディレクトリのサブ Makefile を呼び出し、以下の5つのテストプログラムをビルドして順次実行する。
+最終更新: kemacs UTF-8 ブランチ — ロケール対応ひらがな/カタカナ幅 (kana_is_wide)
+
+`make test` は `tests/` ディレクトリのサブ Makefile を呼び出し、以下の**7つのテストプログラム**をビルドして順次実行する。
 各プログラムは `test.h` フレームワークの `TEST_ASSERT*` マクロでアサーションを評価する。
 
 ## 実行結果サマリー
 
 | テストプログラム | テスト関数数 | アサーション結果 | 対象 |
 |---|---|---|---|
-| test_kanji | 23 | 9007 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 |
+| test_kanji | 24 | 9012 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (ロケール対応 kana_is_wide) |
 | test_search | 18 | 37 成功 / 0 失敗 | 検索エンジン (scanner/amatch/mceq/eq) |
 | test_line | 12 | 65 成功 / 0 失敗 | バッファ行操作 (linsert/ldelete/lnewline) |
 | test_undo | 13 | 73 成功 / 0 失敗 | undo/redo システム (INSERT/DELETE/NEWLINE/JOIN) |
 | test_eval | 9 | 45 成功 / 0 失敗 | 式評価器ヘルパー (stoi/itoaa/gettyp/stol/ltos) |
-| test_batch | 4 | 8 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O) |
+| test_vtputc_overflow | 20 | 35 成功 / 0 失敗 | 画面描画・行あふれ('$')マーカー (80列, kana narrow/wide) |
+| test_display_gutter | — | 71 成功 / 0 失敗 | ガーター描画 (行番号幅・切り詰め) |
+| test_batch | 12 | 25 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定) |
 
-> **合計: 67 テスト関数 / 730 アサーション群 — 全テスト合格 (exit code 0)**
->
-> test_kanji の「9007 アサーション」は23関数のうちの1つのアサーションを反復回した合計である。
-> 各関数が実行する個別アサーション数は test.h の `test_count` でカウントされる。
+> **合計: 89 テスト関数 / 9263 アサーション群 — 全テスト合格 (exit code 0)**
 
 ---
 
@@ -41,17 +42,18 @@
 | 10 | ujis_to_utf8 fullwidth | UJIS → UTF-8 (全角スペース) |
 | 11 | iswidechar ascii | iswidechar (ASCII) |
 | 12 | iswidechar kana | iswidechar (ひらがな/カタカナ) |
-| 13 | is_narrow_kanji | is_narrow_kanji |
-| 14 | iswidechar kanji | iswidechar (漢字) |
-| 15 | char_width ascii | 文字幅 (ASCII) |
-| 16 | char_width kanji | 文字幅 (漢字) |
-| 17 | char_width hankaku kana | 文字幅 (半角カタカナ) |
-| 18 | char_width unicode cjk | 文字幅 (Unicode CJK) |
-| 19 | char_width combining | 文字幅 (結合文字) |
-| 20 | char_width narrow unicode | 文字幅 (狭い Unicode) |
-| 21 | iscombchar | iscombchar (結合文字判定) |
-| 22 | char_width 8bit | 文字幅 (8ビット文字) |
-| 23 | hiragana/katakana width | ひらがな/カタカナの文字幅 |
+|| 13 | is_narrow_kanji | is_narrow_kanji |
+|| 14 | is_narrow_kanji_cjk | is_narrow_kanji_cjk (CJK locale: kana as wide) |
+|| 15 | iswidechar kanji | iswidechar (漢字) |
+|| 16 | char_width ascii | 文字幅 (ASCII) |
+|| 17 | char_width kanji | 文字幅 (漢字) |
+|| 18 | char_width hankaku kana | 文字幅 (半角カタカナ) |
+|| 19 | char_width unicode cjk | 文字幅 (Unicode CJK) |
+|| 20 | char_width combining | 文字幅 (結合文字) |
+|| 21 | char_width narrow unicode | 文字幅 (狭い Unicode) |
+|| 22 | iscombchar | iscombchar (結合文字判定) |
+|| 23 | char_width 8bit | 文字幅 (8ビット文字) |
+|| 24 | hiragana/katakana width | ひらがな/カタカナの文字幅 |
 
 ---
 
@@ -146,7 +148,7 @@ eval.c は `-ffunction-sections` + `--gc-sections` で必要な関数のみリ�
 
 ## 5. test_batch — バッチモード統合テスト
 
-kemacs バイナリを `-x` コマンドでバッチ起動し、ファイル入出力と終了ステータスを検証する。
+`test_batch` は kemacs バイナリを `-x` コマンドでバッチ起動し、ファイル入出力と終了ステータスを検証する。
 stdin は `/dev/null` にリダイレクトしてイベントループのハングを防止している。
 
 | # | テスト項目 (英) | テスト項目 (日本語) |
@@ -155,6 +157,57 @@ stdin は `/dev/null` にリダイレクトしてイベントループのハン�
 | 2 | batch quit (clean) | `kemacs -e -xquick-exit` のクリーン終了 (exit 0) |
 | 3 | batch file unchanged | ファイルを開いて `-xquick-exit` し内容が変更されないことを確認 |
 | 4 | batch file modified | `-xbeginning-of-file -xquick-exit` でファイル内容が保存・保持されることを確認 |
+| 5 | linenum default off | `.kemacsrc` が空の場合、行番号表示が OFF であることを確認 |
+| 6 | linenum .kemacsrc set TRUE/width=8 | `.kemacsrc` に `linenumbers=8` を設定した場合の行番号幅 |
+| 7 | linenum .kemacsrc set FALSE/width=3 | `.kemacsrc` に `linenumbers=3` を設定した場合の行番号幅 |
+| 8 | linenum toggle on then off | `toggle-line-numbers` コマンドで ON/OFF 切替 |
+| 9 | linenum toggle with arg 1 | `toggle-line-numbers 1` (引数付き) |
+| 10 | linenum set-line-number-width arg 4 | `set-linenumwidth 4` |
+| 11 | linenum set $linenumbers TRUE | 変数 `$linenumbers` を TRUE に設定 |
+| 12 | linenum set $linenumwidth 8 | 変数 `$linenumwidth` を 8 に設定 |
+
+---
+
+## 6. test_vtputc_overflow — 画面描画・行あふれテスト
+
+`vtputc()` (vtputc.C_) に対する統合テスト。画面幅80列で各種文字列を描画し、行あふれ時の `$` マーカーと文字の位置を検証する。
+
+| # | テスト項目 (英) | テスト内容 |
+|---|---|---|
+| 1 | char_width | char_width の各種文字種 (ASCII, CJK, 半角カタカナ, Unicode) |
+| 2 | ascii overflow | 81 ASCII 文字 → 80列目で '$' マーカー |
+| 3 | wide kanji overflow | 41 漢字 → 80列目で '$' マーカー |
+| 4 | wide then narrow exact | 漢字+ASCII: 40 kanji(80col) → ピッタリ収まり |
+| 5 | wide then narrow overflow | 漢字+ASCII: 40 kanji(80col) + 1 → '$' |
+| 6 | wide exact fit last col | 2桁表示がピッタリ80列目に収まる境界ケース |
+| 7 | wide at end then overflow | 1漢字が80列目に来て、+1 → '$' |
+| 8 | wide at end then overflow_wide | 1漢字が80列目、+1漢字 → '$' (前半2col未満) |
+| 9 | wide start at last col | 1漢字が79列目から開始 → 2colで80/81 → '$' |
+| 10 | wide with gutter overflow | ガーター(7col) + 漢字 → '$' |
+| 11 | pure wide exact 80 | 40 漢字 = 80col → ピッタリ (no '$') |
+| 12 | pure wide overflow 41 | 41 漢字 = 82col → '$' |
+| 13 | hiragana exact fit (Western) | 80 ひらがな → 80col (1col幅, no '$') |
+| 14 | hiragana overflow (Western) | 81 ひらがな → 81col → '$' (1col幅) |
+| 15 | katakana overflow (Western) | 81 カタカナ → 81col → '$' (1col幅) |
+| 16 | mixed ASCII + hiragana (Western) | 20 ひらがな + 61 ASCII → '$' |
+| 17 | katakana with gutter (Western) | ガーター + 74 カタカナ → '$' |
+| 18 | wide hiragana exact fit (CJK) | 40 ひらがな → 80col (2col幅, kana_is_wide=1) |
+| 19 | wide hiragana overflow (CJK) | 41 ひらがな → '$' (2col幅) |
+| 20 | wide katakana gutters (CJK) | ガーター + 37 カタカナ → '$' (2col幅) |
+
+**重要**: テスト13-17は Western locale (`kana_is_wide = 0`) でひらがな/カタカナを1列幅として扱う。テスト18-20はCJK locale (`kana_is_wide = 1`) で2列幅として扱う。この区別なしに2列幅を仮定すると、Western terminal で画面が崩れて次の行番号が重複表示される（ユーザー報告のバグ）。
+
+---
+
+## 7. test_display_gutter — ガーター描画テスト
+
+display.c のガーター (行番号欄) 描画ロジックを検証する。行番号の幅計算、文字列の切り詰め、およびガーター領域のクリアが正しく行われることを確認する。
+
+| # | テスト項目 (英) | テスト内容 |
+|---|---|---|
+| — | gutter truncation | 行番号がガーター幅を超えないこと |
+| — | gutter padding | ガーター領域の余白がスペースで埋められること |
+| — | line number width | linenumwidth 設定によるガーター幅変更 |
 
 ---
 
@@ -163,7 +216,8 @@ stdin は `/dev/null` にリダイレクトしてイベントループのハン�
 1. `make` (ルート) → `make -f make.file test`
 2. `make.file` の `test:` ターゲット → `cd tests; make run`
 3. `tests/Makefile` の `run:` ターゲット → `make all` でビルド後、
-   `test_kanji / test_search / test_line / test_undo / test_eval` を順次実行し、最後に `test_batch` を実行する。
+   `test_kanji / test_search / test_line / test_undo / test_eval /
+   test_vtputc_overflow / test_display_gutter` を順次実行し、最後に `test_batch` を実行する。
    (test_batch は kemacs バイナリの存在に依存する。)
 
 ## 補足

@@ -208,6 +208,9 @@ kgetc_iconv_close(void)
 /* kputc_iconv_close() is defined in kputc.c.
    Declared here so kanji_term() can call it. */
 extern void kputc_iconv_close(void);
+/* wcwidth_iconv_close() is defined in wcwidth.c.
+   Declared here so kanji_term() can call it. */
+extern void wcwidth_iconv_close(void);
 
 /* Close all iconv handles across kanji library.
    Registered via atexit() in main() for clean shutdown. */
@@ -216,6 +219,7 @@ kanji_term(void)
 {
     kgetc_iconv_close();
     kputc_iconv_close();
+    wcwidth_iconv_close();
 }
 
 static int

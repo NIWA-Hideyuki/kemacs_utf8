@@ -11,6 +11,9 @@ CC=cc
 MAKEFILE=make.file
 CONFIG=econfig.h
 
+# Check if SCCS 'co' command is available
+HAS_CO := $(shell command -v co 2>/dev/null)
+
 MAKE="make" $(MFLAGS)
 
 all \
@@ -27,17 +30,34 @@ inst-man \
 inst-lib:	$(MAKEFILE) FORCE
 	      @ $(MAKE) -f $(MAKEFILE) $@
 
-$(MAKEFILE):	mf.c mf.dep $(CONFIG)
-	      @ echo "Tailoring makefile ..."
-	      @ echo "## This file is made from mf.c" >$@
-	      @ echo "## Don't modify this directly!" >>$@
-	      @ echo "## Instead, modify mf.c and type" >>$@
-	      @ echo "##	make $(MAKEFILE)" >>$@
-	      @ echo "" >>$@
-	      $(CC) -E mf.c | sed -e '/^#/d' -e '/^[.	]*$$/d' \
+ifneq ($(HAS_CO),)
+# SCCS available: regenerate make.file from mf.c when needed
+$(MAKEFILE): mf.c mf.dep $(CONFIG)
+		@ echo "Tailoring makefile ..."
+		@ echo "## This file is made from mf.c" >$@
+		@ echo "## Don't modify this directly!" >>$@
+		@ echo "## Instead, modify mf.c and type" >>$@
+		@ echo "##	make $(MAKEFILE)" >>$@
+		@ echo "" >>$@
+		$(CC) -E mf.c | sed -e '/^#/d' -e '/^[.	]*$$/d' \
 			-e 's/^ /	/' >>$@
-	      cat mf.dep >>$@
+		cat mf.dep >>$@
+else
+# SCCS not available: regenerate make.file from mf.c if needed
+$(MAKEFILE): mf.c mf.dep $(CONFIG) FORCE
+	@ echo "Generating makefile from mf.c ..."
+	@ echo "## This file is made from mf.c" > $@
+	@ echo "## Don't modify this directly!" >> $@
+	@ echo "## Instead, modify mf.c and type" >> $@
+	@ echo "##	make $(MAKEFILE)" >> $@
+	@ echo "" >> $@
+	$(CC) -E mf.c | sed -e '/^#/d' -e '/^[.	]*$$/d' \
+		-e 's/^ /	/' >> $@
+	cat mf.dep >> $@
+endif
 
 FORCE:
 
+ifneq ($(HAS_CO),)
 .DEFAULT:;	co -l $@
+endif

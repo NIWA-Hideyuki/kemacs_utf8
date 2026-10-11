@@ -247,25 +247,29 @@ typedef union ks_un	KS_FLAG;
 #define iscombchar(c) (char_width(c) == 0)
 
 /*
- * Characters that are stored as "kanji" (high byte > 0x01) but are actually
- * narrow (1-column wide) on the terminal.
+ * Characters stored as "kanji" (high byte > 0x01) that are actually
+ * narrow (1-column wide) on a standard terminal.
  *
  * In the JIS X 0208 encoding produced by iconv (EUC-JP / ISO-2022-JP), the
  * row-to-character mapping is:
- *   Row 0x21-0x22: Symbols (brackets, wave dash, etc.)    — narrow
- *   Row 0x23:      Greek letters (γδεζηθ)                   — narrow
- *   Row 0x24:      **Hiragana** (あいうえお...)              — WIDE (2-column)
- *   Row 0x25:      **Katakana** (アイウエオ...)                — WIDE (2-column)
- *   Row 0x26:      Greek letters (αβγ...)                  — narrow
- *   Row 0x27:      Cyrillic letters (АБВ...)                 — narrow
+ *   Row 0x21-0x22: CJK Symbols and Punctuation (U+3000-U+303F) — MOSTLY WIDE
+ *   Row 0x23:      Alphabetic / Fullwidth forms (U+FF01-U+FF5E) — MOSTLY WIDE
+ *   Row 0x24:      **Hiragana** (あいうえお…)              — WIDE (UAX #11)
+ *   Row 0x25:      **Katakana** (アイウエオ…)              — WIDE (UAX #11)
+ *   Row 0x26:      Greek letters (αβγ…)                    — narrow (ambiguous)
+ *   Row 0x27:      Cyrillic letters (АБВ…)                 — narrow (ambiguous)
  *   Rows 0x28+:    Box drawing, Kanji                       — WIDE
  *
- * Hiragana (row 0x24) and katakana (row 0x25) are treated as wide (2
- * columns), same as kanji.  Unicode UAX #11 classifies these as "W" (Wide),
- * and treating them as 2-column wide is consistent with that standard.
- * Note: half-width katakana (enkana, 0x0100-0x017F) remain narrow by their
+ * Rows 0x21-0x23 and 0x26-0x27 contain characters whose width varies by
+ * Unicode codepoint (some WIDE, some NARROW/Ambiguous).  is_narrow_kanji()
+ * identifies these rows so char_width() can look up the precise width via
+ * jis_to_codepoint() + ucswidth().  Rows 0x24/0x25 (kana) and 0x28+ are
+ * always WIDE, so char_width() returns 2 directly without lookup.
+ * Note: half-width katakana (enKana, 0x0100-0x017F) remain narrow by their
  * own nature (encoded separately as 0x01xx).
  */
+extern int kana_is_wide;  /* 1 if terminal locale renders kana as 2-column */
+extern void init_kana_width(void); /* detect kana width from locale env */
 #define is_narrow_kanji(c) \
     (iskanji(c) && ((((c) & 0xff00) <= 0x2300 || \
                      ((c) & 0xff00) == 0x2600 || \
@@ -320,6 +324,11 @@ extern void		kanji_term(void);
    as 2-column wide.  The iswidechar() and iscombchar() macros now delegate
    to char_width(). */
 extern int		char_width(unsigned int c);
+/* kcol_width: locale-adjusted display width matching vtputc().
+   Same as char_width() but returns 1 for kana on Western-locale
+   terminals (kana_is_wide == 0).  Use for all column/position tracking. */
+extern int		kcol_width(unsigned int c);
+extern void		wcwidth_iconv_close(void); /* called by kanji_term() */
 
 
 #endif /* !KFILE */

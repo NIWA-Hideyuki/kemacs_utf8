@@ -1156,6 +1156,55 @@ int changewd(int f, int n)
 	return(TRUE);
 }
 
+/*
+ * Toggle line number gutter display.
+ * With an argument, n > 0 turns it on, n <= 0 turns it off.
+ * Without an argument, it toggles.
+ */
+#if ARGSUSED
+/*ARGSUSED*/
+#endif
+int toggle_line_numbers(int f, int n)
+{
+	if (f)
+		show_line_numbers = (n > 0);
+	else
+		show_line_numbers = !show_line_numbers;
+	sgarbf = TRUE;
+	curwp->w_flag |= WFHARD | WFMOVE | WFMODE;
+	mlwrite(show_line_numbers ?
+		CSTR("Line numbers ON") :
+		CSTR("Line numbers OFF"));
+	return(TRUE);
+}
+
+/*
+ * Set the width of the line number gutter.
+ * With an argument, use that value (must be 1-10).
+ * Without an argument, reset to the default width (6).
+ */
+#if ARGSUSED
+/*ARGSUSED*/
+#endif
+int set_line_number_width(int f, int n)
+{
+	if (f == FALSE)
+		n = 6;			/* default width */
+
+	if (n < 1 || n > 10) {
+		TTbeep();
+		mlwrite(CSTR("Line number width must be 1-10"));
+		return(FALSE);
+	}
+
+	line_number_width = n;
+	show_line_numbers = TRUE;
+	sgarbf = TRUE;
+	curwp->w_flag |= WFHARD | WFMOVE | WFMODE;
+	mlwrite(CSTR("Line number width set to %d"), n);
+	return(TRUE);
+}
+
 #if AUTOMODE
 /*ARGSUSED*/
 int automode(int f, int n)

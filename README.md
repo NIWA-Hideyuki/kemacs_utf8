@@ -97,11 +97,13 @@ kemacs には `tests/` ディレクトリに自動テストスイートが配置
 
 | テストバイナリ   | 対象モジュール           | テスト内容                                   |
 |------------------|--------------------------|----------------------------------------------|
-| `test_kanji`     | `kanji/` (エンコーディング) | stoj, jtos, utf8_to_internal, codepoint_to_utf8, ujis_to_utf8, 文字幅計算 (iswidechar, is_narrow_kanji) |
+| `test_kanji`     | `kanji/` (エンコーディング) | stoj, jtos, utf8_to_internal, codepoint_to_utf8, ujis_to_utf8, 文字幅計算 (iswidechar, is_narrow_kanji, char_width, kana_is_wide) |
 | `test_search`    | `search.c` (正規表現)      | scanner, amatch, mceq, eq — 正規表現のマッチング、キャラクタクラス、大文字小文字無視 |
 | `test_line`      | `line.c` (行操作)          | linsert, ldelete, lnewline — 行の挿入・削除・分割 |
 | `test_undo`      | `undo.C_` (undo/redo)       | INSERT/DELETE/NEWLINE/JOIN undo+redo, boundary grouping, prune, clear |
 | `test_eval`      | `eval.c` (式評価)          | stoi, itoaa, gettyp, stol, ltos — 文字列↔数値変換、トークン型判定 |
+| `test_vtputc_overflow` | `kanji/` + `vtputc` (画面描画) | 行あふれ('$')マーカー、80列画面の幅計算 — アスキー、CJK漢字、ひらがな/カタカナ (Western: 1col, CJK: 2col) |
+| `test_display_gutter` | `display.c` (ガーター描画) | 行番号ガーターの幅計算と文字列の切り詰め |
 | `test_batch`     | `kemacs` バイナリ (バッチ)  | `-x` フラグによるコマンド実行、ファイル入出力検証 |
 
 #### テストフレームワーク
@@ -145,10 +147,6 @@ kemacs は `-x` で指定されたコマンドを実行後、イベントルー�
 クリーンな終了をテストします。stdin は `/dev/null` にリダイレクトされ、
 イベントループのハングを防ぎます。
 
-
-
-\n
-
 ## 4. 簡易な使用方法
 
 ### 4.1 起動方法
@@ -173,6 +171,10 @@ kemacs -b filename.txt
 |---------|-------------------------------------------------|
 | `TERM`  | 端末タイプ (`xterm`, `linux`)                   |
 | `HOME`  | ホームディレクトリ (`~/.kemacsrc` の検索に使用) |
+
+**UTF-8で使うとき**
+
+LANG=ja_JP.UTF-8
 
 ### 4.2 カーソル移動
 
@@ -247,6 +249,40 @@ set $undo-limit 500
 - BUFFER 構造体に `b_undo_head` / `b_undo_tail` / `b_undo_ptr` / `b_undo_count` を追加
 - 境界グループ化: `execute()` で `u_new_bndry = TRUE` を設定し、各コマンドの最初のレコードに boundary フラグを立てる
 - 行結合 (JOIN) の undo はハードマージ時のメモリ安全性に配慮し、cursor position (`curwp->w_dotp`) を使用
+
+### 4.6 行番号表示 (Line Numbers)
+
+kemacs は、テキスト領域の左端に行番号ガーターを表示する機能を搭載しています。
+各行の行番号が表示されます。
+
+**キー操作:**
+
+| キー         | 機能                                      |
+|--------------|-------------------------------------------|
+| `Ctrl-X l` | 行番号表示の ON/OFF をトグル (`toggle-line-numbers`) |
+
+**設定変数:**
+
+| 変数            | デフォルト | 説明                                           |
+|-----------------|-----------|------------------------------------------------|
+| `$linenumbers`  | `FALSE`   | 行番号ガーターの表示/非表示 (ブール値)           |
+| `$linenumwidth` | `6`       | ガーター幅 (行番号の桁数 + 1 スペース)            |
+
+**`.kemacsrc` で永続的に設定:**
+
+```lisp
+; 行番号を常に表示し、幅を4桁に設定
+set $linenumbers TRUE
+set $linenumwidth 4
+```
+
+**実装の仕組み:**
+
+- `display.C_` の `draw_gutter()` 関数が、各行の仮想スクリーン先頭に行番号を描画
+- `line_number_of()` がバッファ内の行の1始まりの行番号をカウント
+- `gbound` 変数によってテキスト描画開始位置がガーター幅分オフセットされる
+- 行がスクリーン幅を超える場合、`'$'` マーカーはガーター領域を越えてテキスト列に表示される
+- ガーター領域は常に空白でクリアされ、`vteeol()` によって行末までクリアされる
 
 ---
 

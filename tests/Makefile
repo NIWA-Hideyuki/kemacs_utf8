@@ -22,7 +22,7 @@ ELDFLAGS = -Wl,--gc-sections
 .PHONY: all run clean
 
 # --- test_kanji ---
-test_kanji: test_kanji.c test.h
+test_kanji: test_kanji.c test.h ../kanji/kanji.h ../kanji/wcwidth.c ../kanji/wcwidth.h ../kanji/stoj.c ../kanji/jtos.c ../kanji/kgetc.c ../kanji/kputc.c
 	$(CC) $(CFLAGS) test_kanji.c -o test_kanji
 
 # --- test_search ---
@@ -51,14 +51,29 @@ test_eval: test_eval.c test.h eval_gc.o $(CSSO)
 test_batch: test_batch.c test.h
 	$(CC) $(CFLAGS) test_batch.c -o test_batch
 
+# --- test_vtputc_overflow ---
+# Tests vtputc overflow '$' marker with wide and narrow kana chars.
+test_vtputc_overflow: test_vtputc_overflow.c test.h ../kanji/kanji.h ../kanji/wcwidth.c ../kanji/wcwidth.h
+	$(CC) $(CFLAGS) test_vtputc_overflow.c -o test_vtputc_overflow
+
+# --- test_display_gutter ---
+# Tests line number gutter integrity when text exceeds screen width.
+test_display_gutter: test_display_gutter.c test.h
+	$(CC) $(CFLAGS) test_display_gutter.c -o test_display_gutter
+
+# --- test_screen_no_overflow ---
+# Tests that screen line data does not overflow across lines.
+test_screen_no_overflow: test_screen_no_overflow.c test.h ../kanji/kanji.h ../kanji/wcwidth.c ../kanji/wcwidth.h
+	$(CC) $(CFLAGS) test_screen_no_overflow.c -o test_screen_no_overflow
+
 # --- test_undo ---
 test_undo: test_undo.c test.h $(CSSO) $(CSTR_A)
 	$(CC) $(CFLAGS) test_undo.c $(CSSO) $(CSTR_A) -o test_undo
 
-all: test_kanji test_search test_line test_eval test_undo test_batch
+all: test_kanji test_search test_line test_eval test_undo test_batch test_vtputc_overflow test_display_gutter test_screen_no_overflow
 
 run: all
-	@for t in test_kanji test_search test_line test_eval test_undo; do \
+	@for t in test_kanji test_search test_line test_eval test_undo test_vtputc_overflow test_display_gutter test_screen_no_overflow; do \
 		echo "=== Running $$t ==="; \
 		./$$t || exit 1; \
 	done
@@ -69,4 +84,4 @@ run: all
 	@echo "=== All tests passed ==="
 
 clean:
-	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg
+	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_screen_no_overflow
