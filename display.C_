@@ -325,8 +325,7 @@ int do_update(int force)
 	upddex();
 
 	/* redraw all line-number gutters as a final cleanup pass.
-	   This runs after all content (including modelines, which
-	   temporarily set gbound=0 and clobber the gutter with text)
+	   This runs after all content (including modelines)
 	   has been written to vscreen, guaranteeing the gutter columns
 	   contain only the correct line number or spaces. */
 	draw_all_gutters();
@@ -483,13 +482,7 @@ draw_gutter(int sline, int lineno)
  * This is a safety net for two corruption sources that write into the
  * gutter area before the normal draw_gutter calls can clean up:
  *
- *   1. modeline() temporarily sets gbound=0, causing vtputc to write
- *      modeline text into ALL columns including the gutter.  The
- *      per-row draw_gutter(vtrow,0) in modeline() fixes this for the
- *      modeline row, but a unified pass is simpler and covers any
- *      future code that might similarly widen the writeable range.
- *
- *   2. Wide-character TRAILER sentinels or '$' extension markers can
+ *   1. Wide-character TRAILER sentinels or '$' extension markers can
  *      land in column gbound-1 or earlier when a wide char straddles
  *      the gutter/content boundary (see updext Pattern F).  Clearing
  *      every gutter first and then writing only clean digits removes
@@ -1042,11 +1035,7 @@ int modeline(WINDOW *wp)
     BUFFER *bp;
     int i;		/* loop index */
     int firstm;	/* is this the first mode? */
-    int save_gbound;
     static Char mline[NLINE];	/* buffer for mode line */
-
-    save_gbound = gbound;
-    gbound = 0;
 
     n = wp->w_toprow+wp->w_ntrows;		/* Location. */
     vscreen[n]->v_flag |= VFCHG | VFREQ | VFCOL; /* Redraw next time. */
@@ -1054,12 +1043,12 @@ int modeline(WINDOW *wp)
     vscreen[n]->v_rfcolor = 0;			/* black on */
     vscreen[n]->v_rbcolor = 7;			/* white.....*/
 #endif
-    vtmove(n, 0);				/* Seek to right line. */
+    vtmove(n, gbound);			/* Seek to right line, after gutter. */
 
     bp = wp->w_bufp;
     fp = bp->b_modeline;
     if (fp == NULL) fp = gmodeline;
-    n = 0;
+    n = gbound;
     while (*fp && n < term.t_ncol) {
 	if ((c = *fp++) != '%') {
 	    /* normal char. just echo. */
@@ -1187,7 +1176,6 @@ int modeline(WINDOW *wp)
     }
     /* Clear the gutter area to the left of line numbers */
     draw_gutter(vtrow, 0);
-    gbound = save_gbound;
 }
 
 int upmode(void)  /* update all the mode lines */
