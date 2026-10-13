@@ -1,200 +1,201 @@
-=>		MicroEMACS 3.8 Help screens		(01/18/87)
+=>		MicroEMACS 3.8 ヘルプ画面		（01/18/87）
 
-	M-  means to use the <ESC> key prior to using another key
-	^A  means to use the control key at the same time as the A key
+	M-  は他のキーを使う前に<ESC>キーを押すことを意味する。
+	^A  は<CTRL>キーを押しながら<A>キーを押すことを意味する。
 
-^V or [Pg Dn]     Scroll down		M-< or <HOME>	Begining of file
-^Z or [Pg Up]     Scroll up		M-> or <END>	End of file
-
------------------------------------------------------------------------
-=>		(1) MOVING THE CURSOR
-
-^F  Forward character   M-F    Forward word		Keypad arrows
-^B  Backward character  M-B    Backward word		are active!
-^A  Front of line	M-G    Goto a line
-^E  End of line		
-^N  Next line		M-N    Front of paragraph
-^P  Previous line	M-P    End of paragraph
------------------------------------------------------------------------
-=>		(2) DELETING & INSERTING
-
-<--             Delete previous character
-^D or <DELETE>  Delete next character
-^C or <INSERT>  Insert a space
-M-<--           Delete previous word
-M-D             Delete next word
-^K              Close (delete) to end of line
------------------------------------------------------------------------
-=>		(2a) MORE DELETING & INSERTING
-
-<RETURN>   Insert a newline             <TAB>  Advance to next tab stop
-^J         Insert a newline and indent  M-^W   Delete paragraph
-^O         Open (insert) line
-^W         Delete region between mark (set using M-<spacebar>) and cursor
-M-W        Copy region to kill buffer
-^X ^O      Delete blank lines around cursor
------------------------------------------------------------------------
-=>		(3) SEARCHING
-
-^S	Search forward from cursor position.
-^R	Reverse search from cursor position.
-^X S	Forward incremental search
-^X R	Reverse incremental search
-<ALT> S	Search for the next occurence of the last string (IBM-PC only)
-<ALT> R	Search for the last occurence of the last string (IBM-PC only)
------------------------------------------------------------------------
-=>		(4) REPLACING
-
-M-R   Replace all instances of first typed-in string with second
-          typed-in string.  End each string with ESC.
-M-^R  Replace with query.  Answer with:
-	^G  cancel			.   exit to entry point
-	!   replace the rest		Y    replace & continue
-	?   Get a list of options	N   no replacement & continue
------------------------------------------------------------------------
-=>		(5) CAPITALIZING & TRANSPOSING
-
-M-U	UPPERCASE word
-M-C	Capitalize word		^T	Transpose characters
-M-L	lowercase word
-^X ^L	lowercase region
-^X ^U	uppercase region
-^Q	Quote next entry, so that control codes may be entered into text
------------------------------------------------------------------------
-=>		(6) REGIONS & THE KILL BUFFER
-
-M-<spacebar>	set MARK at current position
-^X ^X		eXchange mark and cursor
-
-A REGION will then be continuously-defined as the area between the mark and
-the current cursor position.  The KILL BUFFER is the text which has been
-most recently saved or deleted.
------------------------------------------------------------------------
-=>		(7) COPYING AND MOVING
-
-^W  Delete (Wipe) region		M-W	copy region to KILL buffer
-^Y  Yankback save buffer at cursor
-Generally, the procedure for copying or moving text is:
-    1)  Mark a REGION using M-<spacebar> at beginning and cursor at end.
-    2)  Delete it (with ^W) or copy it (with M-W) into the KILL buffer.
-    3)  Move the cursor to the desired location and yank it back (with ^Y).
------------------------------------------------------------------------
-=>		(8) MODES OF OPERATION
-^X M	Add mode in buffer              M-M    Add global mode
-^X ^M   Delete mode in buffer           M-^M   Delete global mode
-OVER		Replaces (overwrites) rather than inserts characters
-WRAP		Turns on word wrap (automatic carraige return).
-VIEW		Allows viewing file without insertion and deletion.
-CMODE		Automatic indenting for C program entry
-EXACT/MAGIC	Changes how search and replace commands work (see next page)
------------------------------------------------------------------------
-=>		(9) SEARCH AND REPLACE MODES
-
-EXACT	Uppper/lower case is not ignored in searches
-MAGIC   Regular pattern matching characters are active
-    .   Matches any one character
-    *   Matches any any number of the preceding character
-    ^   Beginning of line        [ ]   Character class enclosure
-    $   End of line              \     Quote next character
------------------------------------------------------------------------
-=>		(10) ON-SCREEN FORMATTING
-
-^X F		Set fill column
-Mn-<tab>	Set tab spacing to n charecters between tabs stops
-M-Q		Format paragraph so that text lies between margins
-^X =		Position report -- displays line number, char count,
-                                   file size and character under cursor
-M-^C		Count words/lines/chars in marked region
------------------------------------------------------------------------
-=>		(11) MULTIPLE WINDOWS
-
-Many WINDOWS may be active at once on the screen.  All windows may show
-different parts of the same buffer, or each may display a different one.
-^X 2	Split the current window in two	^X O	Change to next window
-^X 0    delete current window           ^X P    Change to previous window
-^X 1	delete all other windows        M-^V    Page down next window
-                                  	M-^Z	Page up other window
------------------------------------------------------------------------
-=>		(12) CONTROLLING WINDOWS AND THE SCREEN
-
-^X ^    Enlarge current window   M-<n> ^X W   Resize window to <n> lines
-^X ^Z   Shrink current window    M-<n> M-S    Change screen to <n> lines
-^X ^N   Move window down         M-<n> M-T    Change screen to <n> columns
-^X ^P   Move window up
-M-^L    Reposition window
-^L      Refresh the screen
-^X l     Toggle line number display
-^X L <n> Set line number gutter width (default 6)
-         Use $linenumbers / $linenumwidth in .kemacsrc
------------------------------------------------------------------------
-=>		(13) MULTIPLE BUFFERS
-A BUFFER is a named area containing a document being edited.  Many buffers
-may be activated at once.
-^X B	Switch to another buffer.  <CR> = use just-previous buffer
-^X X	Switch to next buffer in buffer list
-M-^N    Change name of current buffer
-^X K	Delete a non-displayed buffer.
-^X ^B	Display buffer directory in a window
------------------------------------------------------------------------
-=>		(14) READING FROM DISK
-
-^X ^F	Find file; read into a new buffer created from filename.
-	(This is the usual way to begin editing a new file.)
-^X ^R	Read file into current buffer, erasing its previous contents.
-	No new buffer will be created.
-^X ^I	Insert file into current buffer at cursor's location.
-^X ^V	Find a file to make current in VIEW mode
------------------------------------------------------------------------
-=>		(15) SAVING TO DISK
-
-^X ^S	Save current buffer to disk
-^X ^W	Write current buffer to disk
-^X N    Change file name of current buffer
-M-Z	Write out all changed buffers and exit MicroEMACS
-
+^V or [Pg Dn]     １画面下へ		M-< or <HOME>  バッファの先頭へ
+^Z or [Pg Up]     １画面上へ		M-> or <END>  バッファの末尾へ
 
 -----------------------------------------------------------------------
-=>		(16) ACCESSING THE OPERATING SYSTEM
+=>		(1) カーソルの移動
 
-^X !	Send one command to the operating system and return
-^X @	Pipe DOS command results to buffer
-^X #	Filter buffer through DOS filter program
-^X C	Start a new command processor under MicroEMACS
-^X D	Suspend MicroEMACS into the background (UNIX BSD4.2 only)
-^X ^C	Exit MicroEMACS
+^F  次の文字へ   	M-F    次の単語へ		カーソルキーを使用可
+^B  前の文字へ  	M-B    前の単語へ		（但し、comm に限る）
+^A  行の先頭へ	M-G    指定した行へ
+^E  行の最後へ		
+^N  次の行へ		M-N    段落の先頭へ
+^P  上の行へ		M-P    段落の末尾へ
 -----------------------------------------------------------------------
-=>		(17) KEY BINDINGS AND COMMANDS
+=>		(2) 削除と挿入
 
-M-K	Bind a key to a command        M-A  Describe a class of commands
-M-^K	Unbind a key from a command
-^X ?	Describe command bound to a key
-M-X	Execute a named (and possibly unbound) command
+<BS>             直前の文字の削除
+^D or <DELETE>  直後の文字の削除
+^C or <INSERT>  直後に空白を挿入
+M-<BS>           前の単語の削除
+M-D             次の単語の削除
+^K              行の終わりまで削除（空白行は、行そのものが削除される）
+-----------------------------------------------------------------------
+=>		(2a) 特殊な削除と挿入
+
+<RETURN>   新しい行の挿入             <TAB>  次のタブ位置に進む
+^J         新しい行の挿入とインデント  M-^W   段落の削除
+^O         行の分割
+^W         マーク（M-<Space>で付ける）から、カーソル位置まで（領域）を削除
+M-W        領域をキルバッファへ保存
+^X ^O      カーソルの上下の空白行の削除
+^X U	アンドゥ（最後の編集操作を取り消す）
+^X R	リドゥ（アンドゥを取り消す）
+         .kemacsrc で $undo-limit を設定（デフォルト 1000、0で無制限）
+-----------------------------------------------------------------------
+=>		(3) 検索
+
+^S	カーソルの位置から前向きに検索する。
+^R	カーソルの位置から後向きに検索する。
+^X S	文字毎の前向き検索
+-----------------------------------------------------------------------
+=>		(4) 置換
+
+M-R   最初に入力した文字列を次に入力した文字列に置換する
+　　　文字列の終わりは<ESC>
+M-^R  対話しながら置換。対話コマンドは：
+	^G  取り消し			.   置換する以前の位置に戻る
+	!   残りを置換			Y   置換する
+	?   コマンドメニューの表示	N   置換しない
+-----------------------------------------------------------------------
+=>		(5) 小文字・大文字　変換
+
+M-U	単語の大文字変換（全ての文字）
+M-C	単語の大文字変換（最初の文字）	^T	前後の文字を交換
+M-L	単語の小文字変換（全ての文字）
+^X ^L	領域の小文字変換
+^X ^U	領域の大文字変換
+^Q	次に入力されたコードを引用する。コントロール・コードの入力に使う
+-----------------------------------------------------------------------
+=>		(6) 領域及び保存バッファ
+
+M-<spacebar>	カーソルの位置にマークをセット
+^X ^X		カーソルとマークの位置を交換
+
+「領域」とはマークをセットした位置から、現在カーソルの位置までに挟まれた
+部分を言う。キルバッファには直前に保存または削除された文字が保持される。
+-----------------------------------------------------------------------
+=>		(7) 領域のコピーと移動
+
+^W  領域の削除			M-W	領域をキルバッファに入れる
+^Y  キルバッファの内容を現在のカーソルの位置に挿入
+一般に、領域のコピーや移動は次のように行う。
+    1)  領域の先頭にM-<Space>でマークをセットし、末尾にカーソルを移動する。
+    2)  ^Wで領域の削除、またはM-Wでキルバッファに入れる。
+    3)  移動先へカーソルを動かし、^Yでキルバッファの内容を挿入する。
+-----------------------------------------------------------------------
+=>		(8) 操作モード
+
+^X M	処理中のバッファのモードを指定		M-M    全体のモードを指定
+^X ^M   処理中のバッファのモードの取り消し　M-^M   全体のモードの取り消し
+OVER		挿入ではなく置換を行う。
+WRAP		自動改行モード（設定した行幅を超えると自動的に改行する）
+VIEW		バッファの内容を見るだけ（変更は不可）
+CMODE		Ｃプログラムの入力モード（インデントを自動的に行う）
+EXACT/MAGIC	検索及び置換コマンドの動作を変える（次頁参照）
+-----------------------------------------------------------------------
+=>		(9) 検索及び置換のためのモード
+
+EXACT	検索において大文字、小文字の区別をする。
+MAGIC   正規表現が使用できる。
+    .   任意の１文字にマッチ
+    *   直前の文字の０個以上の繰り返しとマッチ
+    ^	行の始め		[ ]  文字の集合
+    $	行の終わり	\    次の文字を普通の文字として扱う
+-----------------------------------------------------------------------
+=>		(10) 画面上での書式設定
+
+^X F		フィル列の設定（折り返し幅）
+M-<n> <tab>	タブ間隔の設定（n文字間隔）
+M-Q		段落を設定した行の幅に納まるようにする。
+^X =		位置情報の表示 -- 行数、文字数、
+                                   ファイルの大きさとカーソル下の文字のコード
+M-^C		指定した領域の単語／行／文字数を表示
+-----------------------------------------------------------------------
+=>		(11) マルチ・ウィンドウ
+
+複数のウィンドウを画面上に同時に開くことが出来る。同じファイルの各部を別の
+ウィンドウで見ることも出来るし、異なるファイルも表示できる。
+^X 2	現在のウィンドウを２つに分割	^X O	次のウィンドウへ移る
+^X 0    現在のウィンドウの消去        ^X P    前のウィンドウへ移る
+^X 1	他の全てのウィンドウの消去      M-^V    次のウィンドウのPage down
+                                  	M-^Z	他のウィンドウのPage up
+-----------------------------------------------------------------------
+=>		(12) ウィンドウの制御
+
+^X ^    ウィンドウを広げる		M-<n> ^X W   ウィンドウをn行にする
+^X ^Z   ウィンドウを縮める		M-<n> M-S   画面を<n>行にする
+^X ^N   ウィンドウを下へ移動		M-<n> M-T   画面を<n>桁にする
+^X ^P   ウィンドウを上へ移動
+M-^L    カーソルがウィンドウの中央にくるようにする
+^L      画面を書き直す
+^X l     行番号表示の切替
+^X L <n> 行番号の桁幅を設定（デフォルト 6）
+         .kemacsrc で $linenumbers / $linenumwidth を使用
+-----------------------------------------------------------------------
+=>		(13) バッファの管理
+
+バッファとは編集中の文章を保持する名前の付いた領域である。複数のバッファを
+同時に扱うことが可能である。
+^X B	別のバッファへ移行（バッファ名を省略すると直前に処理したバッファへ）
+^X X	バッファリストにおける次のバッファへ移行
+M-^N    現在のバッファ名の変更
+^X K	バッファの削除（現在表示されているものは削除できない）
+^X ^B	ウィンドウを開いてバッファリストを表示
+-----------------------------------------------------------------------
+=>		(14) ディスクからの読み込み
+
+^X ^F	ファイルを読み込む（ファイル名と同じ名前のバッファを新しく作る）。
+	（新しくファイルを作るときの常套手段）
+^X ^R	現在のバッファへファイルを読み込む。以前のバッファの内容は失われる。
+	新しくバッファは作らない。
+^X ^I	現在のカーソルの位置にファイルを挿入
+^X ^V	ファイルを探してVIEWモードのバッファを作る。
+-----------------------------------------------------------------------
+=>		(15) ディスクへの保存
+
+^X ^S	処理中のバッファをディスクへ保存（元のファイルへ）
+^X ^W	処理中のバッファをディスクへ保存（新しいファイルへ）
+^X N    処理中のバッファ名の変更
+M-Z	変更した全てのバッファをディスクに保存し、MicroEMACSから抜ける
+
+
+-----------------------------------------------------------------------
+=>		(16) オペレーティング・システムの利用
+
+^X !	ＯＳのコマンドを一行実行する
+^X @	ＯＳのコマンドの実行結果をバッファに挿入する
+^X #	処理中のバッファに対してＯＳのフィルターコマンドを実行する
+^X C	MicroEMACSの下で新しくコマンドプロセッサを起動する
+^X D	MicroEMACSを中断する。（UNIX 4.2BSD でのみ可能）
+^X ^C	MicroEMACSから抜ける
+-----------------------------------------------------------------------
+=>		(17) キーバインドとコマンド
+
+M-K	キーにコマンドを割り当てる		M-A  コマンドを検索する
+M-^K	割り当てられたコマンドの解除
+^X ?	キーに割り当てられたコマンドの表示
+M-X	キーに割り当てられていないコマンドの実行
 {Describe-bindings}
-	Display a list of all commands and key bindings to a buffer
+	バッファに対して割り当てられた全てのキーとコマンドの表示
 -----------------------------------------------------------------------
-=>		(18) COMMAND EXECUTION
-Commands can be specified as command lines in the form:
+=>		(18) コマンドの実行
+
+コマンドは以下の形式からなる
 	<optional repeat count> {command-name} <optional arguments>
-{Execute-command-line}	execute a typed in command line
-{Execute-buffer}	executes commands lines in a buffer
-{Execute-file}		executes command lines from a file
-{clear-message-line}	clears the message line during execution
-   M-~			clears the change flag for a buffer
+{Execute-command-line}	コマンドに入力したコマンドの実行
+{Execute-buffer}	バッファにおけるコマンドの実行
+{Execute-file}		ファイルにおけるコマンドの実行
+{clear-message-line}	次に実行するコマンドの結果をメッセージ行に表示しない
+   M-~			バッファの変更フラグをクリアする
 -----------------------------------------------------------------------
-=>		(19) MACRO EXECUTION
+=>		(19) マクロの実行
 
-^X (	Start recording keyboard macro
-^X )	Stop recording keyboard macro
-^X E	Execute keyboard macro
-M-<n> {store-macro}	Start recording named macro
-      !endm		Stop recording named macro
-{execute-macro-n}	Execute macro n (where n is from 1 to 20)
+^X (	マクロの登録を開始する
+^X )	マクロの登録を終了する
+^X E	登録されたマクロの実行
+M-<n> {store-macro}	マクロに番号を付けてマクロの設定を開始する
+      !endm		マクロの設定の終了
+{execute-macro-n}	番号登録されたマクロの実行（ｎは１から４０まで）
 -----------------------------------------------------------------------
-=>		(20) SPECIAL KEYS
+=>		(20) 特殊なキー
 
-^G		Cancel current command and return to top level of processing.
-^U or		Universal repeat.  May be followed by an integer (default = 4)
-M-<digit>	and repeats the next command that many times.
-M-X		Execute a named (and possibly unbound) command
-
+^G		実行中のコマンドを取り消し、トップレベルの処理に戻る。
+^U or		コマンドの繰り返し回数の設定（設定値は4）。
+M-<digit>	次に実行するコマンドを<digit>回実行する。
+M-X		キーに割り当てられていないコマンドの実行
 

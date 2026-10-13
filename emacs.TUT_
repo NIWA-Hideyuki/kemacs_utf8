@@ -1,700 +1,665 @@
-You are looking at the MicroEMACS tutorial.  Comments on this document may
-be referred to Daniel Lawrance.
+		MicroEMACS 3.8 (kemas 2.1k) 入門編
 
-NOTE:  This tutorial attempts to help you "learn by doing".  The characters
-       ">>" at the left margin of your screen indicate directions for you to
-       try using a command.
+これは、kemacs の入門編です。内容についての意見等は、さねをまで、お寄せ
+下さい。なお、この中で「マニュアル」として参照されている文書は、
+emacs.mss に、Scribe への入力のかたちで記述されています。フォーマット
+されたかたちのものはありません。
 
-EMACS commands generally involve the CONTROL key (sometimes labelled CTRL
-or CTL) or the META key (generally labelled ESCAPE).  Rather than write out
-CONTROL or META each time we want you to prefix a character, we'll use the
-following abbreviations:
+注意： この入門編は、「習うより慣れろ」をモットーに作成されています。行
+の右端の ">>" は、その時何をすべきかを指示しています。
 
-   ^<chr>    Hold the CONTROL key while pressing the character <chr>.
-             Thus, ^F would be:  hold the CONTROL key and press F.
+kemacs のコマンドを入力するときには、一般的にコントロール・キー（キー・
+トップに、 CTRL あるいは、CTL と書いてある）やメタ・キー（普通、エスケー
+プ・キーを使う）が使われます。そこで、CONTROL とか META とかいちいち書
+く代わりに、次のような記方を使うことにします：
 
->>  Now type ^V (View Next Screen) to move to the next screen.
-    Remember:  hold the CONTROL key and press V.
+   ^<文字>	コントロール・キーを押したまま、<文字>キーを押します。
+		例えば、^F は、コントロール・キーを押しながら F のキー
+		を押すことを意味します。
 
-   ESC-<chr>  Press the ESCAPE key and release it, then press the
-              character <chr>.  Note:  The command will have the
-              same meaning for upper or lower case characters (<chr>).
+>>　それでは、^V （View Next Screen; 次の画面を見る）をタイプしてみて下さい。
+　　次の画面に進むことができます。
+　　いいですか：コントロール・キーを押しながら、V を押すのですよ。
 
-IMPORTANT NOTE:  If you must exit at some point, type ^X^C.
+   ESC-<文字>	エスケープ・キーを押してから離し、それから<文字>キーを
+		押します。注意：<文字>は、大文字でも小文字でもコマンド
+		としては同じ意味になります。
 
-For the time being, you'll be expected to type ^V whenever you finish reading
-the current screen.
+重要です：エディタ を終了させたい時は、^X^C をタイプします。
 
-Note that there is an overlap when going from screen to screen; this provides
-some continuity when moving through the file.
+さて、これからは、一画面分読み終えたら、^V を入力して行って下さい。
 
-The first thing that you need to know is how to move around from place to 
-place in the file.  You already know how to move forward a screen with ^V.
-To move back a screen, type ^Z.
+前の画面と次の画面とでは、表示される内容に何行文かの重なりがあります。
+これは、表示されている内容が連続していることがすぐ判るようにするためで
+す。
 
->>  Try typing ^Z and then ^V to move back and forth between screens a few
-    times.
+まずは、ファイルの中を移動して行く方法を知る必要があります。^V によって
+先に進むことはもう判りました。元に戻るには、^Z をタイプします。
 
+>>  ^Z と ^V を使って、前後に移動することを何回か試してみなさい。
 
-SUMMARY
--------
 
-The following commands are useful for viewing screens:
+要約
+----
+ファイルを画面毎に見て行くには、次のコマンドを使います。
 
-     ^V       Move forward one screen
-     ^Z       Move back one screen
-     ESC-^L   Clear screen and redisplay everything, putting the text
-              near the cursor at the center of the screen.
+     ^V       前に一画面分進む
+     ^Z       後ろに一画面分戻る
+     ESC-^L   画面を書き直す。このとき、元カーソルのあった行が画面の中
+	　　　央にくるようにする
 
->>  Find the cursor and remember what text is near it.  Type an ESC-^L.
-   Find the cursor again and see what text is near it now.
+>>  今カーソルがどこにあるか、その近くにどんなテキストが書かれているか
+    を覚えなさい。ESC-^L をタイプし、カーソルがどこに移動したか、その
+    近くのテキストはどうなったかを調べてみなさい。
 
 
-BASIC CURSOR CONTROL
---------------------
-
-Getting from screen to screen is useful, but how do you reposition yourself
-within a given screen to a specific place?  There are several ways you can
-do this.  One way (not the best, but the most basic) is to use the commands
-previous, backward, forward and next.  As you can imagine these commands
-(which are given to EMACS as ^P, ^B, ^F, and ^N  respectively) move the
-cursor from where it currently is to a new place in the given direction.
-Here, in a more graphical form, are the commands:
- 
-                          Previous line, ^P
-                                  :
-                                  :
-   Backward, ^B .... Current cursor position .... Forward, ^F
-                                  :
-                                  :
-                          Next line, ^N
-
-You'll probably find it easy to think of these by letter.  P for previous,
-N for next, B for backward and F for forward.  These are the basic cursor
-positioning commands and you'll be using them ALL the time so it would be
-of great benefit if you learn them now.
-
->> Do a few ^N's to bring the cursor down to this line.
-
->>  Move into the line with ^F's and then up with several ^P's.  Note what
-    ^P does when the cursor is in the middle of the line.
-
->>  Try ^B at the beginning of a line.  Note what happened to the cursor.
-    Do a few more ^B's.  Then do ^F's back to the end of the line and beyond.
-
-When you go off the top or bottom of the screen, the text beyond the edge is
-shifted onto the screen so that your instructions can be carried out while
-keeping the cursor on the screen.
-
->>  Move the cursor off the bottom of the screen with ^N's and see what
-    happens.  Note the new position of the cursor.
-
-If moving by characters is too slow, you can move by words.  ESC-F moves
-forward a word and ESC-B moves back a word.
-
->> Type a few ESC-F's and ESC-B's.  Intersperse them with ^F's and ^B's.
-
-Notice the parallel between ^F and ^B on the one hand, and ESC-F and ESC-B on 
-the other hand.  Very often META characters are used for operations related
-to English text whereas CONTROL characters operate on the basic textual units
-that are independent of what you are editing (characters, lines, etc.).
-
-Two other commands which are useful are ^A and ^E.  These commands move the
-cursor to the beginning (^A) and the end (^E) of the line.
-
->>  Try a couple of ^A's, and then a couple of ^E's.  Note that the cursor
-    does not move when either of these commands is repeated continuously.
-
-Two other simple cursor motion commands are ESC-< (less than), which moves
-to the beginning of the file, and ESC-> (greater than), which moves to the
-end of the file.  If you need the shift key to type a "<", then you must
-also use the shift key to type ESC-<.  Otherwise, you would be typing ESC-, .
-
-The location of the cursor within the text is also called "point".  To 
-paraphrase, the cursor shows on the screen where point is located in the
-text.
-
-Here is a summary of simple moving operations, including the word and
-line moving commands:
-
-     ^F        Move forward a character
-     ^B        Move back a character
-
-     ESC-F     Move forward a word
-     ESC-B     Move back a word
-
-     ^N        Move to next line
-     ^P        Move to previous line
-
-     ESC-N     Move to next paragraph
-     ESC-P     Move to previous paragraph 
-
-     ^A        Move to beginning of line
-     ^E        Move to end of line
-
-     ESC-<     Go to beginning of file
-     ESC->     Go to end of file
-
->>  Try all of these commands now a few times for practice as these are
-    the most often used commands.  Since the last two will take you away
-    from this screen, use ^V's and ^Z's to return here.
-
-Like all other commands in EMACS, these commands can be given arguments
-which cause them to be executed repeatedly.  The way you give a command
-a repeat count is by pressing META (ESC) and then the number before you
-enter the command.  As a special case, typing ^U is equivalent to ESC-4.
-
-For instance, ESC-8 ^F moves forward eight characters.
-
->>  Try giving a suitable argument to ^N or ^P to come as close as you
-    can to this line in one jump.
-
-This also applies to the screen moving commands, ^V and ^Z.  When given
-an argument, they scroll the screen up or down by that many screens.
-
->> Try typing ESC-3 ^V now.
-
-If you would like to scroll up, you can give an argument to ^Z.
-
-
-ABORTING COMMANDS
------------------
-
-The EMACS command used to abort any command which requests input is
-^G.  For example, you can use ^G to discard a numeric argument or at
-the beginning of a command that you don't want to finish.
-
->>  Type ESC-100 to make a numeric argument of 100, then type ^G.
-    Now type ^F.  How many characters does it move?  If you have
-    typed an ESC by mistake, you can get rid of it with ^G^G.
-
-
-ERRORS
-------
-Sometimes you may do something which EMACS doesn't allow.  If it is
-something simple, such as typing a CONTROL key sequence which is not
-associated with any command, EMACS will just beep at you.  Otherwise,
-EMACS will also display an informative error message at the bottom of
-the screen.
-
-Some versions of EMACS do not have all the features described in this
-tutorial implemented yet.  If you come across such an unimplemented
-feature, you may get an error message when you try to use it.  Just
-press any cursor movement key and proceed to the next section of the
-tutorial.
-
-
-NOTE:  Several of the exercises in the following sections allow you to use
-       options which will make changes to this tutorial. Do no worry about
-       these changes affecting the tutorial - this is only a copy of the
-       master tutorial and you will not be instructed to save the changes
-       made to it.
-
-
-CURSOR KEYS
------------
-
-The cursor keypad, usually located on the right side of the keyboard,
-has been bound to some of the more useful screen movement commands.
-The mappings are as follows:
-
-     Cursor-Right    ^F        Move forward a character
-     Cursor-Left     ^B        Move back a character
-
-
-     ^Cursor-Right   ESC-F     Move forward a word
-     ^Cursor-Left    ESC-B     Move back a word
-
-
-     Cursor-Down     ^N        Move to next line
-     Cursor-Up       ^P        Move to previous line
-
-
-     Pg-Dn           ^V        Move to next screen
-     Pg-Up           ^Z        Move to previous screen
-
-
-     Home            ESC-<     Go to beginning of file
-     End             ESC->     Go to end of file
-
-
-     Insert          ^C        Insert single space
-     Delete          ^D        Delete current character
-
-A map of the keypad layout looks something like this:
-
-              -------------------------------------------------
-              | 7             | 8             | 9             |
-              | Home          | ^             | Pg Up         |
-                   |        ESC-<  | |         ^P  |           ^Z  |
-              -------------------------------------------------
-              | 4             | 5             | 6             |
-                   | <--       ^B  |               | -->       ^F  |
-              -------------------------------------------------
-              | 1             | 2             | 3             |
-              | End           | |             | Pg Dn         |
-                   |        ESC->  | v         ^N  |           ^V  |
-  -------------------------------------------------------------
-  | 0                         | .                             |
-       | Insert                  ^C  | Delete                  ^D  |
-  -------------------------------------------------------------
-
->>  Practice using the cursor keypad.
-
-
-MODE LINE
----------
-
-The line above the function key display at the bottom of the screen
-is referred to as the "communication line".  This is where EMACS
-interactively communicates with you.  Later you will see how EMACS
-prompts you for information on this line, such as to initiate a
-search.  EMACS can report things to you on this line as well.
-
->>  Type ^X= and see what appears in the communication line. Don't worry
-    about what all this information means - it is just an example of how
-    EMACS lets you know more about the file you are editing.
-
-The line immediately above the communication line is referred to as the
-"mode line".  The mode line looks something like
-
-=* MicroEMACS 3.7 () == emacs.tut == File: emacs.tut ===========================
-
-This is a very useful "information" line.
-
-  -  The asterisk (star) indicates that changes have been made to the file.
-     Immediately after opening or saving a file, there is no star.
-
-  -  Any words inside the parentheses indicate the "modes" EMACS is
-     currently in.  Modes will be discussed in the next section.
-
-  -  The string following the () is the buffername, i.e., the name EMACS
-     gives to the buffer, and it is usually related to the filename.
-
-  -  The string following "File:" is the name of the file you are
-     currently editing.
-
->>  Look at the mode line and identify the items discussed above.
-
-
-MODES
------
-
-Listed within the parentheses are the "modes" which are associated with
-the current buffer.  Modes are a feature of EMACS which assist in the
-editing of different languages, i.e., C, and text.  Presently, there are
-no modes associated with this buffer.  This means EMACS will do exactly
-what you think it will when using it - no "bonuses".  You can find out
-more about the current buffer and mode status by typing ^X^B.  Refer to
-the EMACS manual for a further discussion of buffers and modes.
-
-As you become more familiar with EMACS and the use of buffers, "mode"
-takes on additional meaning.  When more than one buffer is in use, a
-mode is referred to as "local" or "global".  These terms indicate how a
-mode will affect the current buffer and other existing or to be added
-buffers.
-
-A "local" mode is valid only within the scope of the current buffer.
-Other existing buffers and buffers which will be added are not affected
-by local modes.
-
-The commands to add and delete local modes are
-
-     ^XM       Add a local mode
-     ^X^M      Delete a local mode
-
-Each of the above commands will prompt you for a mode.  To activate
-(deactivate) a mode, type the name of a valid (active) mode (refer to
-EMACS manual for a complete list of the valid modes) and follow it by
-pressing <Return>, the carriage-return key.
-
->>  Type ^XM WRAP - note the change in the mode line.  Move the cursor
-    to a blank line on this screen and begin typing the sequence "asdf ".
-    Continue typing this sequence and note what happens when the right
-    margin is encountered.
-
-The previous exercise allowed you to enter text with the "WRAP" mode
-active.  As you can see, "WRAP" instructs EMACS to break between words
-when a line gets too long.  However, in order for this mode to be
-effective, spaces must be inserted between words.
-
-The right margin is usually set at 72 characters but it can be changed.
-To change the margin type ESC nn ^XF where "nn" is the column number of
-the new right-hand margin.
-
->>  Type ESC 40 ^XF.  Then begin typing "asdf " and notice where the
-    line now breaks.  To return to the default right-hand margin, type
-    ESC 72 ^XF.
-
->>  Type ^X^M WRAP to "turn off" the local mode "WRAP".
-
-A "global" mode affects only those buffers which will be ADDED after the
-"add/delete global mode" command is executed - not the current or other
-existing buffers.  Currently there is no global mode set.
-
-The commands to add and delete global modes are
-
-     ESC-M     Add a global mode
-     ESC-^M    Delete a global mode
-
-Note:  All modes can be local.  However, global modes allow you to
-       activate those modes which usually apply to most of the buffers
-       in use.
-
-As with local modes, each of the above commands will prompt you for
-a mode.  To activate (deactivate) a mode, enter the name of a valid
-(active) mode.
-
->>  Type ESC-M OVER.  This mode tells EMACS to write over the text on
-    the current line.  Is there any change in the mode line? Now move to
-    the line of "asdf " you entered and start typing.  Note that nothing
-    happens.  Remember that global modes affect only those modes which
-    will be added - not those already existing.
-
->>  Type ESC-^M OVER to "turn off" the global overwrite mode.
-
-
-INSERTING AND DELETING
+基本的なカーソルの制御
 ----------------------
 
-If you want to type text, just start typing.  Characters which you
-can see, such as A, 7, *, etc. are taken by EMACS as text and are
-immediately inserted.  Type <Return> to insert a line separator,
-i.e., a single linefeed character.
+画面毎の移動はできるようになりました。今度は、画面の中で、特定の場所に
+移動するための方法を憶えましょう。これにはいくつかのやり方があります。
+一つの方法（一番いいと言うわけではありませんが、少なくとも、一番基本的
+です）は、上(previous)下(next)次(forward)前(backward)に移動するコマンド
+を使うことです。これらのコマンドはそれぞれ、^P,^N,^F,^B に割り当てられ
+ており、現在の場所から新しい場所にカーソルを移動させます。図で書けば、
 
-You can delete the last character you typed by typing either <Delete>
-or ^H.  On some keyboards, there is a dedicated key for creating a ^H.
-If so, it is usually labelled as either "Backspace" or "<--".  <Delete>
-is a key on the keyboard, which may be labelled "Rubout" instead of
-"Delete" on some terminals.  More generally, <Delete> deletes the
-character immediately before the current cursor position.
 
->>  Now type a few characters and then delete them by typing <Delete>
-    a few times.
+                      　　　 上の行，^P
+                                  :
+                                  :
+       前の文字，^B .... 現在のカーソル位置 .... 次の文字，^F
+                                  :
+                                  :
+                       　　　 次の行，^N
 
->>  Now start typing text until you reach the right margin, then continue
-    to type.  When a line of text gets too big for one line on the screen,
-    the line of text is "continued" off the edge of the screen.  The dollar
-    sign at the right margin indicates a line which has been continued.
-    EMACS scrolls the line over so you can see what you are editing.  The
-    "$" at the left or right edge of the screen indicates that the current
-    line extends off in that direction.
+これらは、それぞれ、Previous, Next, Backward, Forward の頭文字になって
+いるので、憶えやすいでしょう。これらは、基本的なカーソル移動コマンドで
+あり、いつでも使うものです。だから、ここで憶えておいて損はありません。
 
-This concept is easier to understand by doing rather than by reading about
-it so it is suggested that the following exercises be done.
+>>  ^N を何回かタイプし、この行までカーソルを移動させなさい。
 
->>  The following line actually goes off the edge.  Try typing enough ESC-F's
-    so that you move off the right hand end of this line.  This is a long line of text.  Note the "$" at each edge.  Keep typing ESC-F's and watch where EMACS decides to scroll the line.  Now, type ESC-B's until EMACS decides to scroll the line again.
+>>  ^F を使って行の中ほどに移動し、^P で何行か上に移動してみなさい。
+    カーソルの位置の変化に注意しなさい。
 
->>  Go to the line you entered which the text continued off the edge of
-    the screen.  Use ^D's to delete the text until the text line fits on
-   one screen line again.  The continuation "$" will go away.
+>>  行の先頭で ^B をタイプしてみなさい。カーソルはどこに移動しますか？
+    さらにもう少し ^B をタイプし、今度は ^F で行末の方に戻りなさい。カー
+    ソルが行末を越えるとどうなりますか？
 
->> Move the cursor to the beginning of a line and type <Delete>.  This
-   deletes the line separator before the line and merges the line onto
-    the previous line.  The resulting line may be too long to fit on the
-    screen, in which case it has a continuation indicator.
+画面の先頭や末尾を越えてカーソルを移動させようとすると、その方向にある
+テキストが移動して来て、カーソルは常に画面内にあるようにされます。
 
->>  Press <Return> to insert the separator again.
+>>  ^N を使って、カーソルを画面の下端より下に移動させてみなさい。何が
+    起こりましたか？カーソルの位置はどう変りましたか？
 
-Internally, EMACS will allow you to have lines of nearly any length, limited 
-only by the amount of memory available.  Externally, however, EMACS can only 
-read or write lines, to or from a file, which are less than or equal to 255 
-characters.
+一文字単位の移動ではまどろっこしいと思うなら、単語単位で移動することも
+できます。ESC-F で一単語分先に進み、ESC-B で一単語分前に戻ります。
 
-Remember that most EMACS commands can be given a repeat count.  Note that
-this includes characters which insert themselves.
+注意：	日本語については、単語の切れ目を認識することができません。従っ
+	て、半角文字や改行、タブが現れるまでスキップすることになります。
 
->>  Try that now -- type ESC-8 * and see what happens.
+>>  ESC-F や ESC-B を何回かタイプしてみなさい。^F や ^B と併用してみな
+    さい。
 
-If you want to insert spaces in a line, type ^C.
+^F や ^B に対する、ESC-F や ESC-B の類似性に注目しましょう。多くの場合、
+メタ・キャラクタは文書関係の処理に使われ、一方コントロール・キャラクタ
+はそれよりももっと基本的な対象（文字とか行とか）に対する操作に使われま
+す。
 
->>  Move to a line and move the cursor with ^F's; then insert spaces with ^C.
-    Use ^D to remove the spaces.
+^A と ^E も知っていて便利なコマンドです。^A はカーソルを行の先頭に移動
+させ、^E は行の末尾に移動させます。
 
-If you want to create a blank line between two lines, move to the second
-of the two lines and type ^O.
+>>  ^A を２回、それから ^E を２回入力してみなさい。これらのコマンドを
+    ２回以上繰返しても、カーソルはそれ以上移動しないことに注意。
 
->>  Try moving to a line and typing ^O now.
+あと二つ、簡単なカーソル移動コマンドがあります。ファイルの先頭に移動する ESC-< 
+と、ファイルの末尾に移動する ESC-> です。< や > をタイプするときには、
+シフトキーを押すのを忘れないように。さもないと、, や . が入力されてしま
+います。
 
-You've now learned the most basic way of typing something in EMACS and
-correcting errors.  You can delete characters, words or lines as well.
-Here is a summary of the delete operations:
+テキスト中でカーソルの存在する位置を「ポイント」と呼びます。言いかえれ
+ば、カーソルは、テキストのどこにポイントがあるかをスクリーン上で示して
+いるのです。
 
-     <Delete>      Delete the character just before the cursor
-     ^H            Delete the character just before the cursor
-     ^D            Delete the character the cursor is under
+以下に単純な移動操作について要約します。このなかには、単語や行単位での
+移動コマンドも含まれています：
 
-     ESC-<Delete>  Kill the word immediately before the cursor
-     ESC-^H        Kill the word immediately before the cursor
-     ESC-D         Kill the word from the cursor position
+     ^F        一文字先に進む
+     ^B        一文字後に戻る
 
-     ^K            Kill from the cursor position to end of line
+     ESC-F     一単語先に進む
+     ESC-B     一単語後に戻る
 
-Notice that <Delete> and ^D vs ESC-<Delete> and ESC-D extend the parallel
-started by ^F and ESC-F (well, <Delete> isn't really a control character,
-but let's not worry about that).
+     ^N        次の行に移動
+     ^P        前の行に移動
 
-Now suppose you kill something, and then you decide that you want to get 
-it back?  Well, whenever you kill something bigger than a character, EMACS 
-saves it for you.  To yank it back, use ^Y.  Note that you don't have to 
-be in the same place to do ^Y.  This is a good way to move text around.
-Also note the difference between "Killing" and "Deleting" - "Killed" text
-can be yanked back, and "Deleted" text cannot.  Generally, the commands
-that can destroy a lot of text save it, while the ones that attack only
-one character do not save it.
+     ESC-N     段落の終わりに移動
+     ESC-P     段落の先頭に移動
 
->>  Type ^N a couple times to position the cursor at some line on this
-    screen.  Now kill that line with ^K.
+     ^A        行の最初に移動
+     ^E        行の最後に移動
 
-Note that a single ^K kills the contents of the line, and a second ^K
-kills the line itself, and makes all the other lines move up.  If you
-give ^K a repeat count, it kills that many lines AND their contents.
+     ESC-<     ファイルの最初に移動
+     ESC->     ファイルの最後に移動
 
-The text that has just disappeared is saved so that you can retrieve it.
-To retrieve the last killed text and put it where the cursor currently
-is, type ^Y.
+>>  各々のコマンドを試してみなさい。これらのコマンドは、最もしばしば使
+    われるものです。最後の二つでは、この場所とは離れたところに移動する
+    ので、 ^V や ^Z を使ってここに戻って来るようにしなさい。
 
->>  Try it.  Type ^Y to yank the text back.
+エディタの他のコマンドと同様に、これらのコマンドには、繰り返しの回数を
+指定する引数 を与えることができます。そのためには、コマンドを入力する
+前に、メタ（エスケープ）・キーに続いて繰り返す回数を入力します。特別な
+場合として、^U を ESC-4 の代わりに使うことができます。
 
-Think of ^Y as if you were yanking something back that someone took away 
-from you.  Notice that if you do several ^K's in a row the text that is 
-killed is all saved together so that one ^Y will yank all of the lines.
+例えば、ESC-8 ^F とすると、８文字分先に移動します。
 
->>  Try it.  Type ^K several times.
+>>  ^N あるいは ^P に適当な引数を指定して、一回の移動でなるべくこの行
+    の近くに来るようにしてみなさい。
 
->>  To retrieve that killed text:  Type ^Y.  Move the cursor down a few
-    lines and type ^Y again.  You now know how to copy text.
+このことは ^V や ^Z についても同様です。この場合、指定された回数分の画
+面を移動することになります。
 
-What do you do if you have some text you want to yank back, and then
-you kill something else?  ^Y would yank the more recent kill.
+>>  ESC-3 ^V と入力してみなさい。
 
->>  Kill a line, move around, kill another line.  Then do ^Y to get back
-    the second killed line.
+元に戻るには、^Z を使えばよいのです。
 
 
-SEARCHING
----------
+中止コマンド
+------------
 
-EMACS can do searches for strings (these are groups of contiguous
-characters or words) either forward through the file or backward
-through it.
+^G というコマンドで、入力を必要とするようなコマンドを中止することができ
+ます。例えば、引数を入力している途中や、２つ以上のキー入力を必要とする
+コマンドを入力している最中に、それをやめたくなったら、^G を使えば良いの
+です。
 
->>  Now type ^S to start a search.  Type the word "cursor", then ESC.
+>>  ESC-100 をタイプして引数を１００に設定し、^G をタイプしなさい。そ
+    のあとで ^F をタイプしてみなさい。何文字移動しましたか？もし間違っ
+    て ESC を入力してしまった時も、^G を入力すれば取り消せます。
 
->>  Type ^S ESC to find the next occurrence of "cursor".
 
-The ^S starts a search that looks for any occurrence of the search
-string AFTER the current cursor position.  But what if you want to
-search for something earlier in the text?  To do this one should
-type ^R for Reverse search.  Everything that applies to ^S applies
-to ^R except that the direction of the search is reversed.
+エラー
+------
 
+時には、エディタで許されていない操作をしてしまうことがあります。例えば、
+コマンドの定義されていないコントロール・キーを入力してしまった時には、
+エディタはベルを鳴らし、さらに、画面の一番下に、何が悪かったかを表示し
+ます。
 
-TEXT REPLACEMENT
-----------------
+エディタのバージョンによっては、この入門編に書かれていることを実行でき
+ない場合があり得ます。その様な場合には、エラーメッセージが表示されます
+から、何かカーソル移動キーを押して、その次の部分に進んで下さい。
 
->>  Move the cursor to the blank line two lines below this one.
-    Then type ESC-R changed ESC altered ESC .
 
-    Notice how this line has changed; you have replaced the word
-    "changed" with "altered" wherever it occurs in the file after
-    the cursor.  After all the substitutions have been made or
-    the end of file has been reached, a message informing you of
-    the number of substitutions which have been made appears in
-    the communication line.
+注意：	この後の章のいくつかの練習では、この文書を変更できるようにオプ
+	ションを設定するものがあります。しかし、「間違って変な変更をし
+	てしまったらどうしよう」などの心配は無用です。この文書は、オリ
+	ジナルのコピーですから、それを元の文書にセーブし直さない限り大
+	丈夫なのです。
 
-The more customary command for replacing strings is the interactive
-command query-replace-search (ESC-^R), which has several options.  In
-essence, it shows each occurrence of the first string and asks you if
-you want to replace it or not.  Type a "?" when it asks to replace the
-string to list the various options for query-replace-search.  For a
-more detailed discussion of this command refer to the EMACS manual.
+カーソル・キー
+--------------
 
+カーソル・キーのあるキーボードでは、これをスクリーン上での移動のために
+使用することができます。カーソルキーのコマンドへの割り当ては以下のよう
+になっています：
 
-FILES
------
+     Cursor-Right    ^F        一文字分進む
+     Cursor-Left     ^B        一文字分戻る
 
-In order to make the text changes permanent, you must save them to a file.
-If you do not save them, the changes will "disappear" when you leave EMACS.
-As you make changes, i.e., corrections, deletions, insertions, etc., they
-are actually written to a "scratch" copy of the file and the changes to
-this file will not affect the "master" copy of the file until a file save
-is specified. This allows you to decide if changes made to the file should
-be made permanent or discarded.
-
-Remember:  The file name appears on the mode line.
-
-=* MicroEMACS 3.7 () == emacs.tut == File: emacs.tut ===========================
-                                     ---------------
-
-The commands for finding and saving files are unlike the other commands
-you have learned so far in that they consist of two characters - a ^X
-followed by another character which specifies the file command to be
-executed.
-
-To find a file, type ^X^F.  EMACS will then prompt you from the
-communication line for the name of the file.  In response to the prompt,
-type the file name followed by a <Return> to indicate the file name has
-been entered.  This command will tell EMACS to go find this file and
-load it.  Its contents will then be displayed on the screen and you will
-be able to edit the file's contents.
+     Cursor-Down     ^N        次の行へ
+     Cursor-Up       ^P        前の行へ
 
-To save any changes made to the file, type ^X^S.  This tells EMACS to
-create a new version of the file which includes the changes you have
-made.  When the save is complete, the number of lines saved will be
-displayed in the communication line.
-
-If you edit a file and at some point decide to quit (i.e., ^X^C) without
-saving the changes, EMACS will remind you that changes have been made to
-the file and ask you if you really want to quit.  Enter "N" to return to
-EMACS or "Y" to exit EMACS without saving the changes.
-
-To create a file, just edit it "as if" it already existed.  Then start
-typing in the text.  When you ask to "save" the file, EMACS will really
-create the file with the text that you have entered.  From then on, you
-can consider yourself to be editing an existing file.
-
-It is not easy for you to test editing a file and continue with the
-tutorial.  But you can always come back into the tutorial by starting
-it over and skipping forward.  So, when you feel ready, you should
-try editing a file named "FOO", putting some text in it, and saving
-it; then exit EMACS and look at the file to be sure that it worked.
+     Home            ESC-O     次のウィンドウへ
 
 
-EXTENDING THE COMMAND SET
--------------------------
+>>  カーソル・キーを使う練習をしてみなさい
 
-There are many, many more EMACS commands than could possibly be put on all
-the CONTROL and META characters.  EMACS gets around this with the X (eXtend)
-command.  There are two forms of this command:
 
-     ^X       Character eXtend.  Followed by one character.
-     ESC-X    Named command eXtend.  Followed by a long name.
+モード・ライン
+--------------
 
-These are commands that are generally useful but used less than the commands
-you have already learned about.  You have already seen two of them: the file
-commands ^X^F to Find and ^X^S to Save.  Another example is the command to
-tell EMACS that you'd like to stop editing.  The command to do this is ^X^C.
+画面の一番下の行（ファンクション・キーが表示される端末では、その上の行）
+は、「コミュニケーション・ライン」と呼ばれます。この行を使って、エディ
+タは対話的なやり取りを行います。エディタが情報を要求するやり方（例えば、
+探索を開始するときなど）については、後ほど説明することにします。エディ
+タからの情報がこの行に表示されることもあります。
 
-There are many ^X commands.  Right now, the most helpful ones will be
+>>  ^X= と入力してみなさい。コミュニケーション・ラインには何が表示され
+    ますか？ 表示されたものの意味については、ここでは気にする必要はあ
+    りません。これは、エディタが現在編集中のファイルについてのより詳し
+    い情報を示すやり方の一つの例です。
 
-     ^X^F   Find file.
-     ^X^S   Save file.
-     ^X^C   Quit EMACS.  This does not save your files automatically;
-              however, if your files have been modified, EMACS asks if
-              you really want to quit.  The standard way to save and
-              exit is ^X^S ^X^C.
 
-Named eXtended commands are commands which are used even less frequently,
-or commands which are used only in certain modes.  These commands are
-usually called "functions".  An example is the function "apropos", which
-prompts for a keyword and then gives the names of all the functions that
-are apropos for that keyword.  When you type ESC-X, EMACS prompts you from
-the communication line with ":" and you should type the name of the
-function you wish to call; in this case, "apropos".  Just type "apr<Space>"
-and EMACS will complete the name.  EMACS will ask you for a keyword or
-phrase and you type the string that you want information on.
+コミュニケーション・ラインのすぐ上の行は、「モード・ライン」と呼ばれま
+す。モード・ラインには次のような表示が行われます。
 
->>  Type ESC-X, followed by "apropos<Return>" or "apr<Space>".  Then
-    type "file" followed by a <Return>.  Note: ESC-A is equivalent to
-    the ECS-X "apropos" command.
+=* MicroEMACS 3.8 (kemas 2.1k) () == emacs.tut == File: emacs.tut == UTF-8 ==========
 
->>  To remove the "window" that was added, type ^X0 (zero).
+この行によって、多くの有用な情報が得られます。
 
+  -  アステリスク（星印）は、ファイルが変更されていることを示します。
+    ファイルを読み込んだり、書き出したりした直後には、星印は表示されま
+    せん。
 
-FUNCTION KEYS
--------------
+  -  括弧の中には、現在有効な「モード」が示されます。  モードについて
+     は、次の節で説明します。
 
-By now, you should be familiar with the format and meaning of some of
-the more common CONTROL and META commands.  Because several of these
-commands are used frequently, they have been bound to the function
-keys, which are usually located on the left-hand side of the keyboard
-and labelled F1..F10.  By pressing the appropriate function key, one
-can replace several keystrokes with a single keystroke, thus saving
-you time as you become familiar with their use.
+  -  () の次にあるのは、バッファ名です。これは、エディタが自動的に与え、
+     普通は、ファイル名から取られます。
 
-The highlighted portion at the top of the screen lists the commands
-which are associated with each function key.  Each function key supports
-two commands specified by fn or Fn where n = 1, 2,...10.  The default
-commands are represented by fn and are defined on the left side of the
-screen; these commands are executed by pressing the appropriate function
-key.  The secondary commands are represented by Fn and are defined on
-the right side of the screen; these commands are executed by pressing
-the <Shift> key and the appropriate function key at the same time.
+  -  「ファイル：」の後に書かれているのが、現在編集中のファイルの名前
+     です。
 
->>  Press f1 would ESC.  Note the position of the cursor - "would"
-    was located just as if ^S would ESC had been entered.  Enter
-    ^S would ESC to see for yourself.
+  -  最後に、このファイル中のテキストがどのようなコードで書かれている
+     かが示されます。
 
->>  Press F1 (<Shift> f1).  Note the different appearance of the screen.
-    You have toggled the function key list, i.e., "turned it off".  To
-    "turn it on", press F1 again.
+>>  モード・ラインを調べて、上で述べた各々の項目を確認しなさい。
 
->>  Try using some of the other function keys to become familiar with
-    their use.  NOTE:  Do NOT use f9 with this file as it would save
-    any changes you may have made while using the tutorial.
 
+モード
+------
 
-GETTING MORE HELP
------------------
+　かっこの中に並んでいるのは、現在のバッファに関する「モード」です。モー
+ドは、いろいろな言語（Ｃや文書など）を編集するのに用いられます。今、こ
+のバッファには何のモードも設定されていません。これはつまり、エディタが、
+一切余計なことをしないということです。バッファやモードについてのより詳
+しい情報は、^X^B とタイプすることによって得ることができます。これらに
+ついてのより詳しい議論は、のマニュアルを参照して下さい。
 
-In this tutorial we have tried to supply just enough information to get
-you started using EMACS.  There is so much available in EMACS that it
-would be impossible to explain it all here.  However, you may want to
-learn more about EMACS since it has numerous desirable features that you
-don't know about yet.
+　エディタのバッファの使い方に親しんでくると、「モード」はもっと違った
+意味を持ってきます。二つ以上のバッファを使っている場合、モードには「ロー
+カル」と「グローバル」のふた通りの意味があります。これは、そのモードが
+現在のバッファや、他の（これから追加されるものを含む）バッファにどのよ
+うに影響するかを示しています。
 
-The most basic HELP feature is the describe-key function which is
-available by typing ^X? and then a command character.  EMACS prints
-one line in the communication line to tell what function is bound
-to that key.
+「ローカル」モードは、現在のバッファでのみ有効です。他のバッファや、こ
+れから追加されるバッファには、一切影響を与えません。
 
->>  Type ^X?^P.  The message in the communication line should
-   be something like "^P is bound to previous-line".
+ローカルモードの追加・削除を行うコマンドは、
 
-NOTE:  Multi-character commands such as ^X^Z and ESC-V are also
-       allowed after ^X? .
+     ^XM       ローカルモードの追加
+     ^X^M      ローカルモードの削除
 
-###  The describe-command function does not work - December 1986  ###
-###  Skip to the next section                                     ###
+の二つです。これらのコマンドはいずれもモードを聞いてきます。これに対し
+て、モードの名前（有効なモードの名前については、マニュアルを参照）をタ
+イプし、さらに <Return>（改行キー）を入力すると、そのモードが追加（削
+除）されます。
 
-The describe-command function (ESC-?) will prompt for the name of a
-function and print out the section from the manual about that command.
-When you are finished reading it, type a space or a ^G (quit) to bring
-your text back on the screen.
+>>  ^XM WRAP とタイプしてみなさい。モードラインはどう変わりましたか。
+    カーソルを空白行に移動させて、適当な文字列を入力していってみて下さ
+    い。右マージンで何が起こりましたか？
 
-Now let's get more information about the previous-line command.
+　このように、WRAP モードで文書を入力することができます。このときエディ
+タは、行が長すぎるときに、それを適当な部分で折り返してくれます。なお、
+行の折り返しは、全角文字同士の間か、半角の空白、タブの位置で行われます。
+このとき、簡単な禁則処理も行います。
 
->>  Type ESC-?^P.  When you are finished reading the output, type <Space>.
+　右マージンは普通７２桁目にセットされていますが、変更することも可能で
+す（ニュースやメイルなどを書くときには、もっと小さめの値がよいでしょう）。
+マージンを変更するには、ESC nn ^XF とタイプします。nn は、設定する桁で
+す。
 
-The "name of the function" is important for people who are customizing
-EMACS.  It is what appears in the EMACS CHART as the documentation for
-the command character.
+>>  ESC 40 ^XF とタイプしてみなさい。それから、何か適当に文字列を入力
+    しなさい。今度はどこで行が折り返されましたか？マージンを元に戻すに
+    は、ESC 72 ^XF をタイプします。
 
+>>  ^X^M WRAP とタイプして、ローカルモード WRAP を「消し」なさい。
 
-CONCLUSION
+　「グローバル」モードは、これから追加されるバッファにのみ影響します。
+現在既に存在しているバッファには影響を与えません。今は、グローバルモー
+ドには何もセットされていません。
+
+　グローバルモードの追加・削除には
+
+     ESC-M     グローバルモードの追加
+     ESC-^M    グローバルモードの削除
+
+を使います。
+
+注意：　グローバルモードはまったく使わなくても構いません。しかし、ほと
+	んどすべてのバッファで使うようなモードは、グローバルモードとし
+	て初めにセットしておいた方が便利でしょう。
+
+　コマンドの使い方はローカルモードの場合と同様です。
+
+>>  ESC-M OVER とタイプしなさい。このモードでは、エディタは、入力され
+    た文字をバッファに挿入する代わりに、その場所の文字の「上に」書くよ
+    うになります。モードラインは何か変化しましたか？カーソルを先ほど入
+    力したテキストの上に移動し、適当に入力してみなさい。エディタは何か
+    これまでと違ったことをしていますか？グローバルモードは新しく追加さ
+    れるバッファにしか影響しないのです。
+
+>>  ESC-^M OVER とタイプして、グローバルモード OVER を「消し」なさい。
+
+
+挿入と削除
 ----------
 
-Remember:  To EXIT use ^X^C.
+　テキストをタイプしたければ、単にそれをタイプすればよろしい。目に見え
+る文字（'A','7','*','あ' など）はエディタによってテキストであるとみな
+され、そのまま挿入されます。行の終わりは改行文字で表され、これを入力す
+るには <Return> をタイプします。
 
-This tutorial is meant to be understandable to all new users, so if
-you found something unclear, don't sit and blame yourself - complain!
+　直前に入力した文字を削除するには、<Delete> または ^H を入力します。
+キーボードによっては、^H を入力するための専用のキーを持っているものも
+あります。そのようなキーには、「←」、「BackSpace」、「BS」などと書い
+てあるでしょう。<Delete> は、キーボードで「Delete」と書いてあるキーを
+押して入力します。「Delete」のかわりに「Rubout」と書いてあるかも知れま
+せん。より一般的には、<Delete> は、現在カーソルのある位置の直前の文字
+を削除します。
 
-You'll probably find that if you use EMACS for a few days you won't be
-able to give it up.  Initially it may give you trouble.  But remember,
-this is the case with any editor, especially one that can do many, many
-things - and EMACS can do practically everything.
+>>  文字をいくつかタイプし、それからそれらを <Delete> を使って削除しな
+さい。
+
+>>  右マージンを越えるまでテキストをタイプしなさい。テキストが一行の幅
+    以上に長くなると、その行は画面からはみ出して「継続」されます。右端
+    にあるドル記号は、その行が継続されていることを表しています。エディ
+    タは、現在編集中の位置が見えるように行をスクロールします。画面の右
+    あるいは左の端にあるドル記号は、その方向に行がまだ続いていることを
+    表しています。
+
+　これは、文章で説明するより実際にやった方がよく判るでしょう。
+
+>>  次の行は、画面からはみ出しています。ESC-F を何回も入力して、この行
+    の右端の方に移動してみなさい。この行には、かなり長いテキストが書かれています。画面の両端にドル記号がありますね。ESC-F を続けて入力して、エディタがどこで行をスクロールするかみてみなさい。また、ESC-B を、エディタが行を逆にスクロールするまで入力してみなさい。
+
+>>  先ほど入力した、継続された行に行き、^D でテキストを削除して、テキ
+    ストが一行に収まるようにしてみなさい。継続を表すドル記号は消えまし
+    たね。
+
+>>  カーソルを行の先頭に移動し、<Delete> を入力しなさい。これはその行
+    の直前の行句切りを削除するので、その行が前の行とつながってしまいま
+    す。つながった行が画面の幅より長くなると、継続の表示がされるでしょ
+    う。
+
+>>  <Return> を押して、もう一度行句切りを挿入しなさい。
+
+　内部的には、エディタはほとんどどんな長さの行でもメモリの許す限り扱え
+るようになっています。ただし、ファイルとの入出力を行う場合には、一行の
+長さは２５５文字を越えることはできません。
+
+　エディタのほとんどのコマンドは、繰り返しの回数を与えることができます。
+このことは、文字の挿入についても当てはまります。
+
+>>  ESC-8 * と入力してみなさい。どうなりましたか。
+
+　二つの行の間に空白行を作りたい場合には、二番目の行の先頭に行き、^O
+を入力します。
+
+>>  行の先頭に行き、そこで ^O を入力してみなさい。
+
+　これで、エディタで、テキストを入力し、また間違いを修正するもっとも基
+本的な方法を学んだことになります。文字と同じ様に、単語や行も削除するこ
+とができます。削除操作について要約すると次のようになります。
+
+     <Delete>      カーソルの直前の文字を削除
+     ^H            <Delete> と同じ
+     ^D            カーソルのある文字を削除
+
+     ESC-<Delete>  カーソルの直前の単語を削除
+     ESC-^H        ESC-<Delete> と同じ
+     ESC-D         カーソル位置以降にある単語を削除
+
+     ^K            カーソル位置から行末までを削除
+
+　<Delete> や ^D は、^F と同じ様な方法でその適用範囲を拡大します（ただ
+し、<Delete> は実際にはコントロール文字ではありませんし、^H の場合、そ
+の拡張版が ESC-H でないなど厳密にいうと異なる面もありますが、あまり気
+にしないように）。
+
+　何かを削除した後で、それを元に戻したくなることがあります。エディタは、
+一文字よりも大きい単位で削除を行った時には、削除した内容を保存しておき
+ます。元に戻すには、^Y を使います。注意したいのは、^Y を、削除を行った
+場所だけで行う必要はどこにもないということです。^Y は、保存されたテキ
+ストを、現在カーソルのある場所に挿入するためのコマンドですから、これを
+使って、テキストの移動を行うことができます。削除を行うコマンドには、
+"Delete" コマンドと、"Kill" コマンドとがあります。"Kill" コマンドでは
+削除されたものは保存されますが、"Delete" コマンドでは保存されません。
+ただし、繰り返し回数が与えられると、保存されます。
+
+>>  ^N を２回ほどタイプして、画面の適当な場所に移動しなさい。そして、
+    ^K で、その行を削除しなさい。
+
+　一回目の ^K でその行の内容が削除され、もう一度 ^K を入力すると、その
+行自身が削除されます。もし、^K に繰り返し回数を指定した場合には、その
+回数だけの行が（内容と行自身とが同時に）削除されます。
+
+　今削除されたテキストは、保存されているので、それを取り出すことができ
+ます。そのためには、^Y をタイプします。
+
+>>  試してみなさい。
+
+　^K を何度も続けて行うと、削除されるテキストはまとめて保存され、^Y で、
+その全てが取り出されます。
+
+>>  ^K を何度もタイプしてみなさい。
+
+>>  テキストを取り出すには、^Y です。カーソルを数行下に移動させ、もう
+    一度 ^Y をタイプしてみなさい。これでテキストのコピーができるわけで
+    す。
+
+　現在なにかのテキストが保存されていて、さらに他のテキストを削除すると
+どうなるでしょうか。^Y は、もっとも最近削除されたものを取り出します。
+
+>>  行を削除し、カーソルを移動させ、別の行を削除しなさい。^Y を行うと、
+    ２番目の行が得られますね。
+
+アンドゥ
+-----
+
+何か間違えた場合や、編集操作を取り消したい場合には、^XU（アンドゥ）を使
+います。これにより、最後の編集操作（文字の挿入・削除、行の分割結合など）
+を取り消すことができます。$undo-limit で保持するレコード数を設定できま
+す（デフォルト 1000、0 で無制限）。
+
+>>　^XU でアンドゥを試してみなさい。
+
+アンドゥを取り消すには ^XR（リドゥ）を使います。取り消した操作をやり直す
+ことができます。
+
+>>　^XR で、取り消した操作を元に戻してみなさい。
 
 
-ACKNOWLEDGEMENTS
-----------------
+探索
+----
 
-This is a modified version of the "JOVE Tutorial" by Jonathan Payne 
-(19 January 86).  That document was in turn a modified version of
-the tutorial "Teach-Emacs" from MIT as modified by Steve Zimmerman
-at CCA-UNIX (31 October 85).
+　特定の文字列を、ファイルを前向きあるいは後向きに、探すことができます。
+
+>>  ^S で探索が始まります。「カーソル」という単語を入力し、ESC をタイ
+    プします（システムによっては、^S が使えない場合があります。その場
+    合には、それに代わるキーがあるはずですから、だれかに聞いてみて下さ
+    い）。
+
+>>  ^S ESC とタイプすると、その次に出て来る「カーソル」が見つけられま
+    す。
+
+　^S は、現在のカーソル位置*以降*に出て来る探索文字列を探します。もし、
+現在位置以前にある文字列を探したい場合にはどうするのでしょうか。そのた
+めには、^R をタイプして、逆方向探索を行います。^R は、探索の方向が ^S 
+と逆なのを除いて、^S と同様に働きます。
+
+
+テキストの置換
+--------------
+
+>>  カーソルをこの行の２行下にある空白行に移動しなさい。それから、
+ESC-R 置き換えら ESC 置換さ ESC とタイプしてみなさい。
+
+    この行がどの様に置き換えられるかに注意しなさい。ファイル中でカーソ
+    ル以降にある「置き換えら」という単語が、全部「置換さ」に置き換えら
+    れたのです。全ての置き換えが終るか、あるいはファイルの終わりに到達
+    すると、コミュニケーション・ラインに、置換された文字列の個数が表示
+    されます。
+
+　置換に際してより柔軟な処理を行いたい場合には、対話的なコマンドである、
+query-replace-search (ESC-^R) を使います。基本的に、このコマンドは、
+置換される文字列が見つかる毎にそれを表示し、置換を行うかどうかを聞いて
+きます。このとき "?" をタイプすれば、そのときに入力できるオプションが
+表示されます。詳しくは、マニュアルを参照して下さい。
+
+
+ファイル
+--------
+
+　テキストへの変更を永久的にするためには、それをファイルに保存しなけれ
+ばなりません。保存されないと、ほどこした変更は、エディタを終了すると同
+時に失われてしまいます。修正や削除、挿入などの変更は、ファイルの一時的
+なコピーに対して行われ、ファイルの本体には影響を与えません。そのため、
+最終的に、行った変更を固定するのか、無視するのかを決定することになりま
+す。
+
+注意：ファイル名は、モードラインに表示されています。
+
+=* MicroEMACS 3.8 (kemas 2.1k) () == emacs.tut == File: emacs.tut == UTF-8 ==========
+                                      ---------------
+
+　ファイルを取り出したり（Finding）、保存したり（Saving）するコマンド
+は、これまでのものとは違い、２つの文字からなっています。^X に続いて入
+力する文字が、ファイルに対して行う操作を表します。
+
+　ファイルを取り出すには、^X^F と入力します。すると、コミュニケーショ
+ン・ラインを使って、ファイルの名前が要求されます。答えるには、ファイル
+の名前に続いて、改行を入れます。これによって、そのファイルが見つけられ、
+エディタ内に取り込まれます。そしてその内容が画面に表示され、編集が行え
+るようになります。
+
+　ファイルに対して行われた変更を保存するには、^X^S と入力します。これ
+によって、それまで行われた変更を反映した新しいファイルが作られます。保
+存が終了すると、作られたファイルの行数が、コミュニケーション・ラインに
+表示されます。
+
+　もしファイルを編集していて、ある時点で保存せずに終了（^X^C）しようと
+すると、エディタは、変更が行われているということを報告し、それでも終了
+するかどうかを聞いてきます。"N" と入れればエディタに戻り、"Y" と入れる
+と、保存を行わずにエディタを終了します。
+
+　ファイルを新しく作成するには、そのファイルがすでにあるのと同じ様にし
+て編集を行います。内容を保存する時点で、実際にファイルが作成されます。
+それ以降は、既存のファイルを編集するのと何の変わりもありません。
+
+　ファイルの編集を試しながら、同時にこの入門編を続けて行くのは少し難し
+いかも知れません。しかし、いつでも、最初から始めて途中を飛ばすことで、
+戻ってこられるのですから、安心です。というわけで、準備ができたと思った
+ら、"FOO" という名前のファイルを編集し、なにかテキストを入力して、保存
+します。そして、エディタを抜け、ファイルの内容を調べて、うまく行ってい
+ることを確認して下さい。
+
+
+コマンドの拡張
+--------------
+
+　エディタには、コントロール・キーやメタ・キーで入力できるものよりもずっ
+と多くのコマンドがあります。これらを扱うために、拡張（eXtend）されたコ
+マンドを行います。それには、以下の２つの種類があります。
+
+     ^X       文字による拡張。続けて一文字を入力します。
+     ESC-X    名前による拡張。続けてコマンドの名前を入力します。
+
+　これらは一般に、便利だけれども、これまで見てきたものほど頻繁には用い
+られないコマンドのためのものです。^X^F（ファイルの編集）や ^X^S（保存）
+はこの仲間です。他に、^X^C（エディタの終了）もそうです。
+
+　^X コマンドは、たくさんありますが、便利なのは以下のものでしょう：
+
+     ^X^F   ファイルの編集（Find）
+     ^X^S   ファイルの保存（Save）
+     ^X^C   エディタを終了する。ファイルの保存は、自動的には行われませ
+	     ん。しかし、もしファイルが変更されていれば、本当に終了し
+	     たいのかどうかを聞いてきます。保存して終了する普通の方法
+	     は、^X^S ^X^C とすることです。
+
+　名前による拡張コマンドには、あまり使われないものや、特定のモードでし
+か使わないものなどがあります。これらのコマンドは普通ファンクションと呼
+ばれます。例として、"apropos" をとりあげます。このファンクションはキー
+ワードを入力させ、それにマッチする全てのファンクションの名前を表示しま
+す。ESC-X とタイプすると、コミュニケーション・ラインに ":" が表示され
+ます。これに対して、実行するファンクションの名前（今の場合、"apropos"）
+を入力します。"apr" まで入力した後スペースを入れれば、後の部分は自動的
+に補われます。この後、キーワードを聞かれますから、知りたい文字列をタイ
+プします。
+
+>>  ESC-X をタイプし、続けて、"apropos<Return>" あるいは "apr<Space>" 
+    と入力します。次に、"file" に続いて改行を入力します。
+    備考：ESC-A は、ESC-X "apropos" と同じ働きをします。
+
+>>  現れた「ウィンドウ」を消すには、^X0 とタイプします。
+
+
+ファンクション・キー
+--------------------
+
+　　さねを注：
+	　ファンクション・キーについては、特定のパーソナル・コンピュー
+	タ上でしか使用できませんし、機種間の互換性もあまりありませんの
+	で、省略します。
+
+
+より詳しい情報を得るには
+------------------------
+
+　この入門編では、エディタを使い始めるのに十分なだけの情報を提供してい
+ます。まだこの他にもたくさんの機能があり、それをこの場で述べることはと
+ても不可能です。まだ知らない多くの機能について学ぶためには、どうしたら
+よいでしょうか。
+
+　もっとも基本的な方法は、describe-key コマンドを使うことです。^X? と
+タイプし、それからコマンド・キーを入力します。すると、そのキーに割り当
+てられたファンクションが、コミュニケーション・ラインに表示されます。
+
+>>  ^X?^P とタイプしてみなさい。コミュニケーション・ラインには、
+"previous-line" と表示されるはずです。
+
+注意：複数文字のコマンド（^X^Z や ESC-V など）も、同じ様に ^X? のあと
+      に入力できます。
+
+###  describe-command は、現時点では使えません。-- December 1986  ###
+###  次のセクションは飛ばして下さい。                             ###
+
+　describe-command（ESC-?）は、ファンクションの名前を聞き、マニュアル
+のそのコマンドの部分を表示します。読み終ったら、スペースまたは ^G（quit）
+を入力すれば、元のテキストの画面に戻ります。
+
+　previous-line コマンドについて、もっと詳しい説明を見てみましょう。
+
+>>  ESC-?^P とタイプします。読み終ったら、スペースを入力します。
+
+　「ファンクションの名前」は、エディタを専用化しようとする場合に重要に
+なってきます。EMACS CHART には、コマンド文字の説明の部分に、これが出て
+きます。
+
+
+おわりに
+--------
+
+忘れずに： 終了するには、^X^C とします。
+
+　この入門編は、まったくの初心者にもわかりやすいようにと意図しています。
+ですから、もし何かわかりにくい点があったなら、一人で愚痴を言うのではな
+く、文句をつけて下さい。
+
+　もし、EMACS を何日かでも使ってみれば、それをやめてしまうことなどでき
+なくなるでしょう。最初は戸惑うかも知れません。しかし、それはどんなエディ
+タでも同様です。EMACS のように、非常に多くのことができる場合には特にそ
+うでしょう。そして、EMACS では、実際、何でもできるのですから。
+
+
+謝辞
+----
+
+　この文書は、Jonathan Payne による "JOVE Tutorial" (19 January 86) を
+変更したものであり、それはもともとは、CCA-UNIX の Steve Zimmerman によっ
+て変更された、MIT の "Teach-Emacs" 入門編 (31 October 85) を（さらに）
+変更したものでした。
 
 Update - February 1986 by Dana Hoggatt.
 
 Update - December 1986 by Kim Leburg.
+
+　この文書は、MicroEMACS 付属のチュートリアルを、さねをが個人の資格で
+日本語に訳したものです。訳に際しては、逐語訳よりも、内容のわかりやすさ
+を重視したつもりです。また、実状に合わない面などについては、修正したと
+ころもあります。
+　この文書の日本語訳に当たっては、誰の許可も得ていません。従って、もし
+かすると、誰かに怒られるかも知れません。
+
+Update/Translate - July 1987 by SANETO Takanori
+
