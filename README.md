@@ -1,5 +1,7 @@
 # kemacs 2.1k (UTF-8 対応版)
 
+![kemacs](linenumber.jpg)
+
 ## 1. 概要
 
 ### 1.1 kemacs とは
