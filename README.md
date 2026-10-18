@@ -1,5 +1,7 @@
 # kemacs 2.1k UTF-8対応版 日本語 MicroEMACS
 
+![kemacs UTF-8](linenumber.jpg)
+
 kemacs (日本語 MicroEMACS) は、Daniel M. Lawrence 氏が 1987 年にリリースした軽量テキストエディタ **MicroEMACS 3.8i** をベースに、Takanori (sanewo) Saneto 氏による日本語 (漢字) 拡張が加えられたエディタです。このソースは 新出＠奈良女子大学さんの「kemacs-2.1k 非公式パッチ & Linux対応パッチ セット (第14版)」をベースにさせていただきました。30 年以上の歳月をかけて積み重ねられた様々なパッチと、最新コンパイラ (GCC 15.2.0) 対応、そして完全 UTF-8 サポートにより、現代でもそのまま使える強力なツールになっています。
 
 ## kemacs を使うべき 5 つの理由
