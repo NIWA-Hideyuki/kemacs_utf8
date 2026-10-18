@@ -65,6 +65,27 @@ kemacs -b filename.txt
 | `$linenumbers` | `FALSE` | 行番号ガーターの表示/非表示 |
 | `$linenumwidth` | `6` | ガーター幅 (行番号の桁数 + 1 スペース) |
 
+## 漢字コードの変更
+
+現在のバッファのエンコーディングを変更するには、`Ctrl-X A` (set-variable) を使用します:
+
+```
+Ctrl-X A    →   Variable to set: $bcode
+              →   Value: CRLF/UTF8    (または UTF8, UJIS, SJIS 等)
+```
+
+| 設定値       | エンコーディング    |
+|--------------|-------------------|
+| `UTF8`       | UTF-8 / LF        |
+| `CRLF/UTF8`  | UTF-8 / CRLF      |
+| `CR/UTF8`    | UTF-8 / CR        |
+| `UJIS`       | EUC-JP / LF       |
+| `CRLF/UJIS`  | EUC-JP / CRLF     |
+| `SJIS`       | Shift_JIS / LF    |
+| `JIS-NEW-ROMAJI` | JIS / 新シーケンス / ローマ字 |
+
+> **注意**: `$fcode` は新規バッファのデフォルトエンコーディングを設定するだけです。既存バッファのエンコーディングを変更するには `$bcode` を使用してください。
+
 ## 使用例
 
 ```lisp
