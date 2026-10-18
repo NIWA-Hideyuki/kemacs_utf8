@@ -325,6 +325,7 @@ int readin(Char fname[], int lockfl)
                 if (s == FIOFUN)
                 	break;
 	}
+	curbp->b_nlines = nline;	/* cache line count for display	*/
 	/* Ignore errors.       */
 #if	KANJI
 	(void)ffclose(&KS_VALUE(curbp->b_code));
@@ -666,6 +667,7 @@ ifile(Char *fname)
                 if (s == FIOFUN)
                 	break;
 	}
+	curbp->b_nlines = -1;	/* invalidate cached line count	*/
 	/* Ignore error */
 #if	KANJI
 	(void)ffclose((unsigned *)NULL);

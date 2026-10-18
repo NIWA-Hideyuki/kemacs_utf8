@@ -208,6 +208,11 @@ display.c のガーター (行番号欄) 描画ロジックを検証する。行
 | — | gutter truncation | 行番号がガーター幅を超えないこと |
 | — | gutter padding | ガーター領域の余白がスペースで埋められること |
 | — | line number width | linenumwidth 設定によるガーター幅変更 |
+| 1 | ndigits | ndigits() 関数: 1桁〜8桁の桁数計算 |
+| 2 | buf_linenr | buf_linenr() 関数: キャッシュとダーティ再計算 |
+| 3 | dynamic width 7-digit | 1,000,000行超バッファでガーターが7桁に自動拡張 |
+| 4 | dynamic width 8-digit | 10,000,000行超バッファでガーターが8桁に自動拡張 |
+| 5 | dynamic width small number | 拡張されたガーターで小さな行番号が右詰めされること |
 
 ---
 

@@ -67,6 +67,7 @@ static int run_kemacs(char *argv[])
 
     if (pid == 0) {
         /* Child: redirect stdin from /dev/null, discard stdout/stderr */
+        putenv("TERM=xterm");
         int fd_in = open("/dev/null", O_RDONLY);
         if (fd_in >= 0) {
             dup2(fd_in, STDIN_FILENO);
@@ -106,7 +107,8 @@ static int run_kemacs_with_home(char *argv[], const char *home_dir)
     }
 
     if (pid == 0) {
-        /* Child: set HOME, redirect stdin from /dev/null, discard stdout/stderr */
+        /* Child: set HOME and TERM, redirect stdin from /dev/null, discard stdout/stderr */
+        putenv("TERM=xterm");
         if (home_dir) {
             char envbuf[512];
             snprintf(envbuf, sizeof(envbuf), "HOME=%s", home_dir);
@@ -154,7 +156,8 @@ static char *run_kemacs_with_home_capture(char *argv[], const char *home_dir)
     }
 
     if (pid == 0) {
-        /* Child */
+        /* Child: set TERM and HOME */
+        putenv("TERM=xterm");
         if (home_dir) {
             char envbuf[512];
             snprintf(envbuf, sizeof(envbuf), "HOME=%s", home_dir);

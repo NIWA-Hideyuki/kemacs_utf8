@@ -292,6 +292,7 @@ EXT int		discmd		INIT(TRUE);			/* display command flag		*/
 EXT int		disinp		INIT(TRUE);		/* display input characters	*/
 EXT int		show_line_numbers	INIT(FALSE);	/* show line number gutter	*/
 EXT int		line_number_width	INIT(6);	/* width of line number gutter */
+EXT int		effective_lw		INIT(6);	/* effective gutter width (auto-grown) */
 
 EXT struct BUFFER *bstore INIT(NULL);		/* buffer to store macro text to */
 

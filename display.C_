@@ -280,12 +280,39 @@ int update(int force)
 /* forward declaration: defined after draw_gutter, called from do_update */
 static void draw_all_gutters(void);
 
+/* forward declarations for dynamic line-number width */
+static int ndigits(int n);
+static int buf_linenr(BUFFER *bp);
+
 int do_update(int force)
 {
 #endif	/*CLOCK*/
 	WINDOW *wp;
+	int maxd;	/* max digits needed across visible buffers	*/
+	int d;
+	int total;
 
-	gbound = show_line_numbers ? line_number_width + 1 : 0;
+	/* Compute the effective line-number gutter width.
+	   If any visible buffer has more digits in its line count
+	   than the user's line_number_width, grow the gutter by
+	   one digit at a time to fit. */
+	effective_lw = line_number_width;
+	if (show_line_numbers) {
+		maxd = 0;
+		wp = wheadp;
+		while (wp != NULL) {
+			total = buf_linenr(wp->w_bufp);
+			d = ndigits(total);
+			if (d > maxd)
+				maxd = d;
+			wp = wp->w_wndp;
+		}
+		if (maxd > effective_lw)
+			effective_lw = maxd;
+		gbound = effective_lw + 1;
+	} else {
+		gbound = 0;
+	}
 
 #if	TYPEAH
 	if (force == FALSE && typahead())
@@ -416,8 +443,47 @@ line_number_of(LINE *lp, BUFFER *bp)
 }
 
 /*
+ * Return the number of decimal digits in n (n >= 1).
+ * Returns 1 for n <= 0.
+ */
+static int
+ndigits(int n)
+{
+	int d = 0;
+	if (n <= 0)
+		return 1;
+	while (n > 0) {
+		++d;
+		n /= 10;
+	}
+	return d;
+}
+
+/*
+ * Return the total number of lines in buffer bp (real lines,
+ * not counting the header).  Uses a cached count when valid;
+ * recomputes by walking the linked list when the cache is stale.
+ */
+static int
+buf_linenr(BUFFER *bp)
+{
+	LINE *lp;
+	int num = 0;
+
+	if (bp->b_nlines >= 0)
+		return bp->b_nlines;
+	lp = lforw(bp->b_linep);
+	while (lp != bp->b_linep) {
+		++num;
+		lp = lforw(lp);
+	}
+	bp->b_nlines = num;
+	return num;
+}
+
+/*
  * Draw the line-number gutter at virtual screen row sline for line number
- * lineno.  The gutter occupies gbound columns (line_number_width digits
+ * lineno.  The gutter occupies gbound columns (effective_lw digits
  * right-justified, followed by a single space separator).
  * Written directly into vscreen to bypass the gbound write guard in vtputc.
  */
@@ -433,7 +499,7 @@ draw_gutter(int sline, int lineno)
 	Char dbuf[16];
 	int d;
 
-	gw = show_line_numbers ? line_number_width + 1 : 0;
+	gw = gbound;
 	if (gw == 0)
 		return;
 
@@ -462,8 +528,8 @@ draw_gutter(int sline, int lineno)
 		}
 	ndigits = d;
 
-	/* right-align within line_number_width columns */
-	pos = line_number_width - ndigits;
+	/* right-align within effective_lw columns */
+	pos = effective_lw - ndigits;
 	if (pos < 0)
 		pos = 0;
 	for (i = 0; i < pos; i++)
@@ -502,7 +568,7 @@ draw_all_gutters(void)
 	int gw;
 	int i;
 
-	gw = show_line_numbers ? line_number_width + 1 : 0;
+	gw = gbound;
 	if (gw == 0)
 		return;
 
@@ -541,7 +607,7 @@ int updone(WINDOW *wp)
 	int gw;		/* gutter width */
 	int lineno;	/* line number for gutter */
 
-	gw = show_line_numbers ? line_number_width + 1 : 0;
+	gw = gbound;
 
 	/* search down the line we want */
 	lp = wp->w_linep;
@@ -579,7 +645,7 @@ int updall(WINDOW *wp)
 	int gw;		/* gutter width */
 	int lineno;	/* line number for gutter */
 
-	gw = show_line_numbers ? line_number_width + 1 : 0;
+	gw = gbound;
 
 	/* search down the lines, updating them */
 	lp = wp->w_linep;
@@ -673,7 +739,7 @@ int upddex(void)
 	int gw;
 	int lineno;
 
-	gw = show_line_numbers ? line_number_width + 1 : 0;
+	gw = gbound;
 
 	wp = wheadp;
 

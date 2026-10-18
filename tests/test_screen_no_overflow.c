@@ -54,6 +54,7 @@ int taboff = 0;
 int vtrow = 0, vtcol = 0;
 int show_line_numbers = FALSE;
 int line_number_width = 6;
+int effective_lw = 6;
 int ttrow = 0, ttcol = 0;
 int currow = 0, curcol = 0;
 int eolexist = TRUE;
@@ -497,7 +498,7 @@ test_linenum_no_gap(void)
     term.t_ncol = 80;
     show_line_numbers = TRUE;
     line_number_width = 6;
-    gbound = line_number_width + 1; /* = 7 */
+    effective_lw = line_number_width; gbound = line_number_width + 1; /* = 7 */
     kana_is_wide = 0;
     setup_screens();
 

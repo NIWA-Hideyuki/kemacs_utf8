@@ -30,6 +30,7 @@ typedef struct TERM {
 /* ---- Globals ---- */
 int show_line_numbers = FALSE;
 int line_number_width = 6;
+int effective_lw = 6;
 int gbound = 0;
 int lbound = 0;
 int taboff = 0;
@@ -38,6 +39,17 @@ TERM term;
 
 VIDEO *vscreen[MAX_SCREEN_LINES];
 
+/* ---- Minimal LINE/BUFFER types for buf_linenr test ---- */
+typedef struct LINE {
+    struct LINE *l_fp;
+    struct LINE *l_bp;
+} LINE;
+
+typedef struct BUFFER {
+    LINE *b_linep;
+    int  b_nlines;
+} BUFFER;
+
 /* ---- Inline copies of the functions under test ---- */
 
 static void
@@ -45,6 +57,36 @@ vtmove(int row, int col)
 {
     vtrow = row;
     vtcol = col;
+}
+
+/* Return the number of decimal digits in n (n >= 1).  Returns 1 for n <= 0. */
+static int ndigits(int n)
+{
+    int d = 0;
+    if (n <= 0)
+        return 1;
+    while (n > 0) {
+        ++d;
+        n /= 10;
+    }
+    return d;
+}
+
+/* Return the total number of lines in buffer bp (real lines,
+   not counting the header).  Uses cached count when valid. */
+static int buf_linenr(BUFFER *bp)
+{
+    LINE *lp;
+    int num = 0;
+    if (bp->b_nlines >= 0)
+        return bp->b_nlines;
+    lp = bp->b_linep->l_fp;
+    while (lp != bp->b_linep) {
+        ++num;
+        lp = lp->l_fp;
+    }
+    bp->b_nlines = num;
+    return num;
 }
 
 /* Simplified vtputc (non-KANJI path only) -- copy of display.C_ logic */
@@ -96,14 +138,14 @@ draw_gutter(int sline, int lineno)
 {
     VIDEO *vp;
     int i;
-    int ndigits;
+    int ndig;
     int tmp;
     int pos;
     int gw;
     Char dbuf[16];
     int d;
 
-    gw = show_line_numbers ? line_number_width + 1 : 0;
+    gw = gbound;
     if (gw == 0)
         return;
 
@@ -123,13 +165,15 @@ draw_gutter(int sline, int lineno)
             dbuf[d++] = '0' + (tmp % 10);
             tmp /= 10;
         }
-    ndigits = d;
+    ndig = d;
 
-    pos = line_number_width - ndigits;
+    pos = effective_lw - ndig;
     if (pos < 0)
         pos = 0;
-    for (i = 0; i < ndigits; i++)
-        vp->v_text[pos + i] = dbuf[ndigits - 1 - i];
+    for (i = 0; i < pos; i++)
+        vp->v_text[i] = ' ';   /* space-padded, right-aligned */
+    for (i = 0; i < ndig; i++)
+        vp->v_text[pos + i] = dbuf[ndig - 1 - i];
 }
 
 /* Draw one virtual line at sline with given text and line number */
@@ -150,7 +194,7 @@ draw_line(int sline, const char *text, int lineno)
 static int
 gutter_is_clean(int sline)
 {
-    int gw = show_line_numbers ? line_number_width + 1 : 0;
+    int gw = gbound;
     int i;
     if (gw == 0) return 1;
     for (i = 0; i < gw; i++) {
@@ -237,7 +281,7 @@ static void test_linenum_73_chars_overflow(void) {
     term.t_nrow = 24; term.t_ncol = 80;
     show_line_numbers = TRUE;
     line_number_width = 6;
-    gbound = line_number_width + 1; /* = 7 */
+    effective_lw = line_number_width; gbound = line_number_width + 1; /* = 7 */
     setup_screens();
 
     /* 74 chars: first 73 fill text area (7-79), 74th triggers '$' at 79 */
@@ -270,7 +314,7 @@ static void test_linenum_two_lines_long_then_short(void) {
     term.t_nrow = 24; term.t_ncol = 80;
     show_line_numbers = TRUE;
     line_number_width = 6;
-    gbound = line_number_width + 1;
+    effective_lw = line_number_width; gbound = line_number_width + 1;
     setup_screens();
 
     char long_text[101];
@@ -288,7 +332,7 @@ static void test_linenum_two_lines_long_then_short(void) {
 
     /* Check '$' not in next line's gutter */
     {
-        int gw = line_number_width + 1;
+        int gw = gbound;
         int i;
         for (i = 0; i < gw; i++) {
             TEST_ASSERT(vscreen[1]->v_text[i] != '$',
@@ -308,7 +352,7 @@ static void test_linenum_short_then_long_same_line(void) {
     term.t_nrow = 24; term.t_ncol = 80;
     show_line_numbers = TRUE;
     line_number_width = 6;
-    gbound = line_number_width + 1;
+    effective_lw = line_number_width; gbound = line_number_width + 1;
     setup_screens();
 
     char long_text[101];
@@ -340,7 +384,7 @@ static void test_linenum_exact_fit(void) {
     term.t_nrow = 24; term.t_ncol = 80;
     show_line_numbers = TRUE;
     line_number_width = 6;
-    gbound = line_number_width + 1;
+    effective_lw = line_number_width; gbound = line_number_width + 1;
     setup_screens();
 
     char text[74];
@@ -363,7 +407,7 @@ static void test_linenum_100_chars_gutter_value(void) {
     term.t_nrow = 24; term.t_ncol = 80;
     show_line_numbers = TRUE;
     line_number_width = 6;
-    gbound = line_number_width + 1;
+    effective_lw = line_number_width; gbound = line_number_width + 1;
     setup_screens();
 
     char long_text[101];
@@ -392,7 +436,7 @@ static void test_updall_empty_lines_past_eof(void) {
     term.t_nrow = 24; term.t_ncol = 80;
     show_line_numbers = TRUE;
     line_number_width = 6;
-    gbound = line_number_width + 1; /* = 7 */
+    effective_lw = line_number_width; gbound = line_number_width + 1; /* = 7 */
     setup_screens();
 
     /* Draw 5 content lines (simulating updall for file lines 1-5) */
@@ -451,6 +495,131 @@ static void test_updall_empty_lines_past_eof(void) {
     teardown_screens();
 }
 
+/* ---- Dynamic line-number width tests ---- */
+
+static void test_ndigits_basic(void)
+{
+    TEST_ASSERT_INT(ndigits(0), 1, "ndigits(0) = 1");
+    TEST_ASSERT_INT(ndigits(1), 1, "ndigits(1) = 1");
+    TEST_ASSERT_INT(ndigits(9), 1, "ndigits(9) = 1");
+    TEST_ASSERT_INT(ndigits(10), 2, "ndigits(10) = 2");
+    TEST_ASSERT_INT(ndigits(99), 2, "ndigits(99) = 2");
+    TEST_ASSERT_INT(ndigits(100), 3, "ndigits(100) = 3");
+    TEST_ASSERT_INT(ndigits(999), 3, "ndigits(999) = 3");
+    TEST_ASSERT_INT(ndigits(1000), 4, "ndigits(1000) = 4");
+    TEST_ASSERT_INT(ndigits(999999), 6, "ndigits(999999) = 6");
+    TEST_ASSERT_INT(ndigits(1000000), 7, "ndigits(1000000) = 7");
+    TEST_ASSERT_INT(ndigits(9999999), 7, "ndigits(9999999) = 7");
+    TEST_ASSERT_INT(ndigits(10000000), 8, "ndigits(10000000) = 8");
+}
+
+static void test_buf_linenr(void)
+{
+    /* Build a simple circular linked list: header + 3 real lines */
+    LINE hdr, l1, l2, l3;
+    BUFFER bp;
+
+    bp.b_linep = &hdr;
+    hdr.l_fp = &l1;  hdr.l_bp = &l3;
+    l1.l_fp  = &l2;  l1.l_bp  = &hdr;
+    l2.l_fp  = &l3;  l2.l_bp  = &l1;
+    l3.l_fp  = &hdr; l3.l_bp  = &l2;
+
+    /* Cached (b_nlines >= 0) */
+    bp.b_nlines = 3;
+    TEST_ASSERT_INT(buf_linenr(&bp), 3, "buf_linenr cached = 3");
+
+    /* Dirty (b_nlines < 0): must walk the list */
+    bp.b_nlines = -1;
+    TEST_ASSERT_INT(buf_linenr(&bp), 3, "buf_linenr dirty recompute = 3");
+
+    /* After recompute, cache should be valid */
+    TEST_ASSERT_INT(buf_linenr(&bp), 3, "buf_linenr cached after recompute = 3");
+}
+
+static void test_dynamic_width_gutter_7digit(void)
+{
+    /* Simulate a buffer with 1,000,000+ lines.
+       line_number_width = 6 (user default), but effective_lw
+       must grow to 7 to display 7-digit line numbers. */
+    term.t_nrow = 24; term.t_ncol = 80;
+    show_line_numbers = TRUE;
+    line_number_width = 6;
+    effective_lw = 7;      /* auto-grown */
+    gbound = effective_lw + 1;  /* = 8 */
+    setup_screens();
+
+    /* draw_line at position gbound (=8), text starts at column 8 */
+    draw_line(0, "hello", 1000000);
+
+    /* Gutter is 8 cols wide: 7 digits + 1 space separator.
+       Line number 1000000 is 7 digits, fills effective_lw=7 columns.
+       Positions 0-6 = "1000000", position 7 = separator space. */
+    TEST_ASSERT(vscreen[0]->v_text[0] == '1', "7-digit: pos 0 = '1'");
+    TEST_ASSERT(vscreen[0]->v_text[1] == '0', "7-digit: pos 1 = '0'");
+    TEST_ASSERT(vscreen[0]->v_text[2] == '0', "7-digit: pos 2 = '0'");
+    TEST_ASSERT(vscreen[0]->v_text[3] == '0', "7-digit: pos 3 = '0'");
+    TEST_ASSERT(vscreen[0]->v_text[4] == '0', "7-digit: pos 4 = '0'");
+    TEST_ASSERT(vscreen[0]->v_text[5] == '0', "7-digit: pos 5 = '0'");
+    TEST_ASSERT(vscreen[0]->v_text[6] == '0', "7-digit: pos 6 = '0'");
+    TEST_ASSERT(vscreen[0]->v_text[7] == ' ', "7-digit: pos 7 = separator space");
+
+    /* Text starts at position gbound (=8) */
+    TEST_ASSERT(vscreen[0]->v_text[8] == 'h', "7-digit: first text char at gbound (8)");
+
+    /* Gutter should be clean */
+    TEST_ASSERT(gutter_is_clean(0), "7-digit: gutter is clean");
+
+    teardown_screens();
+}
+
+static void test_dynamic_width_gutter_8digit(void)
+{
+    /* Simulate a buffer with 10,000,000+ lines. */
+    term.t_nrow = 24; term.t_ncol = 80;
+    show_line_numbers = TRUE;
+    line_number_width = 6;
+    effective_lw = 8;      /* auto-grown to 8 */
+    gbound = effective_lw + 1;  /* = 9 */
+    setup_screens();
+
+    draw_line(0, "hi", 10000000);
+
+    /* Line number 10000000 is 8 digits, fills effective_lw=8 columns.
+       Positions 0-7 = "10000000", position 8 = separator space. */
+    TEST_ASSERT(vscreen[0]->v_text[0] == '1', "8-digit: pos 0 = '1'");
+    TEST_ASSERT(vscreen[0]->v_text[7] == '0', "8-digit: pos 7 = '0'");
+    TEST_ASSERT(vscreen[0]->v_text[8] == ' ', "8-digit: pos 8 = separator space");
+    TEST_ASSERT(vscreen[0]->v_text[9] == 'h', "8-digit: first text char at gbound (9)");
+    TEST_ASSERT(gutter_is_clean(0), "8-digit: gutter is clean");
+
+    teardown_screens();
+}
+
+static void test_dynamic_width_gutter_small_number(void)
+{
+    /* With effective_lw=7 (auto-grown for large file), a small line
+       number like 42 should be right-aligned within 7 columns. */
+    term.t_nrow = 24; term.t_ncol = 80;
+    show_line_numbers = TRUE;
+    line_number_width = 6;
+    effective_lw = 7;       /* auto-grown */
+    gbound = effective_lw + 1;  /* = 8 */
+    setup_screens();
+
+    draw_line(0, "text", 42);
+
+    /* "42" should be right-aligned: 5 spaces + "42" + separator space */
+    TEST_ASSERT(vscreen[0]->v_text[0] == ' ', "small in wide gutter: pos 0 = space");
+    TEST_ASSERT(vscreen[0]->v_text[4] == ' ', "small in wide gutter: pos 4 = space");
+    TEST_ASSERT(vscreen[0]->v_text[5] == '4', "small in wide gutter: pos 5 = '4'");
+    TEST_ASSERT(vscreen[0]->v_text[6] == '2', "small in wide gutter: pos 6 = '2'");
+    TEST_ASSERT(vscreen[0]->v_text[7] == ' ', "small in wide gutter: pos 7 = separator");
+    TEST_ASSERT(gutter_is_clean(0), "small in wide gutter: gutter is clean");
+
+    teardown_screens();
+}
+
 int main(void) {
     printf("=== Gutter corruption tests ===\n\n");
 
@@ -462,6 +631,11 @@ int main(void) {
     test_linenum_exact_fit();
     test_linenum_100_chars_gutter_value();
     test_updall_empty_lines_past_eof();
+    test_ndigits_basic();
+    test_buf_linenr();
+    test_dynamic_width_gutter_7digit();
+    test_dynamic_width_gutter_8digit();
+    test_dynamic_width_gutter_small_number();
 
     printf("\n=== Results: %d passed, %d failed (%d total) ===",
            test_passed, test_failed, test_count);

@@ -65,7 +65,7 @@ kemacs -b filename.txt
 | `$fcode` | `UTF8` | 新規バッファのデフォルトエンコーディング |
 | `$undo-limit` | `1000` | 保持する undo レコードの最大数 |
 | `$linenumbers` | `FALSE` | 行番号ガーターの表示/非表示 |
-| `$linenumwidth` | `6` | ガーター幅 (行番号の桁数 + 1 スペース) |
+| `$linenumwidth` | `6` | ガーター幅 (行番号の桁数 + 1 スペース)。行番号が `$linenumwidth` を超えると、自動的に1桁ずつ拡張される。 |
 
 ## 漢字コードの変更
 

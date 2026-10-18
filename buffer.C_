@@ -504,6 +504,8 @@ int addline(BUFFER *bp, Char *text)
 	lp->l_fp = bp->b_linep;
 	if (bp->b_dotp == bp->b_linep)	/* If "." is at the end */
 		bp->b_dotp = lp;		/* move it to new line	*/
+	if (bp->b_nlines >= 0)
+		bp->b_nlines = -1;	/* invalidate cache	*/
 	return (TRUE);
 }
 
@@ -600,6 +602,7 @@ bfind(Char *bname, int cflag, int bflag)
 		bp->b_undo_tail = NULL;
 		bp->b_undo_ptr  = NULL;
 		bp->b_undo_count = 0;
+		bp->b_nlines = 0;		/* only header line	*/
 		lp->l_fp = lp;
 		lp->l_bp = lp;
 	}
@@ -634,10 +637,11 @@ int bclear(BUFFER *bp)
 	u_clear_undo(bp);
 	while ((lp=lforw(bp->b_linep)) != bp->b_linep)
 		lfree(lp);
-	bp->b_dotp  = bp->b_linep;		/* Fix "."		*/
+	bp->b_dotp  = bp->b_linep;		/* Fix "."	*/
 	bp->b_doto  = 0;
 	bp->b_markp = NULL;			/* Invalidate "mark"	*/
 	bp->b_marko = 0;
+	bp->b_nlines = 0;		/* only header line remains	*/
 	return (TRUE);
 }
 

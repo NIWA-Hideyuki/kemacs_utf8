@@ -243,6 +243,7 @@ typedef struct	BUFFER {
 	struct UNDO *b_undo_tail;	/* tail of undo log		*/
 	struct UNDO *b_undo_ptr;	/* current position in undo log*/
 	int	b_undo_count;		/* # undo records on this buffer */
+	int	b_nlines;		/* cached line count; -1 if stale	*/
 }	BUFFER;
 
 #define BFINVS	0x01			/* Internal invisable buffer	*/
