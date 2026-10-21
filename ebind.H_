@@ -134,6 +134,9 @@ KEYTAB	keytab[NBINDS] = {
 #endif
 	{META|'F',		forwword},
 	{META|'G',		gotoline},
+#if	PYMODE
+	{META|'J',		pyindent},
+#endif
 	{META|'K',		bindtokey},
 	{META|'L',		lowerword},
 	{META|'M',		setgmode},

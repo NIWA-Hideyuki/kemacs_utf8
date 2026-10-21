@@ -17,6 +17,7 @@ echo "=== Running unit tests ==="
 ./test_search
 ./test_line
 ./test_eval
+./test_python
 
 echo ""
 echo "=== Running batch tests ==="

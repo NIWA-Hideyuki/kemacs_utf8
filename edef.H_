@@ -175,6 +175,9 @@ Ckey strcmd(Char * s);
 
 EXT int		fillcol		INIT(72);			/* Current fill column	*/
 
+EXT int		py_indent_width	INIT(4);	/* Python indent width (spaces) */
+EXT int		py_use_spaces	INIT(TRUE);	/* Use spaces (not tabs) for Python indent */
+
 EXT Ckey	kbdm[NKBDM]	INIT({CTLX|')'});	/* Macro				*/
 
 EXT Char	*execstr	INIT(NULL);			/* pointer to string to execute	*/
@@ -191,7 +194,7 @@ EXT Char	*modename[]						/* name of modes		*/
 
 #ifdef maindef
 
-	= {	CSTR("WRAP"), CSTR("CMODE"), CSTR("SPELL"),
+	= {	CSTR("WRAP"), CSTR("CMODE"), CSTR("PYMODE"), CSTR("SPELL"),
 
 		CSTR("EXACT"), CSTR("VIEW"), CSTR("OVER"),
 
@@ -229,7 +232,7 @@ EXT Char	modecode[]						/* letters to represent modes */
 
 #ifdef maindef
 
-	= {	'W', 'C', 'S', 'E', 'V', 'O',
+	= {	'W', 'C', 'P', 'S', 'E', 'V', 'O',
 
 # if MAGIC
 
@@ -355,13 +358,14 @@ EXT int		kterminal	INIT(0);			/* use KANJI messages			*/
 
 #if AUTOMODE
 
-EXT int		npatent		INIT(1);			/* # of pattern table entry	*/
+EXT int		npatent		INIT(2);			/* # of pattern table entry	*/
 
-EXT PATTBL	pattbl[NMPAT] 	 				/* pattern table		*/
+EXT PATTBL	pattbl[NMPAT] 				/* pattern table	*/
 
 # ifdef maindef
 
-	= {	{ "\\.[ch]$", MDCMOD } }
+	= {	{ "\\.[ch]$", MDCMOD },
+		{ "\\.py$",   MDPYMOD } }
 
 # endif
 

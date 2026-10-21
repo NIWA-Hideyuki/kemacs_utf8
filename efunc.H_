@@ -229,6 +229,11 @@ extern	int	newwidth(int f, int n);
 extern	int	changewd(int f, int n);
 extern	int	toggle_line_numbers(int f, int n);
 extern	int	set_line_number_width(int f, int n);
+extern	int	pyinsert(void);
+extern	int	pyindent(int f, int n);
+extern	int	py_indent_region(int f, int n);
+extern	int	py_backspace(int f, int n);
+extern	int	py_mode(int f, int n);
 #if AUTOMODE
 
 extern	int	automode(int f, int n);
@@ -704,6 +709,10 @@ NBIND	names[] = {
 	{CSTR("toggle-line-numbers"),	toggle_line_numbers},
 	{CSTR("set-line-number-width"),	set_line_number_width},
 
+	{CSTR("py-indent"),		pyindent},
+	{CSTR("py-format-region"),	py_indent_region},
+	{CSTR("py-backspace"),		py_backspace},
+	{CSTR("py-mode"),		py_mode},
 	{CSTR(""),			NULL}
 
 };

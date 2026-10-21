@@ -9,6 +9,11 @@
 
 int	tabsize;			/* Tab size (0: use real tabs)	*/
 
+/* Python mode functions (defined in python.c) */
+extern	int	pyinsert(void);
+extern	int	pyindent(int f, int n);
+extern	int	py_backspace(int f, int n);
+
 /*
  * Set fill column to n.
  */
@@ -462,6 +467,11 @@ int newline(int f, int n)
 	    curwp->w_dotp != curbp->b_linep)
 		return(cinsert());
 
+	/* if we are in Python mode and this is a default <NL> */
+	if (n == 1 && (curbp->b_mode & MDPYMOD) &&
+	    curwp->w_dotp != curbp->b_linep)
+		return(pyinsert());
+
 	/*
 	 * If a newline was typed, fill column is defined, the argument is non-
 	 * negative, wrap mode is enabled, and we are now past fill column,
@@ -674,7 +684,10 @@ int backdel(int f, int n)
 		return(rdonly());	/* we are in read only mode	*/
 	if (n < 0)
 		return (forwdel(f, -n));
-	if (f != FALSE) {			/* Really a kill.	*/
+	/* if we are in Python mode and this is a default <BKSP> */
+	if (n == 1 && (curbp->b_mode & MDPYMOD))
+		return py_backspace(f, n);
+	if (f != FALSE) {		/* Really a kill.	*/
 		if ((lastflag&CFKILL) == 0)
 			kdelete();
 		thisflag |= CFKILL;

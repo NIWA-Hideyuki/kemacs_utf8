@@ -4,23 +4,26 @@
 
 最終更新: kemacs UTF-8 ブランチ — ロケール対応ひらがな/カタカナ幅 (kana_is_wide)
 
-`make test` は `tests/` ディレクトリのサブ Makefile を呼び出し、以下の**7つのテストプログラム**をビルドして順次実行する。
+`make test` は `tests/` ディレクトリのサブ Makefile を呼び出し、以下の**11のテストプログラム**をビルドして順次実行する。
 各プログラムは `test.h` フレームワークの `TEST_ASSERT*` マクロでアサーションを評価する。
 
 ## 実行結果サマリー
 
 | テストプログラム | テスト関数数 | アサーション結果 | 対象 |
 |---|---|---|---|
-| test_kanji | 24 | 9012 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (ロケール対応 kana_is_wide) |
-| test_search | 18 | 37 成功 / 0 失敗 | 検索エンジン (scanner/amatch/mceq/eq) |
-| test_line | 12 | 65 成功 / 0 失敗 | バッファ行操作 (linsert/ldelete/lnewline) |
-| test_undo | 13 | 73 成功 / 0 失敗 | undo/redo システム (INSERT/DELETE/NEWLINE/JOIN) |
-| test_eval | 9 | 45 成功 / 0 失敗 | 式評価器ヘルパー (stoi/itoaa/gettyp/stol/ltos) |
-| test_vtputc_overflow | 20 | 35 成功 / 0 失敗 | 画面描画・行あふれ('$')マーカー (80列, kana narrow/wide) |
-| test_display_gutter | — | 71 成功 / 0 失敗 | ガーター描画 (行番号幅・切り詰め) |
-| test_batch | 12 | 25 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定) |
+|| test_kanji | 24 | 9016 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (ロケール対応 kana_is_wide) |
+|| test_search | 18 | 37 成功 / 0 失敗 | 検索エンジン (scanner/amatch/mceq/eq) |
+|| test_line | 12 | 65 成功 / 0 失敗 | バッファ行操作 (linsert/ldelete/lnewline) |
+||| test_undo | 13 | 73 成功 / 0 失敗 | undo/redo システム (INSERT/DELETE/NEWLINE/JOIN) |
+||| test_eval | 9 | 45 成功 / 0 失敗 | 式評価器ヘルパー (stoi/itoaa/gettyp/stol/ltos) |
+||| test_python | 21 | 50 成功 / 0 失敗 | Python インデント (pyinsert/pyindent/py_backspace/py_indent_region) |
+||| test_vtputc_overflow | — | 35 成功 / 0 失敗 | 画面描画・行あふれ('$')マーカー (80列, kana narrow/wide) |
+||| test_modeline_gutter | — | 20 成功 / 0 失敗 | モデルインライン番号描画 (kana_is_wide 境界) |
+|| test_display_gutter | — | 107 成功 / 0 失敗 | ガーター描画 (行番号幅・切り詰め) |
+||| test_screen_no_overflow | — | 61 成功 / 0 失敗 | 画面描画オーバーフローなし (80列境界) |
+||| test_batch | 16 | 55 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定・Python 変数) |
 
-> **合計: 89 テスト関数 / 9263 アサーション群 — 全テスト合格 (exit code 0)**
+> **合計: 114+ テスト関数 / 9,545 アサーション群 — 全テスト合格 (exit code 0)**
 
 ---
 
@@ -146,6 +149,36 @@ eval.c は `-ffunction-sections` + `--gc-sections` で必要な関数のみリ�
 
 ---
 
+## 4.5. test_python — Python インデントユニットテスト
+
+`pyinsert`、`pyindent`、`py_backspace`、`py_indent_region` の Python モード (PYMODE) 自動インデントロジックを検証する。`line.c` と `python.c` を直接 `#include` し（test_undo と同じパターン）、必要なグローバル変数は `edef.h` から取得し、`mlwrite`、`rdonly`、`backchar`、`forwdel`、`forwline`、`getregion`、`u_record` のスタブで依存性を満たす。
+
+|| # | テスト項目 (英) | テスト項目 (日本語) |
+||---|---|---|---|
+|| 1 | pyinsert after colon | コロン行の改行で 4 スペースインデント |
+|| 2 | pyinsert no colon | コロンなし行の改行で 0 インデント |
+|| 3 | pyinsert inherited indent | 継承インデント (親行のインデント踏襲) |
+|| 4 | pyinsert nested colon | ネストしたコロンで 8 スペースインデント |
+|| 5 | py_backspace dedent | 4 スペースの行で 1 つのインデント削除 |
+|| 6 | py_backspace partial dedent | 6 スペースの行で 4 スペース削除 (部分) |
+|| 7 | py_backspace not whitespace | 空白以外の文字の後で通常バックスペース |
+|| 8 | py_backspace tab mode | タブモードで 1 文字削除 |
+|| 9 | py_backspace at col zero | 列 0 でバックスペース (前の行なし → FALSE) |
+|| 10 | py_backspace no pymode | PYMOD 未設定で通常バックスペース |
+|| 11 | pyindent with colon | 前行がコロン → 新行を 4 スペースインデント |
+|| 12 | pyindent no colon | 前行にコロンなし → インデント維持 |
+|| 13 | pyindent dedent keyword | else/elif 等のキーワードで 0 インデント |
+|| 14 | pyindent skip blank prev | 空行をスキップして前の非空行を参照 |
+|| 15 | pyindent nested colon | ネストしたコロンで追加インデント |
+|| 16 | pyindent already correct | 既に正しいインデント → 変更なし |
+|| 17 | pyindent no previous line | バッファ先頭行 → 0 インデント |
+|| 18 | py_indent_region simple | リージョン一括インデント (6→4 スペース修正) |
+|| 19 | py_indent_region nested | ネストしたリージョン一括インデント |
+|| 20 | py_indent_region dedent keyword | リージョン内の dedent キーワード処理 |
+|| 21 | py_indent_region else body | else: の後の行が正しく4スペースインデントされる (バグ修正) |
+
+---
+
 ## 5. test_batch — バッチモード統合テスト
 
 `test_batch` は kemacs バイナリを `-x` コマンドでバッチ起動し、ファイル入出力と終了ステータスを検証する。
@@ -165,6 +198,10 @@ stdin は `/dev/null` にリダイレクトしてイベントループのハン�
 | 10 | linenum set-line-number-width arg 4 | `set-linenumwidth 4` |
 | 11 | linenum set $linenumbers TRUE | 変数 `$linenumbers` を TRUE に設定 |
 | 12 | linenum set $linenumwidth 8 | 変数 `$linenumwidth` を 8 に設定 |
+| 13 | py $py-indent-width settable via .kemacsrc | `set $py-indent-width 2` が .kemacsrc で読み込まれる |
+| 14 | py $py-use-spaces settable via .kemacsrc | `set $py-use-spaces FALSE` が .kemacsrc で読み込まれる |
+|| 15 | py $py-indent-width / $py-use-spaces defaults | デフォルト値 (py-indent-width=4, py-use-spaces=TRUE) |
+|| 16 | py-format-region via -xpy-format-region | else: の後の行を4スペースインデント (バッチ統合) |
 
 ---
 
@@ -221,8 +258,10 @@ display.c のガーター (行番号欄) 描画ロジックを検証する。行
 1. `make` (ルート) → `make -f make.file test`
 2. `make.file` の `test:` ターゲット → `cd tests; make run`
 3. `tests/Makefile` の `run:` ターゲット → `make all` でビルド後、
-   `test_kanji / test_search / test_line / test_undo / test_eval /
-   test_vtputc_overflow / test_display_gutter` を順次実行し、最後に `test_batch` を実行する。
+   `test_kanji / test_search / test_line / test_eval / test_undo /
+   test_python / test_vtputc_overflow / test_modeline_gutter /
+   test_display_gutter / test_screen_no_overflow` を順次実行し、
+   最後に `test_batch` を実行する。
    (test_batch は kemacs バイナリの存在に依存する。)
 
 ## 補足
@@ -235,3 +274,4 @@ display.c のガーター (行番号欄) 描画ロジックを検証する。行
   - `test_mouse_logic.py`, `test_mouse3.py` (マウスロジック検証)
   - `check_strings.py` (文字列テーブル検証)
 - undo テスト用スタブ: `tests/test_line.c` に `u_record` スタブを追加 (linsert/ldelete/lnewline が undo.C_ なしでコンパイル可能にするため)
+- test_batch: `setbuf(stdout, NULL)` でアンバッファド出力を有効化 (タイムアウト時の出力バッファ消失を防止)

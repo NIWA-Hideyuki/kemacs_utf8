@@ -614,6 +614,439 @@ static void test_linenum_set_width_var_via_set(void)
     cleanup_rc_dir(rcdir);
 }
 
+/*
+ * ===== Python mode variable tests =====
+ *
+ * Requirement summary:
+ *   - $py-indent-width controls the auto-indent step size (default 4)
+ *   - $py-use-spaces controls whether spaces or tabs are used (default TRUE)
+ *   - Both are global env vars settable via .kemacsrc or -xset command
+ */
+
+static void test_py_var_indent_width(void)
+{
+    /* .kemacsrc: set $py-indent-width 2, then write the value to a file */
+    char *rcdir = make_kemacsrc_env(
+        "set $py-indent-width 2\n"
+        "insert-string \"py-indent-width=\"\n"
+        "insert-string $py-indent-width\n"
+        "insert-string \" END\"\n"
+        "write-file /tmp/kemacs_py_indent_width.txt\n"
+        "quick-exit\n"
+    );
+    TEST_ASSERT(rcdir != NULL, "temp rc dir created for py var test");
+    if (rcdir == NULL)
+        return;
+
+    char outfile[] = "/tmp/kemacs_py_indent_width.txt";
+    unlink(outfile);
+
+    char *argv[] = { kemacs_bin, NULL };
+    char *out = run_kemacs_with_home_capture(argv, rcdir);
+    if (out) free(out);
+
+    char *content = read_file(outfile);
+    if (content != NULL) {
+        TEST_ASSERT(strstr(content, "py-indent-width=2") != NULL,
+                    "set $py-indent-width 2 is loaded and readable");
+        free(content);
+    } else {
+        TEST_ASSERT(0, "result file should be created by .kemacsrc macro");
+    }
+
+    cleanup_rc_dir(rcdir);
+    unlink(outfile);
+}
+
+static void test_py_var_use_spaces(void)
+{
+    /* .kemacsrc: set $py-use-spaces FALSE, then write the value to a file */
+    char *rcdir = make_kemacsrc_env(
+        "set $py-use-spaces FALSE\n"
+        "insert-string \"py-use-spaces=\"\n"
+        "insert-string $py-use-spaces\n"
+        "insert-string \" END\"\n"
+        "write-file /tmp/kemacs_py_use_spaces.txt\n"
+        "quick-exit\n"
+    );
+    TEST_ASSERT(rcdir != NULL, "temp rc dir created for py var use-spaces test");
+    if (rcdir == NULL)
+        return;
+
+    char outfile[] = "/tmp/kemacs_py_use_spaces.txt";
+    unlink(outfile);
+
+    char *argv[] = { kemacs_bin, NULL };
+    char *out = run_kemacs_with_home_capture(argv, rcdir);
+    if (out) free(out);
+
+    char *content = read_file(outfile);
+    if (content != NULL) {
+        TEST_ASSERT(strstr(content, "py-use-spaces=FALSE") != NULL,
+                    "set $py-use-spaces FALSE is loaded and readable");
+        free(content);
+    } else {
+        TEST_ASSERT(0, "result file should be created by .kemacsrc macro");
+    }
+
+    cleanup_rc_dir(rcdir);
+    unlink(outfile);
+}
+
+static void test_py_var_defaults(void)
+{
+    /* With empty .kemacsrc: py-indent-width=4, py-use-spaces=TRUE (defaults) */
+    char *rcdir = make_kemacsrc_env(
+        "insert-string \"py-indent-width=\"\n"
+        "insert-string $py-indent-width\n"
+        "insert-string \" END\"\n"
+        "insert-string \"py-use-spaces=\"\n"
+        "insert-string $py-use-spaces\n"
+        "insert-string \" END\"\n"
+        "write-file /tmp/kemacs_py_defaults.txt\n"
+        "quick-exit\n"
+    );
+    TEST_ASSERT(rcdir != NULL, "temp rc dir created for py defaults test");
+    if (rcdir == NULL)
+        return;
+
+    char outfile[] = "/tmp/kemacs_py_defaults.txt";
+    unlink(outfile);
+
+    char *argv[] = { kemacs_bin, NULL };
+    char *out = run_kemacs_with_home_capture(argv, rcdir);
+    if (out) free(out);
+
+    char *content = read_file(outfile);
+    if (content != NULL) {
+        TEST_ASSERT(strstr(content, "py-indent-width=4") != NULL,
+                    "default py-indent-width is 4");
+        TEST_ASSERT(strstr(content, "py-use-spaces=TRUE") != NULL,
+                    "default py-use-spaces is TRUE");
+        free(content);
+    } else {
+        TEST_ASSERT(0, "result file should be created by .kemacsrc macro");
+    }
+
+    cleanup_rc_dir(rcdir);
+    unlink(outfile);
+}
+
+static void test_py_automode_py_file(void)
+{
+    /* Opening a .py file should automatically enable PYMODE.
+     * Test by inserting "if True:" then newline: pyinsert() should
+     * add 4 spaces of indentation on the new line. */
+    /* Create a .py file with proper extension for automode */
+    char *tmp = make_temp_file("");
+    TEST_ASSERT(tmp != NULL, "temp file created for .py automode test");
+    if (tmp == NULL)
+        return;
+    char pyfile[512];
+    snprintf(pyfile, sizeof(pyfile), "%s.py", tmp);
+    rename(tmp, pyfile);  /* rename temp to add .py extension for automode */
+    free(tmp);
+
+    char *rcdir = make_kemacsrc_env("");
+    TEST_ASSERT(rcdir != NULL, "temp rc dir created for automode test");
+    if (rcdir == NULL) {
+        unlink(pyfile);
+        return;
+    }
+
+    /* -x commands run AFTER file is loaded (readin sets automode).
+     * insert "if True:" then newline (triggers pyinsert if PYMODE). */
+    char *argv[] = {
+        kemacs_bin, "-e",
+        pyfile,
+        "-xinsert-string \"if True:\"",
+        "-xnewline",
+        "-xquick-exit",
+        NULL
+    };
+    int rc = run_kemacs_with_home(argv, rcdir);
+    TEST_ASSERT(rc >= 0, "kemacs runs on .py file with -x commands");
+
+    /* pyinsert should have inserted 4 spaces after the newline */
+    char *content = read_file(pyfile);
+    if (content != NULL) {
+        /* Expected: "if True:\r\n    \r\n" or "if True:\n    \n" */
+        int found = 0;
+        const char *p;
+        for (p = content; *p; p++) {
+            if (p[0] == '\n' && p[1] == ' ' && p[2] == ' ' &&
+                p[3] == ' ' && p[4] == ' ') {
+                found = 1;
+                break;
+            }
+            if (p[0] == '\n' && p[1] == '\r' &&
+                p[2] == ' ' && p[3] == ' ' && p[4] == ' ' && p[5] == ' ') {
+                found = 1;
+                break;
+            }
+        }
+        TEST_ASSERT(found,
+                    ".py file: newline after 'if True:' auto-indents with 4 spaces (PYMODE active)");
+        free(content);
+    } else {
+        TEST_ASSERT(0, "result .py file should be readable after kemacs run");
+    }
+
+    unlink(pyfile);
+    cleanup_rc_dir(rcdir);
+}
+
+static void test_py_automode_txt_file(void)
+{
+    /* Opening a .txt file should NOT enable PYMODE.
+     * The same insert+newline should NOT auto-indent. */
+    char *tmp = make_temp_file("");
+    TEST_ASSERT(tmp != NULL, "temp file created for .txt automode test");
+    if (tmp == NULL)
+        return;
+    char tmplate[512];
+    snprintf(tmplate, sizeof(tmplate), "%s.txt", tmp);
+    rename(tmp, tmplate);  /* rename temp to add .txt extension */
+    free(tmp);
+
+    char *rcdir = make_kemacsrc_env("");
+    TEST_ASSERT(rcdir != NULL, "temp rc dir created for txt automode test");
+    if (rcdir == NULL) {
+        unlink(tmplate);
+        return;
+    }
+
+    char *argv[] = {
+        kemacs_bin, "-e",
+        tmplate,
+        "-xinsert-string \"if True:\"",
+        "-xnewline",
+        "-xquick-exit",
+        NULL
+    };
+    int rc = run_kemacs_with_home(argv, rcdir);
+    TEST_ASSERT(rc >= 0, "kemacs runs on .txt file with -x commands");
+
+    /* No auto-indent: newline should NOT add 4 spaces */
+    char *content = read_file(tmplate);
+    if (content != NULL) {
+        int found_indent = 0;
+        const char *p;
+        for (p = content; *p; p++) {
+            if (p[0] == '\n' && p[1] == ' ' && p[2] == ' ' &&
+                p[3] == ' ' && p[4] == ' ') {
+                found_indent = 1;
+                break;
+            }
+        }
+        TEST_ASSERT(!found_indent,
+                    ".txt file: newline after 'if True:' does NOT auto-indent (PYMODE inactive)");
+        free(content);
+    } else {
+        TEST_ASSERT(0, "result .txt file should be readable after kemacs run");
+    }
+
+    unlink(tmplate);
+    cleanup_rc_dir(rcdir);
+}
+
+static void test_py_mode_command_manual(void)
+{
+    /* Opening a .txt file does NOT auto-enable PYMODE.
+     * But running 'py-mode' via -x should enable it manually.
+     * Verify: insert "if True:" + newline -> 4 spaces auto-indented. */
+    char *tmp = make_temp_file("");
+    TEST_ASSERT(tmp != NULL, "temp file created for py-mode command test");
+    if (tmp == NULL)
+        return;
+    char tmplate[512];
+    snprintf(tmplate, sizeof(tmplate), "%s.txt", tmp);
+    rename(tmp, tmplate);
+    free(tmp);
+
+    char *rcdir = make_kemacsrc_env("");
+    TEST_ASSERT(rcdir != NULL, "temp rc dir created for py-mode command test");
+    if (rcdir == NULL) {
+        unlink(tmplate);
+        return;
+    }
+
+    /* -xpy-mode runs AFTER file is loaded (file arg comes before -x).
+     * Then insert "if True:" and newline: pyinsert should fire because
+     * PYMODE was manually enabled by the py-mode command. */
+    char *argv[] = {
+        kemacs_bin, "-e",
+        tmplate,
+        "-xpy-mode",
+        "-xinsert-string \"if True:\"",
+        "-xnewline",
+        "-xquick-exit",
+        NULL
+    };
+    int rc = run_kemacs_with_home(argv, rcdir);
+    TEST_ASSERT(rc >= 0, "kemacs runs on .txt file with py-mode command");
+
+    char *content = read_file(tmplate);
+    if (content != NULL) {
+        int found = 0;
+        const char *p;
+        for (p = content; *p; p++) {
+            if (p[0] == '\n' && p[1] == ' ' && p[2] == ' ' &&
+                p[3] == ' ' && p[4] == ' ') {
+                found = 1;
+                break;
+            }
+        }
+        TEST_ASSERT(found,
+                    ".txt file + py-mode: newline after 'if True:' auto-indents with 4 spaces");
+        free(content);
+    } else {
+        TEST_ASSERT(0, "result .txt file should be readable after kemacs run");
+    }
+
+    unlink(tmplate);
+    cleanup_rc_dir(rcdir);
+}
+
+static void test_py_mode_py_indent_batch(void)
+{
+    /* Test py-indent via -xpy-indent on a .txt file.
+     * Enable py-mode manually, write code with wrong indent on
+     * the 'else:' line, then run py-indent to fix it.
+     * Expected: 'x=2' under else: should be re-indented to 4 spaces. */
+    char *content =
+        "if True:\n"
+        "    x=1\n"
+        "else:\n"
+        "x=2\n";
+    char *tmp = make_temp_file(content);
+    TEST_ASSERT(tmp != NULL, "temp file created for py-indent batch test");
+    if (tmp == NULL)
+        return;
+    char tmplate[512];
+    snprintf(tmplate, sizeof(tmplate), "%s.txt", tmp);
+    rename(tmp, tmplate);
+    free(tmp);
+
+    char *rcdir = make_kemacsrc_env("");
+    TEST_ASSERT(rcdir != NULL, "temp rc dir created for py-indent test");
+    if (rcdir == NULL) {
+        unlink(tmplate);
+        return;
+    }
+
+    /* -xpy-mode enables PYMODE.  Then we navigate to the last line
+     * and call py-indent to re-indent it based on the previous line
+     * ('else:' ends with ':', so indent should be 0 + 0 = 0... wait,
+     * pyindent looks at the line BEFORE the current line. 'else:' is
+     * a dedent keyword, so it goes back one level from '    x=1'
+     * (indent 4) to 0.  But the line after 'else:' should be 4 spaces
+     * (body of else block).
+     *
+     * Actually py-indent examines the PREVIOUS non-blank line. If the
+     * previous line ends with ':', the current line gets +1 indent.
+     * 'else:' ends with ':', so 'x=2' should get indent 4. */
+
+    char *argv[] = {
+        kemacs_bin, "-e",
+        tmplate,
+        "-xpy-mode",
+        "-xend-of-line",   /* move to last line, end */
+        "-xpy-indent",
+        "-xquick-exit",
+        NULL
+    };
+    int rc = run_kemacs_with_home(argv, rcdir);
+    TEST_ASSERT(rc >= 0, "kemacs runs with py-mode + py-indent");
+
+    char *result = read_file(tmplate);
+    if (result != NULL) {
+        int found = 0;
+        const char *p;
+        /* Look for 4-space indent on the 'x=2' line */
+        for (p = result; *p; p++) {
+            if (p[0] == '\n' && p[1] == ' ' && p[2] == ' ' &&
+                p[3] == ' ' && p[4] == ' ' && p[5] == 'x') {
+                found = 1;
+                break;
+            }
+        }
+        TEST_ASSERT(found,
+                    "py-indent re-indents 'x=2' to 4 spaces after 'else:'");
+        free(result);
+    } else {
+        TEST_ASSERT(0, "result file should be readable after kemacs run");
+    }
+
+    unlink(tmplate);
+    cleanup_rc_dir(rcdir);
+}
+
+static void test_py_format_region_batch(void)
+{
+    /* Test py-format-region via -xpy-format-region on a .py file.
+     * The file has wrong indentation after else: — the line 'x=2'
+     * has 0 indent but should be 4 spaces (body of else block).
+     * py-format-region should fix the entire region. */
+    char *content =
+        "if True:\n"
+        "    x=1\n"
+        "else:\n"
+        "x=2\n";
+    char *tmp = make_temp_file(content);
+    TEST_ASSERT(tmp != NULL, "temp file created for py-format-region batch test");
+    if (tmp == NULL)
+        return;
+    char pyfile[512];
+    snprintf(pyfile, sizeof(pyfile), "%s.py", tmp);
+    rename(tmp, pyfile);
+    free(tmp);
+
+    char *rcdir = make_kemacsrc_env("");
+    TEST_ASSERT(rcdir != NULL, "temp rc dir created for format-region test");
+    if (rcdir == NULL) {
+        unlink(pyfile);
+        return;
+    }
+
+    /* -x commands: set mark at beginning, go to end, format region.
+     * The .py file auto-enables PYMODE, so no need for -xpy-mode. */
+    char *argv[] = {
+        kemacs_bin, "-e",
+        pyfile,
+        "-xbeginning-of-file",
+        "-xset-mark",
+        "-xend-of-file",
+        "-xpy-format-region",
+        "-xquick-exit",
+        NULL
+    };
+    int rc = run_kemacs_with_home(argv, rcdir);
+    TEST_ASSERT(rc >= 0, "kemacs runs with py-format-region");
+
+    char *result = read_file(pyfile);
+    if (result != NULL) {
+        /* Expected: 'x=2' should be indented to 4 spaces after 'else:' */
+        int found = 0;
+        const char *p;
+        for (p = result; *p; p++) {
+            if (p[0] == '\n' && p[1] == ' ' && p[2] == ' ' &&
+                p[3] == ' ' && p[4] == ' ' && p[5] == 'x') {
+                found = 1;
+                break;
+            }
+        }
+        TEST_ASSERT(found,
+                    "py-format-region re-indents 'x=2' to 4 spaces after 'else:'");
+        free(result);
+    } else {
+        TEST_ASSERT(0, "result file should be readable after kemacs run");
+    }
+
+    unlink(pyfile);
+    cleanup_rc_dir(rcdir);
+}
+
 TEST_LIST({
     {"kemacs binary exists",                   test_kemacs_exists},
     {"batch quit (clean)",                     test_batch_quit_clean},
@@ -627,11 +1060,20 @@ TEST_LIST({
     {"linenum set-line-number-width arg 4",    test_linenum_set_width},
     {"linenum set $linenumbers TRUE",          test_linenum_set_var_via_set},
     {"linenum set $linenumwidth 8",            test_linenum_set_width_var_via_set},
+    {"py $py-indent-width settable via .kemacsrc", test_py_var_indent_width},
+    {"py $py-use-spaces settable via .kemacsrc",   test_py_var_use_spaces},
+    {"py $py-indent-width / $py-use-spaces defaults", test_py_var_defaults},
+    {"py automode: .py file activates PYMODE",  test_py_automode_py_file},
+    {"py automode: .txt file does NOT activate PYMODE", test_py_automode_txt_file},
+    {"py-mode command: manual enable on .txt file",  test_py_mode_command_manual},
+    {"py-indent via -xpy-indent on .txt file",         test_py_mode_py_indent_batch},
+    {"py-format-region via -xpy-format-region on .py", test_py_format_region_batch},
 })
 
 int main(void)
 {
     /* Determine kemacs binary path first */
     kemacs_bin = find_kemacs();
+    setbuf(stdout, NULL);  /* unbuffered for real-time output */
     RUN_TESTS();
 }

@@ -141,7 +141,8 @@ OBJS		= basic.o \\
 		undo.o \\
 		version.o \\
 		window.o \\
-		word.o
+		word.o \\
+		python.o
 
 SRCS	      = basic.C_ \\
 		bind.C_ \\
@@ -166,7 +167,8 @@ SRCS	      = basic.C_ \\
 		undo.C_ \\
 		version.C_ \\
 		window.C_ \\
-		word.C_
+		word.C_ \\
+		python.C_
 
 CSRCS	      = basic.c \\
 		bind.c \\
@@ -191,7 +193,8 @@ CSRCS	      = basic.c \\
 		undo.c \\
 		version.c \\
 		window.c \\
-		word.c
+		word.c \\
+		python.c
 
 HDRS	      = ebind.H_ \\
 		ecomm.H_ \\
@@ -400,6 +403,7 @@ undo.c: undo.C_
 version.c: version.C_
 window.c: window.C_
 word.c: word.C_
+python.c: python.C_
 
 $(RCFILE):	$(RCFILE).tmpl
 		sed -e 's|_PREFIX_|$(PREFIX)|g' $(RCFILE).tmpl > $@

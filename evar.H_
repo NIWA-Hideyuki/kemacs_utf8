@@ -154,6 +154,10 @@ ENVAR envars[] = {
 	   (char *)&show_line_numbers, get_bool_hook, put_showlinenum_hook},
 	{CSTR("linenumwidth"), EV_GLOBAL,	/* width of line number gutter */
 	   (char *)&line_number_width, get_int_hook, put_linenumwidth_hook},
+	{CSTR("py-indent-width"), EV_GLOBAL,	/* Python indent width (spaces) */
+	   (char *)&py_indent_width, get_int_hook, put_int_hook},
+	{CSTR("py-use-spaces"), EV_GLOBAL,	/* Use spaces for Python indent */
+	   (char *)&py_use_spaces, get_bool_hook, put_bool_hook},
 };
 
 #define	NEVARS	(sizeof(envars) / sizeof(ENVAR))

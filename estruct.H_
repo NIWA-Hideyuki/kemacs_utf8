@@ -38,6 +38,7 @@
 #define RESTRICT 0	/* restricted use of commands			*/
 #define CLOCK	1	/* periodically update clock on modeline	*/
 #define COMPAT	1	/* accept old version's macro definiton		*/
+#define PYMODE	1	/* Python mode: auto-indent, pyindent, etc.	*/
 
 #define MAX_SCREEN_LINES	128	/* max # of lines on screen	*/
 #define MAX_SCREEN_COLUMNS	256	/* max # of columns on screen	*/
@@ -255,6 +256,8 @@ enum bmode {
 #define MDWRAP	(1<<(int)bm_wrap)	/* word wrap			*/
 	bm_cmod,
 #define MDCMOD	(1<<(int)bm_cmod)	/* C indentation and fence match*/
+	bm_pmod,
+#define MDPYMOD	(1<<(int)bm_pmod)	/* Python mode: auto-indent based on ':' */
 	bm_spell,
 #define MDSPELL (1<<(int)bm_spell)	/* spell error parcing		*/
 	bm_exact,
