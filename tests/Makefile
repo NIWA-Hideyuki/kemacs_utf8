@@ -86,10 +86,19 @@ test_undo: test_undo.c test.h $(CSSO) $(CSTR_A)
 test_python: test_python.c test.h $(CSSO) $(CSTR_A)
 	$(CC) $(CFLAGS) test_python.c $(CSSO) $(CSTR_A) -o test_python
 
-all: test_kanji test_search test_line test_eval test_undo test_python test_batch test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow
+# --- test_cmode ---
+# Unit tests for CMODE indentation engine: cinsert, cindent,
+# cindent_region, c_mode.  line.c and cmode.c are included
+# directly.  Gets tabsize, c_indent_width, c_use_spaces etc.
+# from edef.h globals; stubs satisfy mlwrite, rdonly, backchar,
+# forwdel, forwline, getregion, lchange, u_record.
+test_cmode: test_cmode.c test.h ../cmode.c $(CSSO) $(CSTR_A)
+	$(CC) $(CFLAGS) test_cmode.c $(CSSO) $(CSTR_A) -o test_cmode
+
+all: test_kanji test_search test_line test_eval test_undo test_python test_cmode test_batch test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow
 
 run: all
-	@for t in test_kanji test_search test_line test_eval test_undo test_python test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow; do \
+	@for t in test_kanji test_search test_line test_eval test_undo test_python test_cmode test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow; do \
 		echo "=== Running $$t ==="; \
 		./$$t || exit 1; \
 	done
@@ -100,4 +109,4 @@ run: all
 	@echo "=== All tests passed ==="
 
 clean:
-	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_modeline_gutter test_python test_screen_no_overflow
+	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_modeline_gutter test_python test_cmode test_screen_no_overflow

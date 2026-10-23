@@ -20,6 +20,13 @@
  */
 
 #include "kanji.h"
+#if HAVE_STDARG
+# include <stdarg.h>
+#else
+# include <varargs.h>
+#endif
+#include <wchar.h>
+#include <wctype.h>
 #include "wcwidth.h"
 #include <locale.h>   /* setlocale() -- enables system wcwidth() tables */
 #include <wchar.h>    /* wcwidth(), wint_t */

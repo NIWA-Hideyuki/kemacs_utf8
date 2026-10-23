@@ -578,6 +578,7 @@ kgetc(KSTREAM * kp)
 	switch (cc) {
 	case ESCAPE:
 	  if (KS_CODE(kp->ks_flag) == KS_JIS ||
+	      KS_CODE(kp->ks_flag) == KS_UTF8 ||
 	      KS_INTERP(kp->ks_flag) == KS_UKANJI) {
 	    KS_CODE(kp->ks_flag) = KS_JIS;
 	    kp->ks_gstate += ESC;

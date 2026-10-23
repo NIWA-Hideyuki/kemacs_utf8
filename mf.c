@@ -39,7 +39,7 @@ STRIPFLG      = -s
 #endif
 
 /* File code for sources */
-FCODE         = -j	/* JIS KANJI */
+FCODE         = -w	/* UTF-8 */
 /* FCODE      = -u	/* UJIS KANJI */
 /* FCODE      = -s	/* SJIS KANJI */
 
@@ -142,7 +142,8 @@ OBJS		= basic.o \\
 		version.o \\
 		window.o \\
 		word.o \\
-		python.o
+		python.o \\
+		cmode.o
 
 SRCS	      = basic.C_ \\
 		bind.C_ \\
@@ -168,7 +169,8 @@ SRCS	      = basic.C_ \\
 		version.C_ \\
 		window.C_ \\
 		word.C_ \\
-		python.C_
+		python.C_ \\
+		cmode.C_
 
 CSRCS	      = basic.c \\
 		bind.c \\
@@ -194,7 +196,8 @@ CSRCS	      = basic.c \\
 		version.c \\
 		window.c \\
 		word.c \\
-		python.c
+		python.c \\
+		cmode.c
 
 HDRS	      = ebind.H_ \\
 		ecomm.H_ \\
@@ -404,6 +407,7 @@ version.c: version.C_
 window.c: window.C_
 word.c: word.C_
 python.c: python.C_
+cmode.c: cmode.C_
 
 $(RCFILE):	$(RCFILE).tmpl
 		sed -e 's|_PREFIX_|$(PREFIX)|g' $(RCFILE).tmpl > $@

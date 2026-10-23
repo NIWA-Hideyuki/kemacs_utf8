@@ -158,6 +158,28 @@ ENVAR envars[] = {
 	   (char *)&py_indent_width, get_int_hook, put_int_hook},
 	{CSTR("py-use-spaces"), EV_GLOBAL,	/* Use spaces for Python indent */
 	   (char *)&py_use_spaces, get_bool_hook, put_bool_hook},
+	{CSTR("c-indent-width"), EV_GLOBAL,	/* C indent width (spaces) */
+	   (char *)&c_indent_width, get_int_hook, put_int_hook},
+	{CSTR("c-use-spaces"), EV_GLOBAL,	/* Use spaces for C indent */
+	   (char *)&c_use_spaces, get_bool_hook, put_bool_hook},
+	{CSTR("c-brace-style"), EV_GLOBAL,	/* C brace style (0-7, 7=none) */
+	   (char *)&c_brace_style, get_int_hook, put_int_hook},
+	{CSTR("c-cont-indent"), EV_GLOBAL,	/* C continuation indent */
+	   (char *)&c_cont_indent, get_int_hook, put_int_hook},
+	{CSTR("c-case-indent"), EV_GLOBAL,	/* case label indent relative to switch */
+	   (char *)&c_case_indent, get_int_hook, put_int_hook},
+	{CSTR("c-pp-indent"), EV_GLOBAL,	/* Preprocessor directive indent */
+	   (char *)&c_pp_indent, get_int_hook, put_int_hook},
+	{CSTR("c-auto-close-brace"), EV_GLOBAL,	/* Auto-close brace indentation */
+	   (char *)&c_auto_close, get_bool_hook, put_bool_hook},
+	{CSTR("c-auto-detect"), EV_GLOBAL,	/* Auto-detect C indent style from source */
+	   (char *)&c_auto_detect, get_bool_hook, put_bool_hook},
+	{CSTR("c-follow-source"), EV_GLOBAL,	/* Follow existing source indentation */
+	   (char *)&c_follow_source, get_bool_hook, put_bool_hook},
+	{CSTR("c-gnu-indent-offset"), EV_GLOBAL,	/* GNU style half-indent offset (columns) */
+	   (char *)&c_gnu_indent, get_int_hook, put_int_hook},
+	{CSTR("c-brace-standalone-func"), EV_GLOBAL,	/* Stroustrup: function brace on own line */
+	   (char *)&c_brace_func, get_bool_hook, put_bool_hook},
 };
 
 #define	NEVARS	(sizeof(envars) / sizeof(ENVAR))

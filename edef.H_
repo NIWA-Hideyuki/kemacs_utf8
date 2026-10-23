@@ -175,8 +175,21 @@ Ckey strcmd(Char * s);
 
 EXT int		fillcol		INIT(72);			/* Current fill column	*/
 
-EXT int		py_indent_width	INIT(4);	/* Python indent width (spaces) */
-EXT int		py_use_spaces	INIT(TRUE);	/* Use spaces (not tabs) for Python indent */
+EXT int	py_indent_width	INIT(4);	/* Python indent width (spaces) */
+EXT int	py_use_spaces	INIT(TRUE);	/* Use spaces (not tabs) for Python indent */
+
+/* CMODE configuration variables */
+EXT int	c_indent_width	INIT(4);	/* C indent width (spaces) */
+EXT int	c_use_spaces	INIT(FALSE);	/* Use tabs (not spaces) for C indent */
+EXT int	c_brace_style	INIT(0);	/* 0=K&R,1=Allman,2=GNU,3=Linux,4=Whitesmiths,5=1TBS,6=Stroustrup,7=none */
+EXT int	c_auto_detect	INIT(FALSE);  /* Auto-detect style from source */
+EXT int	c_follow_source	INIT(FALSE); /* Follow existing source indent */
+EXT int	c_gnu_indent	INIT(2);	/* GNU half-indent (columns) */
+EXT int	c_brace_func	INIT(FALSE);	/* Stroustrup: function { on own line */
+EXT int	c_cont_indent	INIT(2);	/* Continuation line indent */
+EXT int	c_case_indent	INIT(0);	/* case label indent relative to switch */
+EXT int	c_pp_indent	INIT(0);	/* Preprocessor directive indent */
+EXT int	c_auto_close	INIT(TRUE);	/* Auto-close brace indentation */
 
 EXT Ckey	kbdm[NKBDM]	INIT({CTLX|')'});	/* Macro				*/
 

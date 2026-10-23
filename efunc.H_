@@ -234,6 +234,12 @@ extern	int	pyindent(int f, int n);
 extern	int	py_indent_region(int f, int n);
 extern	int	py_backspace(int f, int n);
 extern	int	py_mode(int f, int n);
+extern	int	cinsert(void);
+extern	int	cindent(int f, int n);
+extern	int	cindent_region(int f, int n);
+extern	int	c_mode(int f, int n);
+extern	int	c_detect_style(int f, int n);
+extern	int	c_follow_source_cmd(int f, int n);
 #if AUTOMODE
 
 extern	int	automode(int f, int n);
@@ -713,6 +719,11 @@ NBIND	names[] = {
 	{CSTR("py-format-region"),	py_indent_region},
 	{CSTR("py-backspace"),		py_backspace},
 	{CSTR("py-mode"),		py_mode},
+	{CSTR("cindent"),		cindent},
+	{CSTR("cindent-region"),	cindent_region},
+	{CSTR("c-mode"),		c_mode},
+	{CSTR("c-detect-style"),	c_detect_style},
+	{CSTR("c-follow-source"),	c_follow_source_cmd},
 	{CSTR(""),			NULL}
 
 };

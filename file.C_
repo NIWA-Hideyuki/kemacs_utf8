@@ -278,6 +278,9 @@ int readin(Char fname[], int lockfl)
 # endif
 	}
 #endif /* AUTOMODE */
+	if ((curbp->b_mode & MDCMOD) && c_auto_detect) {
+	    (void)c_detect_style(TRUE, 1);  /* detect style from file content */
+	}
 	(void)copystr(&bp->b_fname, fname);
 
 	/* Hard file open.	*/
