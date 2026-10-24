@@ -21,9 +21,10 @@
 ||| test_modeline_gutter | — | 20 成功 / 0 失敗 | モデルインライン番号描画 (kana_is_wide 境界) |
 || test_display_gutter | — | 107 成功 / 0 失敗 | ガーター描画 (行番号幅・切り詰め) |
 ||| test_screen_no_overflow | — | 61 成功 / 0 失敗 | 画面描画オーバーフローなし (80列境界) |
-||| test_batch | 16 | 55 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定・Python 変数) |
+|| test_memory_safety | — | 14671 成功 / 0 失敗 | バッファオーバーフロー・メモリリーク検証 (ASan + UBSan, line.c/undo.c) |
+|||| test_batch | 16 | 55 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定・Python 変数) |
 
-> **合計: 114+ テスト関数 / 9,545 アサーション群 — 全テスト合格 (exit code 0)**
+> **合計: 12のテストプログラム / 24,216 アセーション群 — 全テスト合格 (exit code 0)**
 
 ---
 
@@ -234,9 +235,35 @@ stdin は `/dev/null` にリダイレクトしてイベントループのハン�
 
 **重要**: テスト13-17は Western locale (`kana_is_wide = 0`) でひらがな/カタカナを1列幅として扱う。テスト18-20はCJK locale (`kana_is_wide = 1`) で2列幅として扱う。この区別なしに2列幅を仮定すると、Western terminal で画面が崩れて次の行番号が重複表示される（ユーザー報告のバグ）。
 
----
+|---
 
-## 7. test_display_gutter — ガーター描画テスト
+## 7.5. test_memory_safety — メモリ安全性テスト (ASan + UBSan)
+
+`line.c` と `undo.c` に対するメモリ安全性テスト。AddressSanitizer (ASan) と UndefinedBehaviorSanitizer (UBSan) でコンパイルし、バッファオーバーフロー、ダブルフリー、ユースアフターフリー、メモリリークをランタイムに検出する。
+
+line.c と undo.c を直接 `#include` (maindef + static 展開パターン)。外部依存は `mlwrite`, `rdonly`, `backchar` のスタブのみ。
+
+| # | テスト項目 (英) | テスト内容 |
+|---|---|---|
+| 1 | linsert hard realloc path | l_used+n > l_size で lalloc 再割り当て。データ整合性 + ASan OOB 検出 |
+| 2 | linsert at NBLOCK boundary | l_size の境界 (16 chars) での insert/realloc |
+| 3 | linsert large stress (1000 chars) | 1000 文字一括挿入での realloc + コピー + シフト |
+| 4 | ldelete to empty | 行を空にするまで削除 (l_used = 0) |
+| 5 | ldelete past end | l_used を超える量の削除 (クランプ動作) |
+| 6 | ldelete at end (no-op) | 行末での ldelete (no-op) |
+| 7 | lnewline split integrity | lnewline で行分割後の l_fp/l_bp 双方向リンク整合性 |
+| 8 | ldelnewline join integrity | ldelnewline で行結合後のデータ整合性 |
+| 9 | lfree alloc/free cycle (500x) | lalloc/lfree の 500 回繰り返し (double-free / use-after-free 検出) |
+| 10 | undo/redo stress (500 records) | 500 レコードの undo/redo サイクル (リーク /  dangling ポインタ検出) |
+| 11 | undo_limit pruning stress | undo_limit=10 で 200 レコード枝刈り (リスト整合性) |
+| 12 | u_clear_undo after many edits | 100 回の編集後 u_clear_undo (全レコード解放) |
+| 13 | kill buffer stress (10000 inserts) | 10000 回の kinsert + kdelete サイクル (チャンクリーク検出) |
+| 14 | linsert many growths (500x) | 1 文字ずつ 500 回挿入での行容量成長 (データ整合性) |
+| 15 | multi-line buffer link integrity | 101 行の双方向リンクリスト整合性検証 |
+
+**重要**: このテストは `-fsanitize=address,undefined` フラグでコンパイルされる。ASan が何らかのメモリエラーを検出した場合、テストは即座に abort し `make test` が失敗する。現在のところ 0 エラー 0 リークを確認済み。
+
+|---
 
 display.c のガーター (行番号欄) 描画ロジックを検証する。行番号の幅計算、文字列の切り詰め、およびガーター領域のクリアが正しく行われることを確認する。
 
@@ -259,8 +286,9 @@ display.c のガーター (行番号欄) 描画ロジックを検証する。行
 2. `make.file` の `test:` ターゲット → `cd tests; make run`
 3. `tests/Makefile` の `run:` ターゲット → `make all` でビルド後、
    `test_kanji / test_search / test_line / test_eval / test_undo /
-   test_python / test_vtputc_overflow / test_modeline_gutter /
+   test_python / test_cmode / test_vtputc_overflow / test_modeline_gutter /
    test_display_gutter / test_screen_no_overflow` を順次実行し、
+   `test_memory_safety` (ASan + UBSan) を実行し、
    最後に `test_batch` を実行する。
    (test_batch は kemacs バイナリの存在に依存する。)
 

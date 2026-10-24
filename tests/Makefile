@@ -10,6 +10,12 @@ CC      = cc
 CFLAGS  = -O2 -std=gnu89 -I.. -I../kanji -I../Cstrings
 LDFLAGS =
 
+# AddressSanitizer + UndefinedBehaviorSanitizer flags for memory-safety tests.
+# ASan detects buffer overflows, use-after-free, double-free at runtime.
+# UBSan catches integer overflow, null pointer dereference, alignment issues.
+SANFLAGS = -fsanitize=address,undefined -fno-omit-frame-pointer -g
+SANLDFLAGS = -fsanitize=address,undefined
+
 # Prerequisites built by the parent project
 CSSO    = ../Css.o
 CSTR_A  = ../Cstrings/Cstrings.a
@@ -95,7 +101,16 @@ test_python: test_python.c test.h $(CSSO) $(CSTR_A)
 test_cmode: test_cmode.c test.h ../cmode.c $(CSSO) $(CSTR_A)
 	$(CC) $(CFLAGS) test_cmode.c $(CSSO) $(CSTR_A) -o test_cmode
 
-all: test_kanji test_search test_line test_eval test_undo test_python test_cmode test_batch test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow
+# --- test_memory_safety ---
+# Buffer-overflow and memory-leak tests compiled with ASan + UBSan.
+# Includes line.c and undo.c directly (same pattern as test_undo).
+# Linking: ../Css.o (for Cxstr used in mlwrite() calls within line.c).
+test_memory_safety: test_memory_safety.c test.h $(CSSO)  \
+	$(CSSO) $(CSTR_A)
+	$(CC) $(CFLAGS) $(SANFLAGS) test_memory_safety.c $(CSSO) \
+		$(SANLDFLAGS) -o test_memory_safety
+
+all: test_kanji test_search test_line test_eval test_undo test_python test_cmode test_batch test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow test_memory_safety
 
 run: all
 	@for t in test_kanji test_search test_line test_eval test_undo test_python test_cmode test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow; do \
@@ -106,7 +121,10 @@ run: all
 	@echo "=== Running test_batch ==="
 	@./test_batch || exit 1
 	@echo ""
+	@echo "=== Running test_memory_safety (ASan + UBSan) ==="
+	@./test_memory_safety || exit 1
+	@echo ""
 	@echo "=== All tests passed ==="
 
 clean:
-	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_modeline_gutter test_python test_cmode test_screen_no_overflow
+	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_modeline_gutter test_python test_cmode test_screen_no_overflow test_memory_safety
