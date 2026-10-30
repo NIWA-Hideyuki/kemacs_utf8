@@ -54,8 +54,11 @@ kopen(FILE * fp, unsigned flag, unsigned totime)
 #else
 	kfp->tm = totime? 1: 0;
 #endif
-	if (!(kp = kalloc((caddr_t)kfp, (int (*)(caddr_t))f_open, (int (*)(caddr_t))f_close, (int (*)(caddr_t, char *, int))f_get, (int (*)(caddr_t, char *, int))f_put, flag)))
+	if (!(kp = kalloc((caddr_t)kfp, (int (*)(caddr_t))f_open, (int (*)(caddr_t))f_close, (int (*)(caddr_t, char *, int))f_get, (int (*)(caddr_t, char *, int))f_put, flag))) {
+		(void)fclose(fp);
+		free((caddr_t)kfp);
 		return NULL;
+	}
 	return kp;
 }
 
