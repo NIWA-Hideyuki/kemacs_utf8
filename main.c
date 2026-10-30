@@ -124,7 +124,7 @@ main(int argc, char *argv[])
 	    case 's':	/* -s for initial search string */
 	    case 'S':
 		searchflag = TRUE;
-		(void)Cstrncpy(pat, Cfromc(&argv[carg][2]), NPAT);
+		(void)Cstrncpy(pat, Cfromc(&argv[carg][2]), NPAT - 1);
 		break;
 	    case 'g':	/* -g for initial goto */
 	    case 'G':	
