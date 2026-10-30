@@ -338,9 +338,10 @@ int docmd(Char *cline)
 */
 
 Char *
-token(Char *src, Char *tok)
+token(Char *src, Char *tok, int size)
 {
 	int quotef;	/* is the current string quoted? */
+	Char *limit = tok + size - 1;  /* leave room for null terminator */
 
 	/* first scan past any whitespace in the source string */
 	while (*src == ' ' || *src == '\t')
@@ -348,7 +349,7 @@ token(Char *src, Char *tok)
 
 	/* scan through the source string */
 	quotef = FALSE;
-	while (*src) {
+	while (*src && tok < limit) {
 		/* process special characters */
 		if (*src == '~') {
 			++src;
@@ -410,7 +411,7 @@ int nextarg(Char *prompt, Char *buffer, int size, Ckey terminator)
 		return(getstring(prompt, buffer, size, terminator));
 
 	/* grab token and advance past */
-	execstr = token(execstr, buffer);
+	execstr = token(execstr, buffer, size);
 
 	/* evaluate it */
 	(void)Cstrcpy(buffer, getval(buffer));

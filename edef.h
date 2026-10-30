@@ -82,7 +82,7 @@ Char *itoaa();
 
 Char *getval();
 
-Char *token();
+Char *token(Char *src, Char *tok, int size);
 
 Char *ltos();
 

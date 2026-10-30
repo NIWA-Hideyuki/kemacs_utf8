@@ -462,7 +462,7 @@ int setvar(int f, int n)  /* set a variable */
 			return(status);
 	} else {	/* macro line argument */
 		/* grab token and skip it */
-		execstr = token(execstr, var);
+			execstr = token(execstr, var, NVSIZE+1);
 	}
 
 	/* check the legality and find the var */
@@ -497,7 +497,7 @@ int setvar(int f, int n)  /* set a variable */
 		var[4] = 0;
 		if (Cstrcmp(&var[1], CSTR(&Cxstr[3716])) == 0) {
 			/* grab token, and eval it */
-			execstr = token(execstr, var);
+				execstr = token(execstr, var, NVSIZE+1);
 			(void)Cstrcpy(var, getval(var));
 			goto sv01;
 		}
