@@ -130,7 +130,7 @@ int tcapopen(void)
 
 	/* initialize terminfo database for this terminal type */
 	if (setupterm(tv_stype, fileno(stdout), &errret) != OK) {
-	    (void)sprintf(err_str, "Unknown terminal type %s!", tv_stype);
+	    (void)snprintf(err_str, sizeof(err_str), "Unknown terminal type %s!", tv_stype);
 	    puts(err_str);
 	    exit(1);
 	}
