@@ -29,7 +29,12 @@
 #define CR		0x0010
 #define DOSEOF		0x0020
 
-#define putq(c)		(kp->ks_queue[kp->ks_ql++] = (c))
+/* putq: enqueue a character with bounds checking.
+   ks_queue has BUFSIZ (8192) int elements; without the check,
+   a read() with many ESC sequences can overflow the heap-allocated
+   KSTREAM. Uses ternary form (not do/while) because putq is used
+   in comma/ternary expressions at lines 755 and 761. */
+#define putq(c) (kp->ks_ql < BUFSIZ ? (kp->ks_queue[kp->ks_ql++] = (c)) : 0)
 
 static void
 sweep_esc(KSTREAM * kp)
