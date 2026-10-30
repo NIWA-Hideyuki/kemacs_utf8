@@ -1,0 +1,217 @@
+#ifndef _CX_DEF_
+extern unsigned int Cxstr[];
+#define _CX_DEF_
+#endif /*_CX_DEF_*/
+/*
+ * The routines in this file read and write ASCII files from the disk. All of
+ * the knowledge about files are here. A better message writing scheme should
+ * be used.
+ */
+#include	"ecomm.h"
+#include	"estruct.h"
+#include	"edef.h"
+
+static	FILE	*ffp;			/* File pointer, all functions. */
+
+/*
+ * Open a file for reading.
+ */
+#if KANJI
+int ffropen(Char *fn, unsigned code)
+#else
+int ffropen(Char *fn)
+#endif
+{
+#if KANJI
+	char fn1[NFILEN];
+	KS_FLAG cc;
+#endif
+
+#if KANJI
+	(void)strcpy(fn1, cfromC(fn));
+	if ((ffp=fopen(fn1, "r")) == NULL) return (FIOFNF);
+	KS_VALUE(cc) = code;
+	KS_THRU(cc) = 1; /* thru for file */
+	if (KS_INTERP(cc) != KS_BINARY) KS_INTERP(cc) = KS_UKANJI;
+	KS_EOLINT(cc) = KS_EOLUK;
+	kfopen(ffp, KS_VALUE(cc));
+#else
+	if ((ffp=fopen(fn, "r")) == NULL) return (FIOFNF);
+#endif
+	return (FIOSUC);
+}
+
+/*
+ * Open a file for writing. Return TRUE if all is well, and FALSE on error
+ * (cannot create).
+ */
+#if KANJI
+int ffwopen(Char *fn, unsigned code)
+#else
+int ffwopen(Char *fn)
+#endif
+{
+#if KANJI
+	char fn1[NFILEN];
+#endif
+# if KANJI
+	(void)strcpy(fn1, cfromC(fn));
+	if ((ffp=fopen(fn1, "w")) == NULL) {
+# else
+	if ((ffp=fopen(fn, "w")) == NULL) {
+# endif
+		mlwrite(
+#if KANJI
+		    kterminal? CSTR(&Cxstr[5950]):
+#endif
+		    CSTR(&Cxstr[5971]));
+		return (FIOERR);
+	}
+#if KANJI
+	kfopen(ffp, code);
+#endif
+	return (FIOSUC);
+}
+
+/*
+ * Close a file. Should look at the status in all systems.
+ */
+#if KANJI
+int ffclose(unsigned *code)
+#else
+int ffclose(void)
+#endif
+{
+#if KANJI
+  unsigned cc;
+
+  cc = kfclose();		/* close kanji stream */
+  if (code != NULL) *code = cc;
+#endif
+  if (fclose(ffp)) {
+    mlwrite(
+#if KMSGS
+	    kterminal? CSTR(&Cxstr[6000]):
+#endif
+	    CSTR(&Cxstr[6014]));
+    return(FIOERR);
+  }
+  return(FIOSUC);
+}
+
+/*
+ * Write a line to the already opened file. The "buf" points to the buffer,
+ * and the "nbuf" is its length, less the free newline. Return the status.
+ * Check only at the newline.
+ */
+int ffputline(Char buf[], int nbuf)
+{
+	int	i;
+#if	CRYPT
+	Char c;		/* character to translate */
+
+	if (cryptflag) {
+	        for (i = 0; i < nbuf; ++i) {
+# if KANJI
+			c = buf[i];
+# else
+			c = buf[i] & 0xff;
+# endif
+			cryptstr(&c, (unsigned)1);
+# if KANJI
+			kfputc(c, ffp);
+# else
+			fputc(c, ffp);
+# endif
+		}
+	} else
+#endif /*CRYPT*/
+	for (i = 0; i < nbuf; ++i)
+#if KANJI
+		kfputc(buf[i], ffp);
+#else
+		fputc(buf[i], ffp);
+#endif
+
+#if KANJI
+	kfputc('\n', ffp);
+#else
+	fputc('\n', ffp);
+#endif
+
+	if (ferror(ffp)) {
+		mlwrite(
+#if KMSGS
+		    kterminal? CSTR(&Cxstr[6033]):
+#endif
+		    CSTR(&Cxstr[6041]));
+		return (FIOERR);
+	}
+
+	return (FIOSUC);
+}
+
+/*
+ * Read a line from a file, and store the bytes in the supplied buffer. The
+ * "nbuf" is the length of the buffer. Complain about long lines and lines
+ * at the end of the file that don't have a newline present. Check for I/O
+ * errors too. Return status.
+ */
+ffgetline(Char buf[], int nbuf)
+{
+	int	 c;
+	int	i;
+#if KANJI
+	Char kfgetc();
+#endif
+
+	i = 0;
+
+	while (
+#if KANJI
+		(c = kfgetc(ffp))
+#else
+		(c = fgetc(ffp))
+#endif
+				 != EOF && c != '\n') {
+		if (i >= nbuf-2) {
+			buf[nbuf - 2] = c;	/* store last char read */
+			buf[nbuf - 1] = 0;	/* and terminate it */
+			mlwrite(
+#if KMSGS
+			    kterminal? CSTR(&Cxstr[6057]):
+#endif
+			    CSTR(&Cxstr[6071]));
+#if	CRYPT
+			if (cryptflag)
+				cryptstr(buf, (unsigned)Cstrlen(buf));
+#endif
+			return (FIOLNG);
+		}
+		buf[i++] = c;
+	}
+
+	if (c == EOF) {
+		if (ferror(ffp)) {
+			mlwrite(
+#if KMSGS
+			    kterminal? CSTR(&Cxstr[6090]):
+#endif
+			    CSTR(&Cxstr[6102]));
+			return (FIOERR);
+		}
+
+		if (i != 0) {
+                	buf[i] = 0;
+                        return(FIOFUN);
+		}
+		return (FIOEOF);
+	}
+
+	buf[i] = 0;
+#if	CRYPT
+	if (cryptflag)
+		cryptstr(buf, (unsigned)Cstrlen(buf));
+#endif
+	return (FIOSUC);
+}

@@ -1,0 +1,1322 @@
+#ifndef _CX_DEF_
+extern unsigned int Cxstr[];
+#define _CX_DEF_
+#endif /*_CX_DEF_*/
+/*
+ * This file contains the command processing functions for a number of random
+ * commands. There is no functional grouping here, for sure.
+ */
+
+#include	"ecomm.h"
+#include	"estruct.h"
+#include	"edef.h"
+
+int	tabsize;			/* Tab size (0: use real tabs)	*/
+
+/* Python mode functions (defined in python.c) */
+extern	int	pyinsert(void);
+extern	int	pyindent(int f, int n);
+extern	int	py_backspace(int f, int n);
+
+/*
+ * Set fill column to n.
+ */
+/*ARGSUSED*/
+int setfillcol(int f, int n)
+{
+	fillcol = n;
+	mlwrite(
+#if KANJI
+	    kterminal? CSTR(&Cxstr[6798]):
+#endif
+	    CSTR(&Cxstr[6812]),n);
+	return(TRUE);
+}
+
+/*
+ * Display the current position of the cursor, in origin 1 X-Y coordinates,
+ * the character that is under the cursor (in hex), and the fraction of the
+ * text that is before the cursor. The displayed column is not the current
+ * column, but the column that would be used on an infinite width display.
+ * Normally this is bound to "C-X =".
+ */
+/*ARGSUSED*/
+int showcpos(int f, int n)
+{
+	LINE	*lp;		/* current line */
+	long	numchars;	/* # of chars in file */
+	int	numlines;	/* # of lines in file */
+	long	predchars;	/* # chars preceding point */
+	int	predlines;	/* # lines preceding point */
+	Char	curchar;	/* character under cursor */
+	int ratio;
+	int col;
+	int savepos;			/* temp save for current offset */
+	int ecol;			/* column pos/end of current line */
+
+	/* starting at the beginning of the buffer */
+	lp = lforw(curbp->b_linep);
+
+	/* start counting chars and lines */
+	numchars = 0;
+	numlines = 0;
+	while (lp != curbp->b_linep) {
+		/* if we are on the current line, record it */
+		if (lp == curwp->w_dotp) {
+			predlines = numlines;
+			predchars = numchars + curwp->w_doto;
+			if ((curwp->w_doto) == llength(lp))
+				curchar = '\n';
+			else
+				curchar = lgetc(lp, curwp->w_doto);
+		}
+		/* on to the next line */
+		++numlines;
+		numchars += llength(lp) + 1;
+		lp = lforw(lp);
+	}
+
+	/* if at end of file, record it */
+	if (curwp->w_dotp == curbp->b_linep) {
+		predlines = numlines;
+		predchars = numchars;
+	}
+
+	/* Get real column and end-of-line column. */
+	col = getccol(FALSE);
+	savepos = curwp->w_doto;
+	curwp->w_doto = llength(curwp->w_dotp);
+	ecol = getccol(FALSE);
+	curwp->w_doto = savepos;
+
+	ratio = 0;		/* Ratio before dot. */
+	if (numchars != 0)
+		ratio = (100L*predchars) / numchars;
+
+	/* summarize and report the info */
+	mlwrite(
+#if KMSGS
+	    kterminal? CSTR(&Cxstr[6832]):
+#endif
+	    CSTR(&Cxstr[6876]),
+		predlines+1, numlines+1, col, ecol,
+		predchars, numchars, ratio, curchar);
+	return (TRUE);
+}
+
+int getcline(void)	/* get the current line number */
+{
+	LINE	*lp;		/* current line */
+	int	numlines;	/* # of lines before point */
+
+	/* starting at the beginning of the buffer */
+	lp = lforw(curbp->b_linep);
+
+	/* start counting lines */
+	numlines = 0;
+	while (lp != curbp->b_linep) {
+		/* if we are on the current line, record it */
+		if (lp == curwp->w_dotp)
+			break;
+		++numlines;
+		lp = lforw(lp);
+	}
+
+	/* and return the resulting count */
+	return(numlines + 1);
+}
+
+/*
+ * Return current column.  Stop at first non-blank given TRUE argument.
+ */
+int getccol(int bflg)
+{
+
+	int c, i, col;
+	col = 0;
+	for (i=0; i<curwp->w_doto; ++i) {
+		c = lgetc(curwp->w_dotp, i);
+		if (c!=' ' && c!='\t' && bflg)
+			break;
+		if (c == '\t')
+			col |= 0x07;
+		else if (c<0x20 || c==0x7F)
+			++col;
+		else if (c >= 0x80 && c < 0x100)
+		  col += 3;
+#if KANJI
+	else if (isunicode(c) || iskanji(c))
+	    col += char_width(c) - 1;
+#endif
+	++col;
+	}
+	return(col);
+}
+
+/*
+ * Set current column.
+ */
+int setccol(int pos)
+{
+	Char c;	/* character being scanned */
+	int i;		/* index into current line */
+	int col;	/* current cursor column   */
+	int llen;	/* length of line in bytes */
+
+	col = 0;
+	llen = llength(curwp->w_dotp);
+
+	/* scan the line until we are at or past the target column */
+	for (i = 0; i < llen; ++i) {
+		/* upon reaching the target, drop out */
+		if (col >= pos)
+			break;
+
+		/* advance one character */
+		c = lgetc(curwp->w_dotp, i);
+		if (c == '\t')
+			col |= 0x07;
+		else if (c<0x20 || c==0x7F)
+			++col;
+		else if (c >= 0x80 && c < 0x100)
+		  col += 3;
+#if KANJI
+	else if (isunicode(c) || iskanji(c))
+	    col += char_width(c) - 1;
+#endif
+	++col;
+	}
+	/* if not long enough... */
+	if (col < pos)
+		return(FALSE);
+
+	/* otherwise...set us at the new position */
+	curwp->w_doto = i;
+	return(TRUE);
+}
+
+/*
+ * Twiddle the two characters on either side of dot. If dot is at the end of
+ * the line twiddle the two characters before it. Return with an error if dot
+ * is at the beginning of line; it seems to be a bit pointless to make this
+ * work. This fixes up a very common typo with a single stroke. Normally bound
+ * to "C-T". This always works within a line, so "WFEDIT" is good enough.
+ */
+/*ARGSUSED*/
+int twiddle(int f, int n)
+{
+	LINE	*dotp;
+	int	doto;
+	Char	cl;
+	Char	cr;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	dotp = curwp->w_dotp;
+	doto = curwp->w_doto;
+	if (doto==llength(dotp) && --doto<0)
+		return (FALSE);
+	cr = lgetc(dotp, doto);
+	if (--doto < 0)
+		return (FALSE);
+	cl = lgetc(dotp, doto);
+	lputc(dotp, doto+0, cr);
+	lputc(dotp, doto+1, cl);
+	lchange(WFEDIT);
+	return (TRUE);
+}
+
+/*
+ * Quote the next character, and insert it into the buffer. All the characters
+ * are taken literally, with the exception of the newline, which always has
+ * its line splitting meaning. The character is always read, even if it is
+ * inserted 0 times, for regularity. Bound to "C-Q"
+ */
+/*ARGSUSED*/
+int quote(int f, int n)
+{
+	int	s;
+	Char	c;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	c = tgetc();
+	if (n < 0)
+		return (FALSE);
+	if (n == 0)
+		return (TRUE);
+	if (c == '\n') {
+		do {
+			s = lnewline();
+		} while (s==TRUE && --n);
+		return (s);
+	}
+	return (linsert(n, c));
+}
+
+/*
+ * Set tab size if given non-default argument (n <> 1).	 Otherwise, insert a
+ * tab into file.  If given argument, n, of zero, change to true tabs.
+ * If n > 1, simulate tab stop every n-characters using spaces. This has to be
+ * done in this slightly funny way because the tab (in ASCII) has been turned
+ * into "C-I" (in 10 bit code) already. Bound to "C-I".
+ */
+/*ARGSUSED*/
+int tab(int f, int n)
+{
+	if (n < 0)
+		return (FALSE);
+	if (n == 0 || n > 1) {
+		tabsize = n;
+		return(TRUE);
+	}
+	if (! tabsize)
+		return(linsert(1, '\t'));
+	return(linsert(tabsize - (getccol(FALSE) % tabsize), ' '));
+}
+
+#if	AEDIT
+int detab(int f, int n)  /* change tabs to spaces */
+{
+	int inc;	/* increment to next line [sgn(n)] */
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+
+	if (f == FALSE)
+		n = 1;
+
+	/* loop thru detabbing n lines */
+	inc = ((n > 0) ? 1 : -1);
+	while (n) {
+		curwp->w_doto = 0;	/* start at the beginning */
+
+		/* detab the entire current line */
+		while (curwp->w_doto < llength(curwp->w_dotp)) {
+			/* if we have a tab */
+			if (lgetc(curwp->w_dotp, curwp->w_doto) == '\t') {
+			  (void)ldelete(1L, FALSE);
+			  (void)insspace(TRUE, 8 - (curwp->w_doto & 7));
+			}
+			(void)forwchar(FALSE, 1);
+		}
+
+		/* advance/or back to the next line */
+		(void)forwline(TRUE, inc);
+		n -= inc;
+	}
+	curwp->w_doto = 0;	/* to the begining of the line */
+	thisflag &= ~CFCPCN;	/* flag that this resets the goal column */
+	lchange(WFEDIT);	/* yes, we have made at least an edit */
+	return(TRUE);
+}
+
+int entab(int f, int n)  /* change spaces to tabs where posible */
+{
+	int inc;	/* increment to next line [sgn(n)] */
+	int fspace;	/* pointer to first space if in a run */
+	int ccol;	/* current cursor column */
+	Char cchar;	/* current character */
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+
+	if (f == FALSE)
+		n = 1;
+
+	/* loop thru entabbing n lines */
+	inc = ((n > 0) ? 1 : -1);
+	while (n) {
+		curwp->w_doto = 0;	/* start at the beginning */
+
+		/* entab the entire current line */
+		fspace = -1;
+		ccol = 0;
+		while (curwp->w_doto < llength(curwp->w_dotp)) {
+			/* see if it is time to compress */
+			if ((fspace >= 0) && (nextab(fspace) <= ccol))
+				if (ccol - fspace < 2)
+					fspace = -1;
+				else {
+		/* there is a bug here dealing with mixed space/tabed
+		   lines.......it will get fixed		*/
+					(void)backchar(TRUE, ccol - fspace);
+					(void)ldelete((long)(ccol - fspace), FALSE);
+					(void)linsert(1, '\t');	
+					fspace = -1;
+				}
+
+			/* get the current character */
+			cchar = lgetc(curwp->w_dotp, curwp->w_doto);
+
+			switch (cchar) {
+			case '\t': /* a tab...count em up */
+			  ccol = nextab(ccol);
+			  break;
+
+			case ' ':  /* a space...compress? */
+			  if (fspace == -1)
+			    fspace = ccol;
+			  ccol++;
+			  break;
+
+			default:   /* any other char...just count */
+			  ccol++;
+			  if (cchar < 0x20 || cchar == 0x7f)
+			    /* takes 2 columns */
+			    ccol++;
+			  else if (cchar >= 0x80 && cchar < 0x100)
+			    /* takes 4 columns */
+			    ccol += 3;
+			    #if KANJI
+			    else if (isunicode(cchar) || iskanji(cchar))
+			    ccol += char_width(cchar) - 1;
+			    #endif
+			    fspace = -1;
+			  break;
+			}
+			(void)forwchar(FALSE, 1);
+		}
+
+		/* advance/or back to the next line */
+		(void)forwline(TRUE, inc);
+		n -= inc;
+	}
+	curwp->w_doto = 0;	/* to the begining of the line */
+	thisflag &= ~CFCPCN;	/* flag that this resets the goal column */
+	lchange(WFEDIT);	/* yes, we have made at least an edit */
+	return(TRUE);
+}
+
+int trim(int f, int n)  /* trim trailing whitespace from the point to eol */
+{
+	LINE *lp;	/* current line pointer */
+	int offset;	/* original line offset position */
+	int length;	/* current length */
+	int inc;	/* increment to next line [sgn(n)] */
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+
+	if (f == FALSE)
+		n = 1;
+
+	/* loop thru trimming n lines */
+	inc = ((n > 0) ? 1 : -1);
+	while (n) {
+		lp = curwp->w_dotp;		/* find current line text */
+		offset = curwp->w_doto;		/* save original offset */
+		length = lp->l_used;		/* find current length */
+
+		/* trim the current line */
+		while (length > offset) {
+			if (lgetc(lp, length-1) != ' ' &&
+ 			    lgetc(lp, length-1) != '\t')
+			    	break;
+			length--;
+		}
+		lp->l_used = length;
+
+		/* advance/or back to the next line */
+		(void)forwline(TRUE, inc);
+		n -= inc;
+	}
+	lchange(WFEDIT);
+	thisflag &= ~CFCPCN;	/* flag that this resets the goal column */
+	return(TRUE);
+}
+#endif /* AEDIT */
+
+/*
+ * Open up some blank space. The basic plan is to insert a bunch of newlines,
+ * and then back up over them. Everything is done by the subcommand
+ * procerssors. They even handle the looping. Normally this is bound to "C-O".
+ */
+int openline(int f, int n)
+{
+	int	i;
+	int	s;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (FALSE);
+	if (n == 0)
+		return (TRUE);
+	i = n;					/* Insert newlines.	*/
+	do {
+		s = lnewline();
+	} while (s==TRUE && --i);
+	if (s == TRUE)				/* Then back up overtop */
+		s = backchar(f, n);		/* of them all.		*/
+	return (s);
+}
+
+/*
+ * Insert a newline. Bound to "C-M". If we are in CMODE, do automatic
+ * indentation as specified.
+ */
+/*ARGSUSED*/
+int newline(int f, int n)
+{
+	int	s;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (FALSE);
+
+	/* if we are in C mode and this is a default <NL> */
+	if (n == 1 && (curbp->b_mode & MDCMOD) &&
+	    curwp->w_dotp != curbp->b_linep)
+		return(cinsert());
+
+	/* if we are in Python mode and this is a default <NL> */
+	if (n == 1 && (curbp->b_mode & MDPYMOD) &&
+	    curwp->w_dotp != curbp->b_linep)
+		return(pyinsert());
+
+	/*
+	 * If a newline was typed, fill column is defined, the argument is non-
+	 * negative, wrap mode is enabled, and we are now past fill column,
+	 * and we are not read-only, perform word wrap.
+	 */
+	if ((curwp->w_bufp->b_mode & MDWRAP) && fillcol > 0 &&
+	    getccol(FALSE) > fillcol &&
+	    (curwp->w_bufp->b_mode & MDVIEW) == FALSE)
+		(void)execute(META|SPEC|'W', FALSE, 1);
+
+	/* insert some lines */
+	while (n--) {
+		if ((s=lnewline()) != TRUE)
+			return (s);
+	}
+	return (TRUE);
+}
+
+
+/* cinsert() is now implemented in cmode.C_ -- the modernized CMODE
+ * indent engine.  See CMODEd;f'f8.md for the full specification. */
+extern int cinsert(void);
+extern int cindent(int f, int n);
+extern int cindent_region(int f, int n);
+extern int c_mode(int f, int n);
+
+int insbrace(int n, Char c)  /* insert a brace into the text here...we are in CMODE */
+{
+	Char ch;	/* last character before input */
+	int i;
+	int target;	/* column brace should go after */
+
+	/* if we are at the beginning of the line, no go */
+	if (curwp->w_doto == 0) {
+		if (curbp->b_mode & MDCMOD) {
+			/* In CMODE: apply style-specific brace placement */
+			/* For none (style 7): respect user placement, no auto-indent */
+			if (c_brace_style == 7)
+				return(linsert(n, c));
+		}
+		return(linsert(n,c));
+	}
+	
+	/* scan to see if all space before this is white space */
+	for (i = curwp->w_doto - 1; i >= 0; --i) {
+		ch = lgetc(curwp->w_dotp, i);
+		if (ch != ' ' && ch != '	')
+			return(linsert(n, c));
+	}
+
+	/* Style 7 (none): user wants to control indentation, so don't
+	   delete leading whitespace or apply style-based adjustment */
+	if (c_brace_style == 7) {
+		return(linsert(n, c));
+	}
+
+	/* delete back first */
+	target = getccol(FALSE);	/* calc where we will delete to */
+	target -= 1;
+	target -= target % (tabsize == 0 ? 8 : tabsize);
+	while (getccol(FALSE) > target)
+		(void)backdel(FALSE, 1);
+
+	/* and insert the required brace(s) */
+	if (linsert(n, c) != TRUE)
+		return(FALSE);
+
+	/* If c_auto_close is enabled, re-indent the line using CMODE */
+	if (c_auto_close)
+		(void)cindent(FALSE, 1);
+	return(TRUE);
+}
+
+int inspound(void)  /* insert a # into the text here...we are in CMODE */
+{
+	Char ch;	/* last character before input */
+	int i;
+
+	/* if we are at the beginning of the line, no go */
+	if (curwp->w_doto == 0) {
+		if (c_pp_indent > 0) {
+			for (i = 0; i < c_pp_indent; i++)
+				(void)linsert(1, ' ');
+		}
+		return(linsert(1,'#'));
+	}
+		
+	/* scan to see if all space before this is white space */
+	for (i = curwp->w_doto - 1; i >= 0; --i) {
+		ch = lgetc(curwp->w_dotp, i);
+		if (ch != ' ' && ch != '	')
+			return(linsert(1, '#'));
+	}
+
+	/* delete back first */
+	while (getccol(FALSE) >= 1)
+		(void)backdel(FALSE, 1);
+
+	/* If c_pp_indent is set, insert that many spaces before # */
+	if (c_pp_indent > 0) {
+		for (i = 0; i < c_pp_indent; i++)
+			(void)linsert(1, ' ');
+	}
+
+	/* and insert the required pound */
+	return(linsert(1, '#'));
+}
+
+/*
+ * Delete blank lines around dot. What this command does depends if dot is
+ * sitting on a blank line. If dot is sitting on a blank line, this command
+ * deletes all the blank lines above and below the current line. If it is
+ * sitting on a non blank line then it deletes all of the blank lines after
+ * the line. Normally this command is bound to "C-X C-O". Any argument is
+ * ignored.
+ */
+/*ARGSUSED*/
+int deblank(int f, int n)
+{
+	LINE	*lp1;
+	LINE	*lp2;
+	long nld;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	lp1 = curwp->w_dotp;
+	while (llength(lp1)==0 && (lp2=lback(lp1))!=curbp->b_linep)
+		lp1 = lp2;
+	lp2 = lp1;
+	nld = 0;
+	while ((lp2=lforw(lp2))!=curbp->b_linep && llength(lp2)==0)
+		++nld;
+	if (nld == 0)
+		return (TRUE);
+	curwp->w_dotp = lforw(lp1);
+	curwp->w_doto = 0;
+	return (ldelete(nld, FALSE));
+}
+
+/*
+ * Insert a newline, then enough tabs and spaces to duplicate the indentation
+ * of the previous line. Assumes tabs are every eight characters. Quite simple.
+ * Figure out the indentation of the current line. Insert a newline by calling
+ * the standard routine. Insert the indentation by inserting the right number
+ * of tabs and spaces. Return TRUE if all ok. Return FALSE if one of the
+ * subcomands failed. Normally bound to "C-J".
+ */
+/*ARGSUSED*/
+int indent(int f, int n)
+{
+	int	nicol;
+	Char	c;
+	int	i;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (FALSE);
+	while (n--) {
+		nicol = 0;
+		for (i=0; i<llength(curwp->w_dotp); ++i) {
+			c = lgetc(curwp->w_dotp, i);
+			if (c!=' ' && c!='\t')
+				break;
+			if (c == '\t')
+				nicol |= 0x07;
+			++nicol;
+		}
+		if (lnewline() == FALSE
+		|| ((i=nicol/8)!=0 && linsert(i, '\t')==FALSE)
+		|| ((i=nicol%8)!=0 && linsert(i,  ' ')==FALSE))
+			return (FALSE);
+	}
+	return (TRUE);
+}
+
+/*
+ * Delete forward. This is real easy, because the basic delete routine does
+ * all of the work. Watches for negative arguments, and does the right thing.
+ * If any argument is present, it kills rather than deletes, to prevent loss
+ * of text if typed with a big argument. Normally bound to "C-D".
+ */
+int forwdel(int f, int n)
+{
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (backdel(f, -n));
+	if (f != FALSE) {			/* Really a kill.	*/
+		if ((lastflag&CFKILL) == 0)
+			kdelete();
+		thisflag |= CFKILL;
+	}
+	return (ldelete((long)n, f));
+}
+
+/*
+ * Delete backwards. This is quite easy too, because it's all done with other
+ * functions. Just move the cursor back, and delete forwards. Like delete
+ * forward, this actually does a kill if presented with an argument. Bound to
+ * both "RUBOUT" and "C-H".
+ */
+int backdel(int f, int n)
+{
+	int	s;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if (n < 0)
+		return (forwdel(f, -n));
+	/* if we are in Python mode and this is a default <BKSP> */
+	if (n == 1 && (curbp->b_mode & MDPYMOD))
+		return py_backspace(f, n);
+	if (f != FALSE) {		/* Really a kill.	*/
+		if ((lastflag&CFKILL) == 0)
+			kdelete();
+		thisflag |= CFKILL;
+	}
+	if ((s=backchar(f, n)) == TRUE)
+		s = ldelete((long)n, f);
+	return (s);
+}
+
+/*
+ * Kill text. If called without an argument, it kills from dot to the end of
+ * the line, unless it is at the end of the line, when it kills the newline.
+ * If called with an argument of 0, it kills from the start of the line to dot.
+ * If called with a positive argument, it kills from dot forward over that
+ * number of newlines. If called with a negative argument it kills backwards
+ * that number of newlines. Normally bound to "C-K".
+ */
+int killtext(int f, int n)
+{
+	LINE	*nextp;
+	long chunk;
+
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if ((lastflag&CFKILL) == 0)		/* Clear kill buffer if */
+		kdelete();			/* last wasn't a kill.	*/
+	thisflag |= CFKILL;
+	if (f == FALSE) {
+		chunk = llength(curwp->w_dotp)-curwp->w_doto;
+		if (chunk == 0)
+			chunk = 1;
+	} else if (n == 0) {
+		chunk = curwp->w_doto;
+		curwp->w_doto = 0;
+	} else if (n > 0) {
+		chunk = llength(curwp->w_dotp)-curwp->w_doto+1;
+		nextp = lforw(curwp->w_dotp);
+		while (--n) {
+			if (nextp == curbp->b_linep)
+				return (FALSE);
+			chunk += llength(nextp)+1;
+			nextp = lforw(nextp);
+		}
+	} else {
+		mlwrite(
+#if KMSGS
+		    kterminal? CSTR(&Cxstr[6927]):
+#endif
+		    CSTR(&Cxstr[6939]));
+		return (FALSE);
+	}
+	return(ldelete(chunk, TRUE));
+}
+
+/*ARGSUSED*/
+int set_mode(int f, int n)  /* prompt and set an editor mode */
+{
+	(void)adjustmode(TRUE, FALSE);
+	return(TRUE);
+}
+
+/*ARGSUSED*/
+int delmode(int f, int n)  /* prompt and delete an editor mode */
+{
+	(void)adjustmode(FALSE, FALSE);
+	return(TRUE);
+}
+
+/*ARGSUSED*/
+int setgmode(int f, int n)  /* prompt and set a global editor mode */
+{
+	(void)adjustmode(TRUE, TRUE);
+	return(TRUE);
+}
+
+/*ARGSUSED*/
+int delgmode(int f, int n)  /* prompt and delete a global editor mode */
+{
+	(void)adjustmode(FALSE, TRUE);
+	return(TRUE);
+}
+
+int adjustmode(int kind, int global)  /* change the editor mode status */
+{
+	int i;			/* loop index */
+	int status;		/* error return on input */
+#if	COLOR
+	int uflag;		/* was modename uppercase?	*/
+#endif
+	Char prompt[NPAT];		/* string to prompt user with */
+	Char cbuf[NPAT];		/* buffer to recieve mode name into */
+
+	/* build the proper prompt string */
+#if KMSGS
+	if (kterminal) {
+		if (kind == TRUE)
+			(void)Cstrcpy(prompt, CSTR(&Cxstr[6948]));
+		else
+			(void)Cstrcpy(prompt, CSTR(&Cxstr[6951]));
+		(void)Cstrcat(prompt, CSTR(&Cxstr[6954]));
+		if (global)
+			(void)Cstrcat(prompt, CSTR(&Cxstr[6957]));
+		(void)Cstrcat(prompt, CSTR(&Cxstr[6964]));
+	} else {
+#endif
+	if (global)
+		(void)Cstrcpy(prompt,CSTR(&Cxstr[6971]));
+	else
+		(void)Cstrcpy(prompt,CSTR(&Cxstr[6987]));
+
+	if (kind == TRUE)
+		(void)Cstrcat(prompt, CSTR(&Cxstr[6996]));
+	else
+		(void)Cstrcat(prompt, CSTR(&Cxstr[7002]));
+#if KANJI
+	}
+#endif
+
+	/* prompt the user and get an answer */
+
+	status = mlreply(prompt, cbuf, NPAT - 1);
+	if (status != TRUE)
+		return(FALSE);
+
+	/* make it uppercase */
+#if	COLOR
+	uflag = isupper(*cbuf);
+#endif
+	(void)mkupper(cbuf);
+
+#if	COLOR
+	/* test it first against the colors we know */
+	for (i=0; i<NCOLORS; i++) {
+		if (Cstrcmp(cbuf, cname[i]) == 0) {
+			/* finding the match, we set the color */
+			if (uflag) {
+				if (global)
+					gfcolor = i;
+				else
+					curwp->w_fcolor = i;
+			} else {
+				if (global)
+					gbcolor = i;
+				else
+					curwp->w_bcolor = i;
+			}
+			curwp->w_flag |= WFCOLR;
+			mlerase();
+			return(TRUE);
+		}
+	}
+#endif /* COLOR */
+
+	/* test it against the modes we know */
+
+	for (i=0; modename[i] != NULL; i++) {
+		if (Cstrcmp(cbuf, modename[i]) == 0) {
+			/* finding a match, we process it */
+			if (kind == TRUE) {
+				if (global)
+					gmode |= (1 << i);
+				else
+					curwp->w_bufp->b_mode |= (1 << i);
+			} else {
+				if (global)
+					gmode &= ~(1 << i);
+				else
+					curwp->w_bufp->b_mode &= ~(1 << i);
+			}
+			/* display new mode line */
+			if (!global)
+				upmode();
+			/* mode related things */
+#if	KANJI
+			if ((1<<i) == MDBINARY) {
+			  if (global)
+			    KS_INTERP(kcode) =
+			      (kind == TRUE)? KS_BINARY: KS_KANJI;
+			  else
+			    KS_INTERP(curbp->b_code) =
+			      (kind == TRUE)? KS_BINARY: KS_KANJI;
+			}
+#endif /* KANJI */
+			mlerase();	/* erase the junk */
+			return(TRUE);
+		}
+	}
+
+	mlwrite(
+#if KMSGS
+	    kterminal? CSTR(&Cxstr[7011]):
+#endif
+	    CSTR(&Cxstr[7025]));
+	return(FALSE);
+}
+
+/*	This function simply clears the message line,
+		mainly for macro usage			*/
+
+/*ARGSUSED*/
+int clrmes(int f, int n)
+{
+	mlwrite(CSTR(&Cxstr[6]));
+	return(TRUE);
+}
+
+/*	This function writes a string on the message line
+		mainly for macro usage			*/
+
+/*ARGSUSED*/
+int writemsg(int f, int n)
+{
+	int status;
+	Char buf[NPAT];		/* buffer to recieve message into */
+
+	if ((status = mlreply(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[7039]):
+#endif
+			CSTR(&Cxstr[7051]),
+			buf, NPAT - 1)) != TRUE)
+		return(status);
+
+	mlwrite(CSTR(&Cxstr[4677]), buf);
+	return(TRUE);
+}
+
+#if	CFENCE
+/*	the cursor is moved to a matching fence */
+
+/*ARGSUSED*/
+int getfence(int f, int n)
+{
+	LINE *oldlp;	/* original line pointer */
+	int oldoff;	/* and offset */
+	int sdir;	/* direction of search (1/-1) */
+	int count;	/* current fence level count */
+	Char ch;	/* fence type to match against */
+	Char ofence;	/* open fence */
+	Char c;	/* current character in scan */
+
+	/* save the original cursor position */
+	oldlp = curwp->w_dotp;
+	oldoff = curwp->w_doto;
+
+	/* get the current character */
+	ch = (oldoff == llength(oldlp))? '\n': lgetc(oldlp, oldoff);
+
+	/* setup proper matching fence */
+	switch (ch) {
+	case '(': ofence = ')'; sdir = FORWARD; break;
+	case '{': ofence = '}'; sdir = FORWARD; break;
+	case '[': ofence = ']'; sdir = FORWARD; break;
+	case ')': ofence = '('; sdir = REVERSE; break;
+	case '}': ofence = '{'; sdir = REVERSE; break;
+	case ']': ofence = '['; sdir = REVERSE; break;
+	default: TTbeep(); return(FALSE);
+	}
+
+	/* set up for scan */
+	count = 1;
+	if (sdir == REVERSE)
+		(void)backchar(FALSE, 1);
+	else
+		(void)forwchar(FALSE, 1);
+
+	/* scan until we find it, or reach the end of file */
+	while (count > 0) {
+		c = (curwp->w_doto == llength(curwp->w_dotp))?
+		  '\n':
+		  lgetc(curwp->w_dotp, curwp->w_doto);
+		if (c == ch)
+			++count;
+		if (c == ofence)
+			--count;
+		if (sdir == FORWARD)
+			(void)forwchar(FALSE, 1);
+		else
+			(void)backchar(FALSE, 1);
+		if (boundry(curwp->w_dotp, curwp->w_doto, sdir))
+			break;
+	}
+
+	/* if count is zero, we have a match, move the sucker */
+	if (count == 0) {
+		if (sdir == FORWARD)
+			(void)backchar(FALSE, 1);
+		else
+			(void)forwchar(FALSE, 1);
+		curwp->w_flag |= WFMOVE;
+		return(TRUE);
+	}
+
+	/* restore the current position */
+	curwp->w_dotp = oldlp;
+	curwp->w_doto = oldoff;
+	TTbeep();
+	return(FALSE);
+}
+#endif
+
+/*	Close fences are matched against their partners, and if
+	on screen the cursor briefly lights there		*/
+
+int fmatch(Char ch)
+{
+	LINE *oldlp;	/* original line pointer */
+	int oldoff;	/* and offset */
+	LINE *toplp;	/* top line in current window */
+	int count;	/* current fence level count */
+	Char opench;	/* open fence */
+	Char c;	/* current character in scan */
+	int i;
+
+	/* first get the display update out there */
+	update(FALSE);
+
+	/* save the original cursor position */
+	oldlp = curwp->w_dotp;
+	oldoff = curwp->w_doto;
+
+	/* setup proper open fence for passed close fence */
+	if (ch == ')')
+		opench = '(';
+	else if (ch == '}')
+		opench = '{';
+	else
+		opench = '[';
+
+	/* find the top line and set up for scan */
+	toplp = curwp->w_linep->l_bp;
+	count = 1;
+	(void)backchar(FALSE, 2);
+
+	/* scan back until we find it, or reach past the top of the window */
+	while (count > 0 && curwp->w_dotp != toplp) {
+		c = (curwp->w_doto == llength(curwp->w_dotp))?
+		  '\n':
+		  lgetc(curwp->w_dotp, curwp->w_doto);
+		if (c == ch)
+			++count;
+		if (c == opench)
+			--count;
+		(void)backchar(FALSE, 1);
+		if (curwp->w_dotp == curwp->w_bufp->b_linep->l_fp &&
+		    curwp->w_doto == 0)
+			break;
+	}
+
+	/* if count is zero, we have a match, display the sucker */
+	/* there is a real machine dependant timing problem here we have
+	   yet to solve......... */
+	if (count == 0) {
+		(void)forwchar(FALSE, 1);
+		for (i = 0; i < term.t_pause; i++)
+			update(FALSE);
+	}
+
+	/* restore the current position */
+	curwp->w_dotp = oldlp;
+	curwp->w_doto = oldoff;
+}
+
+/*ARGSUSED*/
+int istring(int f, int n)  /* ask for and insert a string into the current
+		   buffer at the current point */
+{
+	Char *tp;	/* pointer into string to add */
+	int status;	/* status return code */
+	Char tstring[NPAT+1];	/* string to add */
+
+	/* ask for string to insert */
+	status = mlreplyt(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[7070]):
+#endif
+			CSTR(&Cxstr[7086]),
+			tstring, NPAT, metac);
+	if (status != TRUE)
+		return(status);
+
+	if (f == FALSE)
+		n = 1;
+
+	if (n < 0)
+		n = - n;
+
+	/* insert it */
+	while (n--) {
+		tp = &tstring[0];
+		while (*tp) {
+				if (*tp == 0x0a)
+				status = lnewline();
+			else
+				status = linsert(1, *tp);
+			++tp;
+			if (status != TRUE)
+				return(status);
+		}
+	}
+	return(TRUE);
+}
+
+/*
+ * Clear kill buffer
+ */
+/*ARGSUSED*/
+int clearkill(int f, int n)
+{
+	kdelete();
+	thisflag |= CFKILL;
+	return(TRUE);
+}
+
+/*
+ * No operation
+ */
+/*ARGSUSED*/
+int noop(int f, int n)
+{
+	return(TRUE);
+}
+
+/*
+ * change current working directory
+ */
+/*ARGSUSED*/
+int changewd(int f, int n)
+{
+	int status;	/* status return code */
+	Char dir[NFILEN+1];	/* name of directory */
+#if !USE_GETCWD
+	char *getwd();
+#else
+	char *getcwd();
+#endif
+	Char *p;
+#if FEXPAND
+	Char *fexpand();
+#endif
+
+	/* ask for the name of directory */
+	status = mlreply(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[7111]):
+#endif
+			CSTR(&Cxstr[7120]),
+			dir, NFILEN);
+	if (status == ABORT) {
+		mlwrite(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[22]):
+#endif
+			CSTR(&Cxstr[32]));
+		return(status);
+	} else if (status == FALSE) {
+		(void)Cstrcpy(dir, Cfromc(getenv("HOME")));
+	}
+#if FEXPAND
+	(void)Cstrcpy(dir, fexpand(dir));
+#endif
+
+	if ((status = chdir(cfromC(dir))) < 0) {
+		mlwrite(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[7142]):
+#endif
+			CSTR(&Cxstr[7163]),
+			dir);
+		return(FALSE);
+	}
+	mlwrite(CSTR(&Cxstr[4677]),
+#if !USE_GETCWD
+		p=SafeCfromc(getwd((char *)dir)));
+#else
+		p=SafeCfromc(getcwd((char *)dir, NFILEN)));
+#endif
+	Free(p);
+	return(TRUE);
+}
+
+/*
+ * Toggle line number gutter display.
+ * With an argument, n > 0 turns it on, n <= 0 turns it off.
+ * Without an argument, it toggles.
+ */
+#if ARGSUSED
+/*ARGSUSED*/
+#endif
+int toggle_line_numbers(int f, int n)
+{
+	if (f)
+		show_line_numbers = (n > 0);
+	else
+		show_line_numbers = !show_line_numbers;
+	sgarbf = TRUE;
+	curwp->w_flag |= WFHARD | WFMOVE | WFMODE;
+	mlwrite(show_line_numbers ?
+		CSTR(&Cxstr[7185]) :
+		CSTR(&Cxstr[7201]));
+	return(TRUE);
+}
+
+/*
+ * Set the width of the line number gutter.
+ * With an argument, use that value (must be 1-10).
+ * Without an argument, reset to the default width (6).
+ */
+#if ARGSUSED
+/*ARGSUSED*/
+#endif
+int set_line_number_width(int f, int n)
+{
+	if (f == FALSE)
+		n = 6;			/* default width */
+
+	if (n < 1 || n > 10) {
+		TTbeep();
+		mlwrite(CSTR(&Cxstr[7218]));
+		return(FALSE);
+	}
+
+	line_number_width = n;
+	show_line_numbers = TRUE;
+	sgarbf = TRUE;
+	curwp->w_flag |= WFHARD | WFMOVE | WFMODE;
+	mlwrite(CSTR(&Cxstr[7249]), n);
+	return(TRUE);
+}
+
+#if AUTOMODE
+/*ARGSUSED*/
+int automode(int f, int n)
+{
+	int i;			/* loop index */
+	int mode;
+	Char fpat[NPAT];		/* pattern */
+	Char cbuf[NPAT];		/* buffer to recieve mode name into */
+	char *p, *q;
+#if HAVE_REGEX
+	regex_t preg;
+#endif
+
+	/* prompt the user and get an answer */
+	(void)mlreply(
+#if KMSGS
+		kterminal? CSTR(&Cxstr[7277]):
+#endif
+		CSTR(&Cxstr[7287]),
+		cbuf, NPAT - 1);
+
+	/* make it uppercase */
+	(void)mkupper(cbuf);
+
+	mode = -1;
+	/* test it against the modes we know */
+	for (i=0; modename[i] != NULL; i++) {
+		if (Cstrcmp(cbuf, modename[i]) == 0) {
+			mode = (1 << i);
+			break;
+		}
+	}
+
+	if (mode < 0) {
+		mlwrite(
+#if KMSGS
+		    kterminal? CSTR(&Cxstr[7011]):
+#endif
+		    CSTR(&Cxstr[7025]));
+		return(FALSE);
+	}
+
+	/* input pattern */
+	if (mlreply(
+#if KMSGS
+		kterminal? CSTR(&Cxstr[7301]):
+#endif
+		CSTR(&Cxstr[7308]),
+		fpat, NPAT-1) == ABORT) {
+		mlwrite(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[22]):
+#endif
+			CSTR(&Cxstr[32]));
+		return(FALSE);
+	}
+	p = cfromC(fpat);
+	if (
+#if HAVE_REGEX
+	    regcomp(&preg, p, REG_NOSUB) != 0
+#else
+# if	BSD
+	    re_comp(p) != NULL
+# endif
+# if	USG
+	    regcmp(p, (char *)0) == NULL
+# endif
+#endif
+				) {
+		mlwrite(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[7318]):
+#endif
+			CSTR(&Cxstr[7331]));
+		return(FALSE);
+	}
+#if HAVE_REGEX
+	else regfree(&preg);
+#endif
+	if (npatent >= NMPAT) {
+		mlwrite(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[7347]):
+#endif
+			CSTR(&Cxstr[7359]));
+		return(FALSE);
+	}
+	if ((q = malloc(strlen(p) + 1)) == NULL) {
+		mlwrite(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[7378]):
+#endif
+			CSTR(&Cxstr[7388]));
+		return(FALSE);
+	}
+	pattbl[npatent].pat = strcpy(q, p);
+	pattbl[npatent++].mode = mode;
+	return(TRUE);
+}
+#endif /*AUTOMODE*/

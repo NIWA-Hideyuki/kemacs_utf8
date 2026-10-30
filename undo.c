@@ -1,0 +1,425 @@
+#ifndef _CX_DEF_
+extern unsigned int Cxstr[];
+#define _CX_DEF_
+#endif /*_CX_DEF_*/
+/*
+ * UNDO.C:	Undo/Redo system for kemacs
+ *
+ * Implements a per-buffer, linear undo log as specified in
+ * kemacs_improvement_spec_ja.md, section 3.8.
+ *
+ * Each edit primitive (char insert, char delete, line split, line join)
+ * appends an undo record.  An undo record stores: operation type,
+ * line pointer, offset, length, saved character data, a command-boundary
+ * flag, and an end-of-buffer flag.
+ *
+ * Undo walks the list backward; redo walks it forward.  Recording is
+ * suppressed while an undo or redo is in progress (flag u_in_undo).
+ */
+
+#include "ecomm.h"
+#include "estruct.h"
+#include "edef.h"
+
+/* forward declarations for line-manipulation routines used here */
+extern int linsert(int n, Char c);
+extern int ldelete(long n, int kflag);
+extern int lnewline(void);
+extern int ldelnewline(void);
+extern int lchange(int flag);
+extern int lfree(LINE *lp);
+
+/*
+ * Free a single undo record and its character data.
+ */
+static void u_free_rec(UNDO *rec)
+{
+    if (rec == NULL)
+        return;
+    if (rec->u_data != NULL)
+        free((char *)rec->u_data);
+    free((char *)rec);
+}
+
+/*
+ * Prune all undo records that come AFTER b_undo_ptr.
+ * These are the "redoable" records that become invalid when a new
+ * edit is made after an undo.
+ */
+void u_prune(BUFFER *bp)
+{
+    UNDO *rec;
+
+    rec = bp->b_undo_ptr->u_next;
+    while (rec != NULL) {
+        UNDO *next = rec->u_next;
+        u_free_rec(rec);
+        rec = next;
+        bp->b_undo_count--;
+    }
+    bp->b_undo_ptr->u_next = NULL;
+    bp->b_undo_tail = bp->b_undo_ptr;
+}
+
+/*
+ * Clear the entire undo log for a buffer.
+ */
+void u_clear_undo(BUFFER *bp)
+{
+    UNDO *rec;
+
+    rec = bp->b_undo_head;
+    while (rec != NULL) {
+        UNDO *next = rec->u_next;
+        u_free_rec(rec);
+        rec = next;
+    }
+    bp->b_undo_head = NULL;
+    bp->b_undo_tail = NULL;
+    bp->b_undo_ptr  = NULL;
+    bp->b_undo_count = 0;
+}
+
+/*
+ * Record an undo entry on the current buffer's undo log.
+ * Called from linsert, ldelete, lnewline, ldelnewline.
+ *
+ *   type     - UNDO_T_INSERT, UNDO_T_DELETE, UNDO_T_NEWLINE, UNDO_T_JOIN
+ *   lp       - the line that was affected
+ *   offset   - character offset within the line
+ *   length   - number of characters affected (buffer change size)
+ *   data     - for DELETE: the deleted text; for INSERT: the inserted char
+ *   datalen  - number of elements in data (1 for INSERT, =length for DELETE)
+ *   eob      - TRUE if the operation created/freed a line at end-of-buffer
+ */
+void u_record(int type, LINE *lp, int offset, int length,
+              Char *data, int datalen, int eob)
+{
+    BUFFER *bp = curbp;
+    UNDO *rec;
+    int i;
+
+    /* do not record while we are in the middle of undo/redo */
+    if (u_in_undo || bp == NULL)
+        return;
+
+    /* allocate the record */
+    if ((rec = (UNDO *)malloc(sizeof(UNDO))) == NULL)
+        return;
+
+    rec->u_type     = type;
+    rec->u_linep    = lp;
+    rec->u_offset   = offset;
+    rec->u_length   = length;
+    rec->u_boundary = u_new_bndry;
+    rec->u_eob      = eob;
+
+    /* save character data (deep copy) */
+    if (data != NULL && datalen > 0) {
+        if ((rec->u_data = (Char *)malloc(sizeof(Char) * datalen)) == NULL) {
+            free((char *)rec);
+            return;
+        }
+        for (i = 0; i < datalen; i++)
+            rec->u_data[i] = data[i];
+    } else {
+        rec->u_data = NULL;
+    }
+
+    /* if we are here after an undo, discard the redoable tail */
+    if (bp->b_undo_ptr != NULL)
+        u_prune(bp);
+
+    /* link the new record at the tail */
+    rec->u_prev = bp->b_undo_tail;
+    rec->u_next = NULL;
+    if (bp->b_undo_tail != NULL)
+        bp->b_undo_tail->u_next = rec;
+    else
+        bp->b_undo_head = rec;
+    bp->b_undo_tail = rec;
+    bp->b_undo_ptr  = rec;
+    bp->b_undo_count++;
+
+    /* first record after a boundary is no longer a boundary */
+    u_new_bndry = FALSE;
+
+    /* enforce $undo-limit (0 = unlimited) */
+    if (undo_limit > 0) {
+        while (bp->b_undo_count > undo_limit && bp->b_undo_head != NULL) {
+            UNDO *tmp = bp->b_undo_head;
+            bp->b_undo_head = tmp->u_next;
+            if (bp->b_undo_head != NULL)
+                bp->b_undo_head->u_prev = NULL;
+            else {
+                bp->b_undo_tail = NULL;
+                bp->b_undo_ptr  = NULL;
+            }
+            u_free_rec(tmp);
+            bp->b_undo_count--;
+        }
+    }
+}
+
+/*
+ * -----------------------------------------------------------------------
+ *  Undo primitives
+ * -----------------------------------------------------------------------
+ */
+
+/*
+ * Undo a single INSERT record: delete the inserted characters.
+ * For end-of-buffer inserts the whole line is removed.
+ */
+static void u_undo_insert(UNDO *rec)
+{
+    if (rec->u_eob) {
+        /* the line was created at end-of-buffer */
+        LINE *lp = lback(curbp->b_linep);
+        if (lp == curbp->b_linep)
+            return;                 /* nothing to undo */
+        curwp->w_dotp = lp;
+        curwp->w_doto  = 0;
+        (void)ldelete((long)rec->u_length, FALSE);
+        /* remove the now-empty line that was created at EOB */
+        if (curwp->w_dotp != curbp->b_linep &&
+            curwp->w_dotp->l_used == 0)
+            lfree(curwp->w_dotp);
+    } else {
+	/* use current cursor line; rec->u_linep may be stale if a
+	   later JOIN freed the original line */
+	curwp->w_doto = rec->u_offset;
+	(void)ldelete((long)rec->u_length, FALSE);
+    }
+}
+
+/*
+ * Undo a single DELETE record: re-insert the saved characters.
+ */
+static void u_undo_delete(UNDO *rec)
+{
+    int i;
+    if (rec->u_data == NULL || rec->u_length <= 0)
+        return;
+    curwp->w_doto = rec->u_offset;
+    for (i = 0; i < rec->u_length; i++)
+        (void)linsert(1, rec->u_data[i]);
+}
+
+/*
+ * Undo a NEWLINE record: join the two halves back together.
+ */
+static void u_undo_newline(UNDO *rec)
+{
+    if (rec->u_eob)
+        return;                     /* NEWLINE never has u_eob */
+    /* cursor is on the second half (from prev undo step or from
+       the split itself); move to first half for ldelnewline */
+    if (curwp->w_dotp != curbp->b_linep)
+        curwp->w_dotp = lback(curwp->w_dotp);
+    curwp->w_doto  = 0;
+    (void)ldelnewline();
+}
+
+/*
+ * Undo a JOIN record: split the merged line back apart.
+ */
+static void u_undo_join(UNDO *rec)
+{
+    if (rec->u_eob) {
+        /* the freed line was at end-of-buffer; recreate via split */
+        curwp->w_dotp = curbp->b_linep;
+        curwp->w_doto  = 0;
+        (void)lnewline();
+    } else {
+        curwp->w_dotp = rec->u_linep;
+        curwp->w_doto  = rec->u_offset;
+        (void)lnewline();
+    }
+}
+
+/*
+ * Redo a single INSERT record: re-insert the characters.
+ */
+static void u_redo_insert(UNDO *rec)
+{
+    if (rec->u_eob) {
+        /* recreate the line that was created at end-of-buffer */
+        curwp->w_dotp = curbp->b_linep;
+        curwp->w_doto  = 0;
+        (void)linsert(rec->u_length, rec->u_data[0]);
+    } else {
+        curwp->w_doto = rec->u_offset;
+        (void)linsert(rec->u_length, rec->u_data[0]);
+    }
+}
+
+/*
+ * Redo a single DELETE record: delete the characters again.
+ */
+static void u_redo_delete(UNDO *rec)
+{
+    curwp->w_doto = rec->u_offset;
+    (void)ldelete((long)rec->u_length, FALSE);
+}
+
+/*
+ * Redo a NEWLINE record: split the line again.
+ * After undo (which joined the lines), curwp->w_dotp is on the
+ * merged line.  We split it at the original offset.
+ */
+static void u_redo_newline(UNDO *rec)
+{
+    if (rec->u_eob)
+        return;
+    curwp->w_doto = rec->u_offset;
+    (void)lnewline();
+}
+
+/*
+ * Redo a JOIN record: merge the lines again.
+ */
+static void u_redo_join(UNDO *rec)
+{
+    if (rec->u_eob) {
+        /* the line was freed at EOB; free it again */
+        LINE *lp = lback(curbp->b_linep);
+        if (lp == curbp->b_linep)
+            return;                 /* buffer empty */
+        curwp->w_dotp = lp;
+        curwp->w_doto  = lp->l_used;
+        (void)ldelnewline();
+    } else {
+        /* after undo split, first half is lback of current line;
+	   join them */
+        curwp->w_dotp = lback(curwp->w_dotp);
+        curwp->w_doto  = 0;
+        (void)ldelnewline();
+    }
+}
+
+/*
+ * Dispatch undo of a single record.
+ */
+static void u_do_undo(UNDO *rec)
+{
+    switch (rec->u_type) {
+    case UNDO_T_INSERT:  u_undo_insert(rec); break;
+    case UNDO_T_DELETE:  u_undo_delete(rec); break;
+    case UNDO_T_NEWLINE: u_undo_newline(rec); break;
+    case UNDO_T_JOIN:    u_undo_join(rec);    break;
+    }
+}
+
+/*
+ * Dispatch redo of a single record.
+ */
+static void u_do_redo(UNDO *rec)
+{
+    switch (rec->u_type) {
+    case UNDO_T_INSERT:  u_redo_insert(rec); break;
+    case UNDO_T_DELETE:  u_redo_delete(rec); break;
+    case UNDO_T_NEWLINE: u_redo_newline(rec); break;
+    case UNDO_T_JOIN:    u_redo_join(rec);   break;
+    }
+}
+
+/*
+ * -----------------------------------------------------------------------
+ *  User commands
+ * -----------------------------------------------------------------------
+ */
+
+/*
+ * undo: undo the last command (all records up to and including
+ * the nearest boundary record).
+ */
+int undo(int f, int n)
+{
+    BUFFER *bp = curbp;
+    UNDO *rec;
+    int count = 0;
+
+    /* nothing to undo */
+    if (bp->b_undo_tail == NULL) {
+        mlwrite(CSTR(&Cxstr[8131]));
+        return TRUE;
+    }
+
+    /* b_undo_ptr = the next record to undo (the most recent undone-by-user
+       record that hasn't been undone yet).  NULL means all records have
+       been undone. */
+    if (bp->b_undo_ptr == NULL) {
+        mlwrite(CSTR(&Cxstr[8131]));
+        return TRUE;
+    }
+
+    u_in_undo = TRUE;
+
+    rec = bp->b_undo_ptr;
+    while (rec != NULL) {
+        u_do_undo(rec);
+        count++;
+        bp->b_undo_ptr = rec->u_prev;
+        if (rec->u_boundary)
+            break;
+        rec = bp->b_undo_ptr;
+    }
+
+    u_in_undo = FALSE;
+    u_new_bndry = TRUE;          /* next edit starts a new boundary */
+
+    lchange(WFHARD);
+    bp->b_flag |= BFCHG;
+
+    mlwrite(CSTR(&Cxstr[8148]), count);
+    return TRUE;
+}
+
+/*
+ * redo: redo the last undone command (all records forward up to
+ * and including the nearest boundary record).
+ */
+int redo(int f, int n)
+{
+    BUFFER *bp = curbp;
+    UNDO *rec;
+    int count = 0;
+
+    /* nothing to redo: b_undo_ptr is NULL means all redone.
+       If it's the initial state (b_undo_ptr == NULL and b_undo_head != NULL),
+       the undo function will report "Nothing to undo." and this won't
+       be reached.  After a full undo, b_undo_ptr == NULL but we can
+       still redo from the head. */
+    if (bp->b_undo_ptr == NULL)
+        rec = bp->b_undo_head;
+    else
+        rec = bp->b_undo_ptr->u_next;
+    if (rec == NULL) {
+        mlwrite(CSTR(&Cxstr[8166]));
+        return TRUE;
+    }
+
+    u_in_undo = TRUE;
+
+    /* Redo forward until the next record is a boundary (start of next
+       group) or end-of-list.  The boundary flag is on the FIRST record
+       of each group, so we check the NEXT record, not current. */
+    while (rec != NULL) {
+        u_do_redo(rec);
+        count++;
+        bp->b_undo_ptr = rec;
+        if (rec->u_next == NULL || rec->u_next->u_boundary)
+            break;
+        rec = rec->u_next;
+    }
+
+    u_in_undo = FALSE;
+    u_new_bndry = TRUE;          /* next edit starts a new boundary */
+
+    lchange(WFHARD);
+    bp->b_flag |= BFCHG;
+
+    mlwrite(CSTR(&Cxstr[8183]), count);
+    return TRUE;
+}

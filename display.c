@@ -1,0 +1,1527 @@
+#ifndef _CX_DEF_
+extern unsigned int Cxstr[];
+#define _CX_DEF_
+#endif /*_CX_DEF_*/
+/*
+ * The functions in this file handle redisplay. There are two halves, the
+ * ones that update the virtual display screen, and the ones that make the
+ * physical display screen the same as the virtual display screen. These
+ * functions use hints that are left in the windows by the commands.
+ *
+ */
+
+#include	"ecomm.h"
+#include	"estruct.h"
+#include	"edef.h"
+
+#if	HAVE_STDARG
+ /* 2005/1/30 by NIDE, N.  Very old cc does not know #elif (??) */
+# define HANDLE_VARIABLE_ARGS
+#else
+#if	HAVE_VARARGS
+# define HANDLE_VARIABLE_ARGS
+#endif
+#endif
+
+#if	CLOCK
+# include	<signal.h>
+#endif
+#ifdef	HANDLE_VARIABLE_ARGS
+# if	HAVE_STDARG
+#  include	<stdarg.h>
+# else
+#  include	<varargs.h>
+# endif
+#endif
+
+static Char *dummy = CSTR(&Cxstr[6]);
+
+typedef struct	VIDEO {
+	int	v_flag;			/* Flags */
+#if	COLOR
+	int	v_fcolor;		/* current forground color */
+	int	v_bcolor;		/* current background color */
+	int	v_rfcolor;		/* requested forground color */
+	int	v_rbcolor;		/* requested background color */
+#endif
+	Char	v_text[1];		/* Screen data. */
+}	VIDEO;
+
+#define VFCHG	0x0001			/* Changed flag			*/
+#define VFEXT	0x0002			/* extended (beyond column 80)	*/
+#define VFREV	0x0004			/* reverse video status		*/
+#define VFREQ	0x0008			/* reverse video request	*/
+#define VFCOL	0x0010			/* color change requested	*/
+
+VIDEO	**vscreen;			/* Virtual screen. */
+VIDEO	**pscreen;			/* Physical screen. */
+
+#if KANJI
+/*
+ * trailing part of multi-column character
+ * this should be distinguishable from other Character code.
+ */
+# define TRAILER	(-1)
+#endif
+
+/*
+ * Initialize the data structures used by the display code. The edge vectors
+ * used to access the screens are set up. The operating system's terminal I/O
+ * channel is set up. All the other things get initialized at compile time.
+ * The original window has "WFCHG" set, so that it will get completely
+ * redrawn on the first call to "update".
+ */
+int vtinit(void)
+{
+    int i;
+    VIDEO *vp;
+
+    TTopen();		/* open the screen */
+#if	KANJI
+    init_kana_width();	/* detect kana width for this locale */
+#endif
+    TTkopen();		/* open the keyboard */
+    TTrev(FALSE);
+    vscreen = (VIDEO **) malloc((unsigned)MAX_SCREEN_LINES*sizeof(VIDEO *));
+
+    if (vscreen == NULL)
+	exit(1);
+
+    pscreen = (VIDEO **) malloc((unsigned)MAX_SCREEN_LINES*sizeof(VIDEO *));
+
+    if (pscreen == NULL)
+	exit(1);
+
+    for (i = 0; i < MAX_SCREEN_LINES; ++i) {
+	vp = (VIDEO *)malloc((unsigned)(sizeof(VIDEO)+sizeof(Char)*MAX_SCREEN_COLUMNS));
+	if (vp == NULL) exit(1);
+
+	vp->v_flag = 0;
+#if	COLOR
+	vp->v_rfcolor = 7;
+	vp->v_rbcolor = 0;
+#endif
+	vscreen[i] = vp;
+
+	vp = (VIDEO *)malloc((unsigned)(sizeof(VIDEO)+sizeof(Char)*MAX_SCREEN_COLUMNS));
+	if (vp == NULL) exit(1);
+
+	vp->v_flag = 0;
+	pscreen[i] = vp;
+    }
+}
+
+/*
+ * Clean up the virtual terminal system, in anticipation for a return to the
+ * operating system. Move down to the last line and clear it out (the next
+ * system prompt will be written in the line). Shut down the channel to the
+ * terminal.
+ */
+int vttidy(void)
+{
+    mlerase();
+    movecursor(term.t_nrow, 0);
+    TTflush();
+    TTkclose(); /* moved from above mlerase() by N.Nide. */
+    TTclose();
+}
+
+/*
+ * Set the virtual cursor to the specified row and column on the virtual
+ * screen. There is no checking for nonsense values; this might be a good
+ * idea during the early stages.
+ */
+int vtmove(int row, int col)
+{
+    vtrow = row;
+    vtcol = col;
+}
+
+/*
+ * Write a character to the virtual screen. The virtual row and
+ * column are updated. If we are not yet on left edge, don't print
+ * it yet. If the line is too long put a "$" in the last column.
+ * This routine only puts printing characters into the virtual
+ * terminal buffers. Only column overflow is checked.
+ */
+
+int vtputc(Char c)
+{
+
+    VIDEO *vp;	/* ptr to line being updated */
+
+    vp = vscreen[vtrow];
+
+    if (vtcol >= term.t_ncol) {
+#if KANJI
+	Char	*tp;
+#endif
+	++vtcol;
+#if KANJI
+	for (tp = &vp->v_text[term.t_ncol-1]; *tp == TRAILER; tp--) ;
+	for ( ; tp < &vp->v_text[term.t_ncol-1]; *tp++ = ' ') ;
+#endif
+	vp->v_text[term.t_ncol - 1] = '$';
+    } else if (c == '\t') {
+	do {
+	    vtputc(' ');
+	} while (((vtcol + taboff)&0x07) != 0);
+    } else if (c < 0x20 || c == 0x7F) {
+      vtputc('^');
+      vtputc(c ^ 0x40);
+    } else if (c >= 0x80  && c < 0x100) {
+      vtputc('\\');
+      vtputc('0'+((c & 0700) >> 6));
+      vtputc('0'+((c & 0070) >> 3));
+      vtputc('0'+((c & 0007) >> 0));
+#if KANJI
+    } else if (iskanji(c) || isunicode(c)) {
+      /* JIS X 0208 or Unicode: use East Asian Width (UAX #11) to determine
+         display size.  kcol_width() returns the locale-adjusted width
+         (kana=1 on Western-locale terminals), matching what we write. */
+      int w = kcol_width(c);
+      if (w == 2) {
+          /* wide character: occupies two columns */
+          if (vtcol >= term.t_ncol-1 || vtcol < gbound) {
+              /* abandon to display */
+              vtputc(' ');
+              vtputc(' ');
+          } else {
+              if (vtcol >= gbound) {
+                  /* first col */
+                  vp->v_text[vtcol] = c;
+                  /* second col */
+                  vp->v_text[vtcol+1] = TRAILER;
+              }
+              vtcol += 2;
+          }
+      } else if (w == 1) {
+          /* narrow: one column */
+          if (vtcol >= term.t_ncol || vtcol < gbound) {
+              /* abandon to display */
+              vtputc(' ');
+          } else {
+              if (vtcol >= gbound)
+                  vp->v_text[vtcol] = c;
+              ++vtcol;
+          }
+      } else {
+          /* w == 0: zero-width (combining marks, ZWJ, etc.)
+             Store at current position without advancing cursor. */
+          if (vtcol >= gbound && vtcol < term.t_ncol)
+              vp->v_text[vtcol] = c;
+          /* do not advance vtcol */
+      }
+#endif /*KANJI*/
+    } else {
+	if (vtcol >= gbound)
+	    vp->v_text[vtcol] = c;
+	++vtcol;
+    }
+}
+
+/*
+ * Erase from the end of the software cursor to the end of the line on which
+ * the software cursor is located.
+ */
+int vteeol(void)
+{
+    VIDEO	*vp;
+    int	i;
+
+    vp = vscreen[vtrow];
+    /* clear the gutter area too, to remove any stale characters left
+       by previous content (e.g. '$' extension markers).  The caller
+       is expected to redraw the gutter with draw_gutter() afterwards. */
+    for (i = 0; i < gbound; i++)
+	    vp->v_text[i] = ' ';
+    while (vtcol < term.t_ncol) {
+	if (vtcol >= gbound)
+	    vp->v_text[vtcol] = ' ';
+	++vtcol;
+    }
+}
+
+/* upscreen:	user routine to force a screen update
+		always finishes complete update		*/
+/*ARGSUSED*/
+int upscreen(int f, int n)
+{
+	update(TRUE);
+	return(TRUE);
+}
+
+/* updmode:	user routine to force a modeline update */
+/*ARGSUSED*/
+int updmode(int f, int n)
+{
+	upmode();
+	update(f);
+	return(TRUE);
+}
+
+/*
+ * Make sure that the display is right. This is a three part process. First,
+ * scan through all of the windows looking for dirty ones. Check the framing,
+ * and refresh the screen. Second, make sure that "currow" and "curcol" are
+ * correct for the current window. Third, make the virtual and physical
+ * screens the same.
+ */
+int update(int force)
+{
+#if	CLOCK
+	SIGRET_T (*f)();
+	unsigned t;
+
+	/* block ALRM while updating screen */
+	f = signal(SIGALRM, SIG_IGN);
+	t = alarm((unsigned)0);
+	do_update(force);
+	(void)signal(SIGALRM, f);
+	(void)alarm(t);
+}
+
+/* forward declaration: defined after draw_gutter, called from do_update */
+static void draw_all_gutters(void);
+
+/* forward declarations for dynamic line-number width */
+static int ndigits(int n);
+static int buf_linenr(BUFFER *bp);
+
+int do_update(int force)
+{
+#endif	/*CLOCK*/
+	WINDOW *wp;
+	int maxd;	/* max digits needed across visible buffers	*/
+	int d;
+	int total;
+
+	/* Compute the effective line-number gutter width.
+	   If any visible buffer has more digits in its line count
+	   than the user's line_number_width, grow the gutter by
+	   one digit at a time to fit. */
+	effective_lw = line_number_width;
+	if (show_line_numbers) {
+		maxd = 0;
+		wp = wheadp;
+		while (wp != NULL) {
+			total = buf_linenr(wp->w_bufp);
+			d = ndigits(total);
+			if (d > maxd)
+				maxd = d;
+			wp = wp->w_wndp;
+		}
+		if (maxd > effective_lw)
+			effective_lw = maxd;
+		gbound = effective_lw + 1;
+	} else {
+		gbound = 0;
+	}
+
+#if	TYPEAH
+	if (force == FALSE && typahead())
+		return;
+#endif
+#if	VISMAC == 0
+	if (force == FALSE && kbdmode == PLAY)
+		return;
+#endif
+
+	/* update any windows that need refreshing */
+	wp = wheadp;
+	while (wp != NULL) {
+		if (wp->w_flag) {
+			/* if the window has changed, service it */
+			reframe(wp);	/* check the framing */
+			if ((wp->w_flag & ~WFMODE) == WFEDIT)
+				updone(wp);	/* update EDITed line */
+			else if (wp->w_flag & ~WFMOVE)
+				updall(wp);	/* update all lines */
+			if (wp->w_flag & WFMODE)
+				modeline(wp);	/* update modeline */
+			wp->w_flag = 0;
+			wp->w_force = 0;
+		}
+		/* on to the next window */
+		wp = wp->w_wndp;
+	}
+
+	/* recalc the current hardware cursor location */
+	updpos();
+
+	/* update the cursor and flush the buffers */
+	movecursor(currow, curcol - lbound + gbound);
+
+	/* check for lines to de-extend */
+	upddex();
+
+	/* redraw all line-number gutters as a final cleanup pass.
+	   This runs after all content (including modelines)
+	   has been written to vscreen, guaranteeing the gutter columns
+	   contain only the correct line number or spaces. */
+	draw_all_gutters();
+
+	/* if screen is garbage, re-plot it */
+	if (sgarbf != FALSE)
+		updgar();
+
+	/* update the virtual screen to the physical screen */
+	updupd(force);
+
+	/* update the cursor and flush the buffers */
+	movecursor(currow, curcol - lbound + gbound);
+	TTflush();
+}
+
+/*	reframe:	check to see if the cursor is on in the window
+			and re-frame it if needed or wanted		*/
+
+int reframe(WINDOW *wp)
+{
+	LINE *lp;
+	int i;
+
+	/* if not a requested reframe, check for a needed one */
+	if ((wp->w_flag & WFFORCE) == 0) {
+		lp = wp->w_linep;
+		for (i = 0; i < wp->w_ntrows; i++) {
+
+			/* if the line is in the window, no reframe */
+			if (lp == wp->w_dotp)
+				return;
+
+			/* if we are at the end of the file, reframe */
+			if (lp == wp->w_bufp->b_linep)
+				break;
+
+			/* on to the next line */
+			lp = lforw(lp);
+		}
+	}
+
+	/* reaching here, we need a window refresh */
+	i = wp->w_force;
+
+	/* how far back to reframe? */
+	if (i > 0) {		/* only one screen worth of lines max */
+		if (--i >= wp->w_ntrows)
+			i = wp->w_ntrows - 1;
+	} else if (i < 0) {	/* negative update???? */
+		i += wp->w_ntrows;
+		if (i < 0)
+			i = 0;
+	} else
+		i = wp->w_ntrows / 2;
+
+	/* backup to new line at top of window */
+	lp = wp->w_dotp;
+	while (i != 0 && lback(lp) != wp->w_bufp->b_linep) {
+		--i;
+		lp = lback(lp);
+	}
+
+	/* and reset the current line at top of window */
+	wp->w_linep = lp;
+	wp->w_flag |= WFHARD;
+	wp->w_flag &= ~WFFORCE;
+}
+
+/*
+ * Count the 1-based line number of a LINE within a buffer.
+ * Returns 0 if lp is the end-of-buffer header line.
+ */
+static int
+line_number_of(LINE *lp, BUFFER *bp)
+{
+	LINE *start;
+	int num = 1;
+
+	start = lforw(bp->b_linep);
+	while (start != lp && start != bp->b_linep) {
+		++num;
+		start = lforw(start);
+	}
+	if (start == bp->b_linep)
+		return 0;
+	return num;
+}
+
+/*
+ * Return the number of decimal digits in n (n >= 1).
+ * Returns 1 for n <= 0.
+ */
+static int
+ndigits(int n)
+{
+	int d = 0;
+	if (n <= 0)
+		return 1;
+	while (n > 0) {
+		++d;
+		n /= 10;
+	}
+	return d;
+}
+
+/*
+ * Return the total number of lines in buffer bp (real lines,
+ * not counting the header).  Uses a cached count when valid;
+ * recomputes by walking the linked list when the cache is stale.
+ */
+static int
+buf_linenr(BUFFER *bp)
+{
+	LINE *lp;
+	int num = 0;
+
+	if (bp->b_nlines >= 0)
+		return bp->b_nlines;
+	lp = lforw(bp->b_linep);
+	while (lp != bp->b_linep) {
+		++num;
+		lp = lforw(lp);
+	}
+	bp->b_nlines = num;
+	return num;
+}
+
+/*
+ * Draw the line-number gutter at virtual screen row sline for line number
+ * lineno.  The gutter occupies gbound columns (effective_lw digits
+ * right-justified, followed by a single space separator).
+ * Written directly into vscreen to bypass the gbound write guard in vtputc.
+ */
+static void
+draw_gutter(int sline, int lineno)
+{
+	VIDEO *vp;
+	int i;
+	int ndigits;
+	int tmp;
+	int pos;
+	int gw;
+	Char dbuf[16];
+	int d;
+
+	gw = gbound;
+	if (gw == 0)
+		return;
+
+	vp = vscreen[sline];
+
+	for (i = 0; i < 16; i++) {
+		dbuf[i] = ' ';
+	}
+
+	/* clear entire gutter area */
+	for (i = 0; i < gw; i++)
+		vp->v_text[i] = ' ';
+
+	if (lineno <= 0)
+		return;
+
+	/* count digits */
+	tmp = lineno;
+	d = 0;
+	if (tmp == 0)
+		dbuf[d++] = '0';
+	else
+		while (tmp > 0 && d < 16) {
+			dbuf[d++] = '0' + (tmp % 10);
+			tmp /= 10;
+		}
+	ndigits = d;
+
+	/* right-align within effective_lw columns */
+	pos = effective_lw - ndigits;
+	if (pos < 0)
+		pos = 0;
+	for (i = 0; i < pos; i++)
+	    vp->v_text[i] = ' ';   /* space-padded, right-aligned */
+	for (i = 0; i < ndigits; i++)
+		vp->v_text[pos + i] = dbuf[ndigits - 1 - i];
+}
+
+/*
+ * Redraw all line-number gutters in a single pass, after every line's
+ * content and every modeline have been written to vscreen.  By deferring
+ * gutter rendering to this point we guarantee that the gutter columns
+ * (0..gbound-1) contain only the correct line number or spaces,
+ * regardless of what happened during content drawing.
+ *
+ * This is a safety net for two corruption sources that write into the
+ * gutter area before the normal draw_gutter calls can clean up:
+ *
+ *   1. Wide-character TRAILER sentinels or '$' extension markers can
+ *      land in column gbound-1 or earlier when a wide char straddles
+ *      the gutter/content boundary (see updext Pattern F).  Clearing
+ *      every gutter first and then writing only clean digits removes
+ *      any such residue.
+ *
+ * Rows that fall within a window's text area receive their line number;
+ * all other rows (modeline rows, rows above or below the window, and
+ * rows past end-of-buffer) receive a blank gutter.
+ */
+static void
+draw_all_gutters(void)
+{
+	WINDOW *wp;
+	LINE *lp;
+	int sline;
+	int lineno;
+	int gw;
+	int i;
+
+	gw = gbound;
+	if (gw == 0)
+		return;
+
+	/* Phase 1: clear every gutter to spaces, erasing any garbage
+	   left by modeline or wide-char overflow. */
+	for (i = 0; i < term.t_nrow; i++)
+		draw_gutter(i, 0);
+
+	/* Phase 2: write the correct line number for each window's
+	   text rows.  Walk from w_linep (top of window) counting lines.
+	   Rows past EOF keep the blank gutter from Phase 1. */
+	wp = wheadp;
+	while (wp != NULL) {
+		lp = wp->w_linep;
+		sline = wp->w_toprow;
+		lineno = line_number_of(lp, wp->w_bufp);
+
+		while (sline < wp->w_toprow + wp->w_ntrows) {
+			if (lp == wp->w_bufp->b_linep)
+				break;	/* past end of buffer */
+			draw_gutter(sline, lineno);
+			lp = lforw(lp);
+			++lineno;
+			++sline;
+		}
+		wp = wp->w_wndp;
+	}
+}
+
+/*	updone: update the current line to the virtual screen		*/
+int updone(WINDOW *wp)
+{
+	LINE *lp;	/* line to update */
+	int sline;	/* physical screen line to update */
+	int i;
+	int gw;		/* gutter width */
+	int lineno;	/* line number for gutter */
+
+	gw = gbound;
+
+	/* search down the line we want */
+	lp = wp->w_linep;
+	sline = wp->w_toprow;
+	while (lp != wp->w_dotp) {
+		++sline;
+		lp = lforw(lp);
+	}
+
+	/* and update the virtual line */
+	vscreen[sline]->v_flag |= VFCHG;
+	vscreen[sline]->v_flag &= ~VFREQ;
+	if (gw > 0) {
+		lineno = line_number_of(lp, wp->w_bufp);
+		draw_gutter(sline, lineno);
+	}
+	vtmove(sline, gw);
+	for (i=0; i < llength(lp); ++i)
+		vtputc(lgetc(lp, i));
+#if	COLOR
+	vscreen[sline]->v_rfcolor = wp->w_fcolor;
+	vscreen[sline]->v_rbcolor = wp->w_bcolor;
+#endif
+	vteeol();
+	if (gw > 0)
+	    draw_gutter(sline, lineno);
+}
+
+/*	updall: update all the lines in a window on the virtual screen */
+int updall(WINDOW *wp)
+{
+	LINE *lp;	/* line to update */
+	int sline;	/* physical screen line to update */
+	int i;
+	int gw;		/* gutter width */
+	int lineno;	/* line number for gutter */
+
+	gw = gbound;
+
+	/* search down the lines, updating them */
+	lp = wp->w_linep;
+	sline = wp->w_toprow;
+
+	/* compute line number of the first line in window */
+	lineno = (gw > 0) ? line_number_of(lp, wp->w_bufp) : 0;
+	while (sline < wp->w_toprow + wp->w_ntrows) {
+
+		/* and update the virtual line */
+		vscreen[sline]->v_flag |= VFCHG;
+		vscreen[sline]->v_flag &= ~VFREQ;
+		if (gw > 0) {
+			draw_gutter(sline, lineno);
+		}
+		vtmove(sline, gw);
+		{
+		    int this_lineno = lineno;
+		    if (lp != wp->w_bufp->b_linep) {
+			/* if we are not at the end */
+			for (i=0; i < llength(lp); ++i)
+			    vtputc(lgetc(lp, i));
+			lp = lforw(lp);
+			++lineno;
+		    } else {
+			/* past end of buffer: blank the gutter for empty lines */
+			this_lineno = 0;
+		    }
+
+		    /* on to the next one */
+		#if	COLOR
+		    vscreen[sline]->v_rfcolor = wp->w_fcolor;
+		    vscreen[sline]->v_rbcolor = wp->w_bcolor;
+		#endif
+		    vteeol();
+		    if (gw > 0)
+			draw_gutter(sline, this_lineno);
+		    ++sline;
+		}
+	}
+}
+
+/*	updpos: update the position of the hardware cursor and handle extended
+		lines. This is the only update for simple moves.	*/
+int updpos(void)
+{
+	LINE *lp;
+	Char c;
+	int i;
+
+	/* find the current row */
+	lp = curwp->w_linep;
+	currow = curwp->w_toprow;
+	while (lp != curwp->w_dotp) {
+		++currow;
+		lp = lforw(lp);
+	}
+
+	/* find the current column */
+	curcol = 0;
+	i = 0;
+	while (i < curwp->w_doto) {
+		c = lgetc(lp, i++);
+		if (c == '\t')
+			curcol |= 0x07;
+		else if (c < 0x20 || c == 0x7f)
+			++curcol;
+		else if (c >= 0x80 && c < 0x100)
+		  curcol += 3;
+#if KANJI
+    else if (isunicode(c) || iskanji(c))
+        curcol += kcol_width(c) - 1;
+#endif
+		++curcol;
+	}
+
+	/* if extended, flag so and update the virtual line image */
+	if (curcol >=  term.t_ncol - gbound - 1) {
+		vscreen[currow]->v_flag |= (VFEXT | VFCHG);
+		updext();
+	} else
+		lbound = 0;
+}
+
+/*	upddex: de-extend any line that derserves it		*/
+int upddex(void)
+{
+	WINDOW *wp;
+	LINE *lp;
+	int i,j;
+	int gw;
+	int lineno;
+
+	gw = gbound;
+
+	wp = wheadp;
+
+	while (wp != NULL) {
+		lp = wp->w_linep;
+		i = wp->w_toprow;
+		lineno = (gw > 0) ? line_number_of(lp, wp->w_bufp) : 0;
+
+		while (i < wp->w_toprow + wp->w_ntrows) {
+			if (vscreen[i]->v_flag & VFEXT) {
+				if ((wp != curwp) || (lp != wp->w_dotp) ||
+				   (curcol < term.t_ncol - gbound - 1)) {
+					if (gw > 0) {
+						draw_gutter(i, lineno);
+					}
+					vtmove(i, gw);
+					for (j = 0; j < llength(lp); ++j)
+						vtputc(lgetc(lp, j));
+					vteeol();
+					if (gw > 0)
+					    draw_gutter(i, lineno);
+
+					/* this line no longer is extended */
+					vscreen[i]->v_flag &= ~VFEXT;
+					vscreen[i]->v_flag |= VFCHG;
+				}
+			}
+			lp = (lp != wp->w_bufp->b_linep) ? lforw(lp) : lp;
+			++i;
+			if (lp != wp->w_bufp->b_linep)
+			    ++lineno;
+		}
+		/* and onward to the next window */
+		wp = wp->w_wndp;
+	}
+}
+
+/*	updgar: if the screen is garbage, clear the physical screen and
+		the virtual screen and force a full update		*/
+int updgar(void)
+{
+	Char *txt;
+	int i,j;
+
+	for (i = 0; i < term.t_nrow; ++i) {
+		vscreen[i]->v_flag |= VFCHG;
+#if	REVSTA
+		vscreen[i]->v_flag &= ~VFREV;
+#endif
+#if	COLOR
+		vscreen[i]->v_fcolor = gfcolor;
+		vscreen[i]->v_bcolor = gbcolor;
+#endif
+		txt = pscreen[i]->v_text;
+		for (j = 0; j < term.t_ncol; ++j) txt[j] = ' ';
+	}
+
+	movecursor(0, 0);		 /* Erase the screen. */
+	TTeeop();
+	sgarbf = FALSE;			 /* Erase-page clears */
+	mpresf = FALSE;			 /* the message area. */
+#if	COLOR
+	mlerase();			/* needs to be cleared if colored */
+#endif
+}
+
+/*	updupd: update the physical screen from the virtual screen	*/
+int updupd(int force)
+{
+	VIDEO *vp1;
+	int i;
+
+	for (i = 0; i < term.t_nrow; ++i) {
+		vp1 = vscreen[i];
+
+		/* for each line that needs to be updated*/
+		if ((vp1->v_flag & VFCHG) != 0) {
+#if	TYPEAH
+			if (force == FALSE && typahead())
+				return;
+#endif
+			updateline(i, vp1, pscreen[i]);
+		}
+	}
+}
+
+/*	updext: update the extended line which the cursor is currently
+		on at a column greater than the terminal width. The line
+		will be scrolled right or left to let the user see where
+		the cursor is
+								*/
+int updext(void)
+{
+    int rcursor;	/* real cursor location */
+    LINE *lp;		/* pointer to current line */
+    int j;		/* index into line */
+    int gln;		/* line number for gutter */
+
+	/* calculate what column the real cursor will end up in */
+	rcursor = ((curcol - (term.t_ncol - gbound)) % term.t_scrsiz) + term.t_margin;
+	lbound = taboff = curcol - rcursor;
+#if KANJI
+	/*
+	 * if the second column of the screen falles into trailing part of
+	 * multi-column character, lbound must be decremented to show whole
+	 * the character.
+	 */
+	{
+	    int i, col, lcol;
+	    Char c;
+
+	    lp = curwp->w_dotp;		/* line to output */
+	    for (i = 0, col = 0; col <= lbound; i++) {
+	    lcol = col;
+	    if ((c = lgetc(lp, i)) == '	') {
+	    col |= 7;
+	    } else if (c >= 0x80 && c < 0x100) {
+	    col += 3;
+	    } else if (c < ' ' || c == 0x7f) {
+	    col++;
+	    }
+	    #if KANJI
+	    else if (isunicode(c) || iskanji(c)) {
+	    int w = kcol_width(c);
+	    col += w - 1;
+	    }
+	    #endif
+	    else if (iswidechar(c))
+	    col++;
+	    col++;
+	    }
+	    if (col > lbound+1 && iswidechar(c)) taboff = lbound = lcol-1;
+	}
+#endif /*KANJI*/
+
+    /* scan through the line outputing characters to the virtual screen */
+    /* once we reach the left edge						*/
+    /* draw the line number gutter */
+    gln = line_number_of(curwp->w_dotp, curwp->w_bufp);
+    draw_gutter(currow, gln);
+    vtmove(currow, gbound - lbound);	/* start scanning offscreen */
+#if !KANJI
+    lp = curwp->w_dotp;		/* line to output */
+#endif
+    for (j=0; j<llength(lp); ++j)	/* until the end-of-line */
+        vtputc(lgetc(lp, j));
+
+    /* truncate the virtual line, restore tab offset */
+    vteeol();
+    draw_gutter(currow, gln);
+	taboff = 0;
+
+	/* and put a '$' in the first text column.
+	 *
+	 * Before placing '$', eliminate any TRAILER sentinels near gbound
+	 * that would cause column-count drift in updateline'():
+	 *
+	 * Case 1: TRAILER at gbound means a wide character's first half is
+	 *         at gbound-1 (the separator column).  updateline would
+	 *         output 2 columns for the wide char + 1 for '$' = 3 cols
+	 *         in 2 vp_text positions, wrapping '$' to the next line.
+	 *         Clear gbound-1 to space.
+	 *
+	 * Case 2: TRAILER at gbound+1 means a wide character starts at
+	 *         gbound (the first content column).  Placing '$' at
+	 *         gbound overwrites the first half, but the orphaned
+	 *         TRAILER at gbound+1 is skipped by updateline (no output),
+	 *         producing a 1-column leftward drift.  Clear both halves
+	 *         to space before placing '$'.
+	 *
+	 * Both cases are checked independently (not else-if) for robustness:
+	 * while mutually exclusive in the current data flow, checking both
+	 * guards against future changes to vtputc or draw_gutter. */
+#if KANJI
+	if (gbound > 0 && vscreen[currow]->v_text[gbound] == TRAILER)
+	    vscreen[currow]->v_text[gbound - 1] = ' ';
+	if (gbound + 1 < term.t_ncol &&
+	    vscreen[currow]->v_text[gbound + 1] == TRAILER) {
+	    vscreen[currow]->v_text[gbound] = ' ';
+	    vscreen[currow]->v_text[gbound + 1] = ' ';
+	}
+#endif
+	vscreen[currow]->v_text[gbound] = '$';
+}
+
+/*
+ * Update a single line. This does not know how to use insert or delete
+ * character sequences; we are using VT52 functionality. Update the physical
+ * row and column variables. It does try an exploit erase to end of line.
+ */
+int updateline(int row, struct VIDEO *vp1, struct VIDEO *vp2)
+{
+	Char *cp1;
+	Char *cp2;
+	Char *cp3;
+	Char *cp4;
+	Char *cp5;
+	int nbflag;	/* non-blanks to the right flag? */
+	int rev;		/* reverse video flag */
+	int req;		/* reverse video request flag */
+
+	/* set up pointers to virtual and physical lines */
+	cp1 = &vp1->v_text[0];
+	cp2 = &vp2->v_text[0];
+
+#if	COLOR
+	TTforg(vp1->v_rfcolor);
+	TTbacg(vp1->v_rbcolor);
+#endif
+
+#if	REVSTA | COLOR
+	/* if we need to change the reverse video status of the
+	   current line, we need to re-write the entire line	 */
+	rev = (vp1->v_flag & VFREV) == VFREV;
+	req = (vp1->v_flag & VFREQ) == VFREQ;
+	if ((rev != req)
+# if	COLOR
+	    || (vp1->v_fcolor != vp1->v_rfcolor)
+	    || (vp1->v_bcolor != vp1->v_rbcolor)
+# endif
+			) {
+		movecursor(row, 0);	/* Go to start of line. */
+		/* set rev video if needed */
+		if (rev != req)
+			TTrev(req);
+
+		/* scan through the line and dump it to the screen and
+		   the virtual screen array				*/
+		cp3 = &vp1->v_text[term.t_ncol];
+		while (cp1 < cp3) {
+# if KANJI
+		    if (*cp1 != TRAILER)
+# endif
+			TTputc(*cp1);
+# if KANJI
+		    if (!iscombchar(*cp1))
+# endif
+		    ++ttcol;
+		    *cp2++ = *cp1++;
+		}
+		/* turn rev video off */
+		if (rev != req)
+			TTrev(FALSE);
+
+		/* update the needed flags */
+		vp1->v_flag &= ~VFCHG;
+		if (req)
+			vp1->v_flag |= VFREV;
+		else
+			vp1->v_flag &= ~VFREV;
+# if	COLOR
+		vp1->v_fcolor = vp1->v_rfcolor;
+		vp1->v_bcolor = vp1->v_rbcolor;
+# endif
+		return;
+	}
+
+	/* advance past any common chars at the left */
+	while (cp1 != &vp1->v_text[term.t_ncol] && cp1[0] == cp2[0]) {
+		++cp1;
+		++cp2;
+	}
+
+/* This can still happen, even though we only call this routine on changed
+ * lines. A hard update is always done when a line splits, a massive
+ * change is done, or a buffer is displayed twice. This optimizes out most
+ * of the excess updating. A lot of computes are used, but these tend to
+ * be hard operations that do a lot of update, so I don't really care.
+ */
+	/* if both lines are the same, no update needs to be done */
+	if (cp1 == &vp1->v_text[term.t_ncol]) {
+ 		vp1->v_flag &= ~VFCHG;		/* flag this line is changed */
+		return;
+	}
+
+	/* find out if there is a match on the right */
+	nbflag = FALSE;
+	cp3 = &vp1->v_text[term.t_ncol];
+	cp4 = &vp2->v_text[term.t_ncol];
+
+	while (cp3[-1] == cp4[-1]) {
+		--cp3;
+		--cp4;
+		if (
+# if KANJI
+		    cp3[0] != TRAILER &&
+# endif
+		    cp3[0] != ' ')		/* Note if any nonblank */
+			nbflag = TRUE;		/* in right match. */
+	}
+# if KANJI
+	while (cp3 < &vp1->v_text[term.t_ncol] && *cp3 == TRAILER) cp3++;
+# endif
+
+	cp5 = cp3;
+
+	/* Erase to EOL ? */
+	if (nbflag == FALSE && eolexist == TRUE && (req != TRUE)) {
+		while (cp5!=cp1 && cp5[-1]==' ')
+			--cp5;
+
+		if (cp3-cp5 <= 3)		/* Use only if erase is */
+			cp5 = cp3;		/* fewer characters. */
+	}
+
+	movecursor(row, cp1 - &vp1->v_text[0]); /* Go to start of line. */
+# if	REVSTA
+	TTrev(rev);
+# endif
+
+	while (cp1 < cp5) {	/* Ordinary. */
+# if KANJI
+	    if (*cp1 != TRAILER)
+# endif
+		TTputc(*cp1);
+# if KANJI
+	    if (!iscombchar(*cp1))
+# endif
+	    ++ttcol;
+	    *cp2++ = *cp1++;
+	}
+
+	if (cp5 != cp3) {		/* Erase. */
+		TTeeol();
+		while (cp1 != cp3)
+			*cp2++ = *cp1++;
+	}
+# if	REVSTA
+	TTrev(FALSE);
+# endif
+	vp1->v_flag &= ~VFCHG;		/* flag this line as updated */
+#endif	/*REVSTA | COLOR*/
+}
+
+/*
+ * return dash character for modeline.
+ */
+static Char
+dash(WINDOW *wp)
+{
+	return wp == curwp? '=':
+#if	REVSTA
+	       revexist? ' ':
+#endif
+	       '-';
+}
+
+/*
+ * Redisplay the mode line for the window pointed to by the "wp". This is the
+ * only routine that has any idea of how the modeline is formatted. You can
+ * change the modeline format by hacking at this routine. Called by "update"
+ * any time there is a dirty window.
+ */
+int modeline(WINDOW *wp)
+{
+    Char *fp, *cp;
+    Char c;
+    int n;		/* cursor position count */
+    BUFFER *bp;
+    int i;		/* loop index */
+    int firstm;	/* is this the first mode? */
+    static Char mline[NLINE];	/* buffer for mode line */
+
+    n = wp->w_toprow+wp->w_ntrows;		/* Location. */
+    vscreen[n]->v_flag |= VFCHG | VFREQ | VFCOL; /* Redraw next time. */
+#if	COLOR
+    vscreen[n]->v_rfcolor = 0;			/* black on */
+    vscreen[n]->v_rbcolor = 7;			/* white.....*/
+#endif
+    vtmove(n, gbound);			/* Seek to right line, after gutter. */
+
+    bp = wp->w_bufp;
+    fp = bp->b_modeline;
+    if (fp == NULL) fp = gmodeline;
+    n = gbound;
+    while (*fp && n < term.t_ncol) {
+	if ((c = *fp++) != '%') {
+	    /* normal char. just echo. */
+	    vtputc(c);
+	    #if	KANJI
+	    n += char_width(c);
+	    #else
+	    n++;
+	    #endif
+	    continue;
+	}
+	/* special code */
+	switch (c = *fp++) {
+	case '\0':
+	    /* unexpected end of string */
+	    fp--;
+	    continue;
+	default:
+	    /* itself */
+	    vtputc(c);
+	    #if	KANJI
+	    n += char_width(c);
+	    #else
+	    n++;
+	    #endif
+	    continue;
+	case '*':
+	    vtputc((bp->b_mode & MDVIEW)? '%':
+		   (bp->b_flag & BFCHG)? '*': dash(wp));
+	    n++;
+	    continue;
+	case '=':
+	    vtputc(dash(wp));
+	    n++;
+	    continue;
+	case '-':
+	    while (n < term.t_ncol) {
+		vtputc(dash(wp));
+		n++;
+	    }
+	    continue;
+	case 'b':
+	case 'B':
+	    cp = bp->b_bname;
+	    break;
+	case 'f':
+	case 'F':
+	    cp = bp->b_fname;
+	    if (c == 'f') {
+		cp = Crindex(cp, '/');
+		if (cp != NULL)
+		    cp ++;
+		else
+		    cp = bp->b_fname;
+	    }
+	    break;
+	case 'm':
+	case 'M':
+	    /* build mode string */
+	    firstm = TRUE;
+	    cp = mline;
+	    for (i = 0; modename[i] != NULL; i++) {
+	      /* add in the mode flags */
+	      if (bp->b_mode & (1 << i)) {
+		if (firstm != TRUE) *cp++ = ' ';
+		firstm = FALSE;
+		if (c == 'M') {
+		  (void)Cstrcpy(cp, modename[i]);
+		  cp += Cstrlen(cp);
+		} else {
+		  *cp++ = modecode[i];
+		}
+	      }
+	    }
+	    *cp++ = '\0';
+	    cp = mline;
+	    break;
+	case 'p':
+	case 'P':
+	    cp = prgname();
+	    break;
+	case 'v':
+	case 'V':
+	    cp = version();
+	    break;
+#if	KANJI
+	case 'c':
+	case 'C':
+	    if (bp->b_mode & MDBINARY)
+		continue;
+	    cp = code_string(bp->b_code);
+	    break;
+#endif /* KANJI */
+	case 't':
+	case 'T':
+	    cp = getclock();
+	    break;
+	case '<':
+	case '>':
+	    for (i = 1; i < reclevel && n < term.t_ncol; i++) {
+		vtputc(c);
+		n++;
+	    }
+	    continue;
+	}
+	/* put string pointed by cp */
+	while (*cp && n < term.t_ncol) {
+	    vtputc(*cp);
+	    #if	KANJI
+	    n += char_width(*cp);
+	    #else
+	    n++;
+	    #endif
+	    cp++;
+	}
+    }
+    while (n < term.t_ncol) {
+	vtputc(' ');
+	n++;
+    }
+    /* If the modeline content was truncated (more text than fit on
+       the screen), show '$' in the last column as overflow indicator. */
+    if (*fp) {
+        vtputc('$');
+    }
+    /* Clear the gutter area to the left of line numbers */
+    draw_gutter(vtrow, 0);
+}
+
+int upmode(void)  /* update all the mode lines */
+{
+	WINDOW *wp;
+
+	wp = wheadp;
+	while (wp != NULL) {
+		wp->w_flag |= WFMODE;
+		wp = wp->w_wndp;
+	}
+}
+
+/*
+ * Send a command to the terminal to move the hardware cursor to row "row"
+ * and column "col". The row and column arguments are origin 0. Optimize out
+ * random calls. Update "ttrow" and "ttcol".
+ */
+int movecursor(int row, int col)
+{
+    if (row!=ttrow || col!=ttcol) {
+	ttrow = row;
+	ttcol = col;
+        TTmove(row, col);
+    }
+}
+
+/*
+ * Erase the message line. This is a special routine because the message line
+ * is not considered to be part of the virtual screen. It always works
+ * immediately; the terminal buffer is flushed via a call to the flusher.
+ */
+int mlerase(void)
+{
+    int i;
+    
+    movecursor(term.t_nrow, 0);
+    if (discmd == FALSE) return;
+#if	COLOR
+     TTforg(7);
+     TTbacg(0);
+#endif
+    if (eolexist == TRUE)
+	    TTeeol();
+    else {
+	for (i = 0; i < term.t_ncol - 1; i++)
+            TTputc(' ');
+	movecursor(term.t_nrow, 1);	/* force the move! */
+	movecursor(term.t_nrow, 0);
+    }
+    TTflush();
+    mpresf = FALSE;
+}
+
+/*
+ * Write a message into the message line. Keep track of the physical cursor
+ * position. A small class of printf like format items is handled. Assumes the
+ * stack grows down; this assumption is made by the "++" in the argument scan
+ * loop. Set the "message line" flag TRUE.
+ */
+#ifdef HANDLE_VARIABLE_ARGS
+# if	HAVE_STDARG
+int mlwrite(Char *fmt, ...)
+# else
+int mlwrite(int va_alist)  va_dcl
+# endif
+#else
+int mlwrite(Char *fmt, int arg)
+#endif
+{
+    Char c;
+#ifdef HANDLE_VARIABLE_ARGS
+# if	HAVE_STDARG
+    va_list vl;
+# else
+    va_list vl;
+    Char *fmt;
+# endif
+#else
+    char *ap; /* really a void pointer... */
+#endif
+
+    /* if we are not currently echoing on the command line, abort this */
+    if (discmd == FALSE) {
+      movecursor(term.t_nrow, 0);
+      return;
+    }
+#if	COLOR
+    /* set up the proper colors for the command line */
+    TTforg(7);
+    TTbacg(0);
+#endif
+    /* if we can not erase to end-of-line, do it manually */
+    if (eolexist == FALSE) {
+	mlerase();
+        TTflush();
+    }
+
+    movecursor(term.t_nrow, 0);
+#ifdef HANDLE_VARIABLE_ARGS
+# if	HAVE_STDARG
+    va_start(vl, fmt);
+# else
+    va_start(vl);
+    fmt = va_arg(vl, Char *);
+# endif
+#else
+    ap = (char *)&arg;
+#endif
+    while ((c = *fmt++) != 0) {
+	if (c != '%') {
+            TTputc(c);
+	    #if KANJI
+	    ttcol += char_width(c);
+	    #else
+	    ++ttcol;
+	    #endif
+	} else {
+    c = *fmt++;
+	    switch (c) {
+	    case 'd':
+#ifdef HANDLE_VARIABLE_ARGS
+		mlputi(va_arg(vl, int), 10);
+#else
+		mlputi(*(int *)ap, 10);
+		ap += sizeof(int);
+#endif
+		break;
+
+	    case 'o':
+#ifdef HANDLE_VARIABLE_ARGS
+		mlputi(va_arg(vl, int), 8);
+#else
+		mlputi(*(int *)ap,	8);
+		ap += sizeof(int);
+#endif
+		break;
+
+	    case 'x':
+#ifdef HANDLE_VARIABLE_ARGS
+		mlputi(va_arg(vl, int), 16);
+#else
+		mlputi(*(int *)ap, 16);
+		ap += sizeof(int);
+#endif
+		break;
+
+	    case 'D':
+#ifdef HANDLE_VARIABLE_ARGS
+		mlputli(va_arg(vl, long), 10);
+#else
+		mlputli(*(long *)ap, 10);
+		ap += sizeof(long);
+#endif
+		break;
+
+	    case 's':
+#ifdef HANDLE_VARIABLE_ARGS
+		mlputs(va_arg(vl, Char *));
+#else
+		mlputs(*(Char **)ap);
+		ap += sizeof(Char *);
+#endif
+		break;
+
+	    case 'f':
+#ifdef HANDLE_VARIABLE_ARGS
+		mlputf(va_arg(vl, int));
+#else
+		mlputf(*(int *)ap);
+		ap += sizeof(int);
+#endif
+		break;
+
+	    default:
+	                    TTputc(c);
+	    # if KANJI
+	    ttcol += char_width(c);
+	    # else
+	    ++ttcol;
+	    # endif
+	    }
+	}
+    }
+#ifdef HANDLE_VARIABLE_ARGS /*  1993/7/6 by sanewo */
+    va_end(vl);
+#endif
+    /* if we can, erase to the end-of-line */
+    if (eolexist == TRUE)
+        TTeeol();
+    TTflush();
+    mpresf = TRUE;
+}
+
+/*
+ * Write out a string. Update the physical cursor position. This assumes that
+ * the characters in the string all have width "1"; if this is not the case
+ * things will get screwed up a little.
+ */
+/*
+ * kanji characters are treated as of width "2".
+ */
+int mlputs(Char *s)
+{
+    Char c;
+
+    while ((c = *s++) != 0) {
+        TTputc(c);
+#if KANJI
+	ttcol += char_width(c);
+#else
+	++ttcol;
+#endif
+    }
+}
+
+/*
+ * Write out an integer, in the specified radix. Update the physical cursor
+ * position.
+ */
+int mlputi(int i, int r)
+{
+    int q;
+    static char hexdigits[] = "0123456789ABCDEF";
+
+    if (i < 0) {
+	i = -i;
+        TTputc('-');
+    }
+
+    q = i/r;
+
+    if (q != 0)
+	mlputi(q, r);
+
+    TTputc((Char)hexdigits[i%r]);
+    ++ttcol;
+}
+
+/*
+ * do the same except as a long integer.
+ */
+int mlputli(long l, int r)
+{
+    long q;
+
+    if (l < 0) {
+	l = -l;
+        TTputc('-');
+    }
+
+    q = l/r;
+
+    if (q != 0)
+	mlputli(q, r);
+
+    TTputc((Char)((int)(l%r)+'0'));
+    ++ttcol;
+}
+
+/*
+ *	write out a scaled integer with two decimal places
+ */
+int mlputf(int s)
+{
+	int i;	/* integer portion of number */
+	int f;	/* fractional portion of number */
+
+	/* break it up */
+	i = s / 100;
+	f = s % 100;
+
+	/* send out the integer portion */
+	mlputi(i, 10);
+	TTputc('.');
+	TTputc((Char)((f / 10) + '0'));
+	TTputc((Char)((f % 10) + '0'));
+	ttcol += 3;
+}	

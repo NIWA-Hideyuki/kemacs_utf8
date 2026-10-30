@@ -1,0 +1,785 @@
+#ifndef _CX_DEF_
+extern unsigned int Cxstr[];
+#define _CX_DEF_
+#endif /*_CX_DEF_*/
+/*	FILE.C:   for MicroEMACS
+ *
+ *	The routines in this file handle the reading, writing
+ *	and lookup of disk files.  All of details about the
+ *	reading and writing of the disk are in "fileio.c".
+ *
+ */
+
+#include	"ecomm.h"
+#include	"estruct.h"
+#include	"edef.h"
+
+/*
+ * Read a file into the current
+ * buffer. This is really easy; all you do it
+ * find the name of the file, and call the standard
+ * "read a file into the current buffer" code.
+ * Bound to "C-X C-R".
+ */
+/*ARGSUSED*/
+int fileread(int f, int n)
+{
+	int	s;
+	Char fname[NFILEN];
+
+	if ((s=mlreply(
+#if KANJI
+		kterminal? CSTR(&Cxstr[5374]):
+#endif
+		CSTR(&Cxstr[5386]),
+					    fname, NFILEN)) != TRUE)
+		return(s);
+	return(readin(fname, TRUE));
+}
+
+/*
+ * Insert a file into the current
+ * buffer. This is really easy; all you do it
+ * find the name of the file, and call the standard
+ * "insert a file into the current buffer" code.
+ * Bound to "C-X C-I".
+ */
+/*ARGSUSED*/
+int insfile(int f, int n)
+{
+	int	s;
+	Char fname[NFILEN];
+
+#if	RESTRICT
+	if (restflag)		/* don't allow this command if restricted */
+		return(resterr());
+#endif
+	if (curbp->b_mode&MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if ((s=mlreply(
+#if KMSGS
+		kterminal? CSTR(&Cxstr[5398]):
+#endif
+		CSTR(&Cxstr[5410]),
+					      fname, NFILEN)) != TRUE)
+		return(s);
+	return(ifile(fname));
+}
+
+/*
+ * Select a file for editing.
+ * Look around to see if you can find the
+ * fine in another buffer; if you can find it
+ * just switch to the buffer. If you cannot find
+ * the file, create a new buffer, read in the
+ * text, and switch to the new buffer.
+ * Bound to C-X C-F.
+ */
+/*ARGSUSED*/
+int filefind(int f, int n)
+{
+	Char fname[NFILEN];	/* file user wishes to find */
+	int s;		/* status return */
+
+#if	RESTRICT
+	if (restflag)		/* don't allow this command if restricted */
+		return(resterr());
+#endif
+	if ((s=mlreply(
+#if KMSGS
+		kterminal? CSTR(&Cxstr[5424]):
+#endif
+		CSTR(&Cxstr[5436]),
+					    fname, NFILEN)) != TRUE)
+		return(s);
+	return(getfile(fname, TRUE));
+}
+
+/*ARGSUSED*/
+int viewfile(int f, int n)	/* visit a file in VIEW mode */
+{
+	Char fname[NFILEN];	/* file user wishes to find */
+	int s;		/* status return */
+
+#if	RESTRICT
+	if (restflag)		/* don't allow this command if restricted */
+		return(resterr());
+#endif
+	if ((s=mlreply(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[5448]):
+#endif
+			CSTR(&Cxstr[5459]),
+					    fname, NFILEN)) != TRUE)
+		return (s);
+	s = getfile(fname, FALSE);
+	if (s) {	/* if we succeed, put it in view mode */
+		curwp->w_bufp->b_mode |= MDVIEW;
+
+		/* scan through and update mode lines of all windows */
+		upmode();
+	}
+	return(s);
+}
+
+#if	CRYPT
+int resetkey(void)	/* reset the encryption key if needed */
+
+{
+	int s;	/* return status */
+
+	/* turn off the encryption flag */
+	cryptflag = FALSE;
+
+	/* if we are in crypt mode */
+	if (curbp->b_mode & MDCRYPT) {
+		if (curbp->b_key[0] == 0) {
+			s = setcrkey(FALSE, 0);
+			if (s != TRUE)
+				return(s);
+		}
+
+		/* let others know... */
+		cryptflag = TRUE;
+
+		/* and set up the key to be used! */
+		/* de-encrypt it */
+		cryptstr((Char *)NULL, (unsigned)0);
+		cryptstr(curbp->b_key, (unsigned)Cstrlen(curbp->b_key));
+
+		/* re-encrypt it...seeding it to start */
+		cryptstr((Char *)NULL, (unsigned)0);
+		cryptstr(curbp->b_key, (unsigned)Cstrlen(curbp->b_key));
+	}
+
+	return(TRUE);
+}
+#endif
+
+int getfile(Char fname[], int lockfl)
+{
+	BUFFER *bp;
+	LINE	*lp;
+	int	i;
+	int	s;
+	Char bname[NBUFN];	/* buffer name to put file */
+
+	for (bp=bheadp; bp!=NULL; bp=bp->b_bufp) {
+		if (!(bp->b_flag & BFINVS) && Cstrcmp(bp->b_fname, fname)==0) {
+			(void)swbuffer(bp);
+			lp = curwp->w_dotp;
+			i = curwp->w_ntrows/2;
+			while (i-- && lback(lp)!=curbp->b_linep)
+				lp = lback(lp);
+			curwp->w_linep = lp;
+			curwp->w_flag |= WFMODE|WFHARD;
+			mlwrite(
+#if KMSGS
+			    kterminal? CSTR(&Cxstr[5472]):
+#endif
+			    CSTR(&Cxstr[5484]));
+			return (TRUE);
+		}
+	}
+	makename(bname, fname);			/* New buffer name.	*/
+	while ((bp=bfind(bname, FALSE, 0)) != NULL) {
+		/* old buffer name conflict code */
+		s = mlreply(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[4214]):
+#endif
+			CSTR(&Cxstr[5497]),
+						   bname, NBUFN);
+		if (s == ABORT)			/* ^G to just quit	*/
+			return (s);
+		if (s == FALSE) {		/* CR to clobber it	*/
+			makename(bname, fname);
+			break;
+		}
+	}
+	if (bp==NULL && (bp=bfind(bname, TRUE, 0))==NULL) {
+		mlwrite(
+#if KMSGS
+		    kterminal? CSTR(&Cxstr[5511]):
+#endif
+		    CSTR(&Cxstr[5524]));
+		return (FALSE);
+	}
+	if (--curbp->b_nwnd == 0) {		/* Undisplay.		*/
+		curbp->b_dotp = curwp->w_dotp;
+		curbp->b_doto = curwp->w_doto;
+		curbp->b_markp = curwp->w_markp;
+		curbp->b_marko = curwp->w_marko;
+	}
+	curbp = bp;				/* Switch to it.	*/
+	curwp->w_bufp = bp;
+	curbp->b_nwnd++;
+	return(readin(fname, lockfl));		/* Read it in.		*/
+}
+
+/*
+ * Read file "fname" into the current
+ * buffer, blowing away any text found there. Called
+ * by both the read and find commands. Return the final
+ * status of the read. Also called by the mainline,
+ * to read in a file specified on the command line as
+ * an argument. If the filename ends in a ".c", CMODE is
+ * set for the current buffer.
+ */
+/*ARGSUSED*/
+int readin(Char fname[], int lockfl)
+{
+	LINE	*lp1;
+	LINE	*lp2;
+	int	i;
+	WINDOW *wp;
+	BUFFER *bp;
+	int	s;
+	int	nbytes;
+	int	nline;
+	int		lflag;		/* any lines longer than allowed? */
+	Char		line[NLINE];
+#if AUTOMODE
+	char		*p;
+#endif
+#if FEXPAND
+	Char		*fexpand();
+#endif
+
+#if FEXPAND
+	fname = fexpand(fname);
+#endif
+#if	CRYPT
+	s = resetkey();
+	if (s != TRUE)
+		return(s);
+#endif
+	bp = curbp;				/* Cheap.		*/
+	if ((s=bclear(bp)) != TRUE)		/* Might be old.	*/
+		return (s);
+	bp->b_flag &= ~(BFINVS|BFCHG);
+#if	AUTOMODE
+	p = cfromC(fname);
+	for (i = 0; i < npatent; i++) {
+# if HAVE_REGEX
+	  regex_t preg;
+	  (void)regcomp(&preg, pattbl[i].pat, REG_NOSUB);
+	  if (regexec(&preg, p, 0, NULL, 0) == 0)
+# else
+#  if BSD
+	  (void)re_comp(pattbl[i].pat);
+	  if (re_exec(p))
+#  endif
+#  if USG
+	  char *re;
+	  re = regcmp(pattbl[i].pat, NULL);
+	  if (regex(re, p))
+#  endif
+# endif
+	    bp->b_mode |= pattbl[i].mode;
+# if HAVE_REGEX
+	  regfree(&preg);
+# endif
+	}
+#endif /* AUTOMODE */
+	if ((curbp->b_mode & MDCMOD) && c_auto_detect) {
+	    (void)c_detect_style(TRUE, 1);  /* detect style from file content */
+	}
+	(void)copystr(&bp->b_fname, fname);
+
+	/* Hard file open.	*/
+	  /* debug by N.Nide; uses bp->b_fname instead of fname */
+#if	KANJI
+	if ((s=ffropen(bp->b_fname, KS_VALUE(bp->b_code))) == FIOERR)
+#else
+	if ((s=ffropen(bp->b_fname)) == FIOERR)
+#endif
+		goto out;
+	if (s == FIOFNF) {			/* File not found.	*/
+		mlwrite(
+#if KMSGS
+		    kterminal? CSTR(&Cxstr[5545]):
+#endif
+		    CSTR(&Cxstr[5552]));
+		goto out;
+	}
+	mlwrite(
+#if KMSGS
+		    kterminal? CSTR(&Cxstr[5563]):
+#endif
+		    CSTR(&Cxstr[5574]));
+	nline = 0;
+	lflag = FALSE;
+        while ((s=ffgetline(line, NLINE)) == FIOSUC || s == FIOLNG
+            || s == FIOFUN) {
+		if (s == FIOLNG) {
+			lflag = TRUE;
+			--nline;
+		}
+                nbytes = Cstrlen(line);
+		if ((lp1=lalloc(nbytes)) == NULL) {
+			s = FIOERR;		/* Keep message on the	*/
+			break;			/* display.		*/
+		}
+		lp2 = lback(curbp->b_linep);
+		lp2->l_fp = lp1;
+		lp1->l_fp = curbp->b_linep;
+		lp1->l_bp = lp2;
+		curbp->b_linep->l_bp = lp1;
+		for (i=0; i<nbytes; ++i)
+			lputc(lp1, i, line[i]);
+		++nline;
+                if (s == FIOFUN)
+                	break;
+	}
+	curbp->b_nlines = nline;	/* cache line count for display	*/
+	/* Ignore errors.       */
+#if	KANJI
+	(void)ffclose(&KS_VALUE(curbp->b_code));
+#else
+	(void)ffclose();
+#endif
+	(void)Cstrcpy(line, CSTR(&Cxstr[5589]));
+	if (lflag)
+		(void)Cstrcat(line,
+#if KMSGS
+				    kterminal? CSTR(&Cxstr[5591]):
+#endif
+				    CSTR(&Cxstr[5600]));
+	if (s == FIOFUN)
+		(void)Cstrcat(line,
+#if KMSGS
+				    kterminal? CSTR(&Cxstr[5621]):
+#endif
+				    CSTR(&Cxstr[5632]));
+	if (s == FIOEOF || s == FIOFUN) {        /* Don't zap message!   */
+#if KMSGS
+		if (kterminal) {
+			(void)Cstrcat(line, itoaa(nline));
+			(void)Cstrcat(line, CSTR(&Cxstr[5652]));
+		} else {
+#endif
+		(void)Cstrcat(line, CSTR(&Cxstr[5662]));
+		(void)Cstrcat(line, itoaa(nline));
+		(void)Cstrcat(line, CSTR(&Cxstr[5668]));
+		if (nline > 1)
+			(void)Cstrcat(line, CSTR(&Cxstr[412]));
+#if KANJI
+		}
+#endif
+		(void)Cstrcat(line, CSTR(&Cxstr[30]));
+	}
+	if (s != FIOERR)
+		mlwrite(line);
+
+    out:
+	for (wp=wheadp; wp!=NULL; wp=wp->w_wndp) {
+		if (wp->w_bufp == curbp) {
+			wp->w_linep = lforw(curbp->b_linep);
+			wp->w_dotp  = lforw(curbp->b_linep);
+			wp->w_doto  = 0;
+			wp->w_markp = NULL;
+			wp->w_marko = 0;
+			wp->w_flag |= WFMODE|WFHARD;
+		}
+	}
+	if (s == FIOERR || s == FIOFNF)		/* False if error.	*/
+		return(FALSE);
+	return (TRUE);
+}
+
+/*
+ * Take a file name, and from it
+ * fabricate a buffer name. This routine knows
+ * about the syntax of file names on the target system.
+ * I suppose that this information could be put in
+ * a better place than a line of code.
+ */
+int makename(Char *bname, Char *fname)
+{
+
+	Char	*cp1;
+
+	cp1 = Crindex(fname, '/');
+	if (!cp1) cp1 = fname; else cp1++;
+	(void)Cstrncpy(bname, cp1, NBUFN-1);
+}
+
+/*
+ * Ask for a file name, and write the
+ * contents of the current buffer to that file.
+ * Update the remembered file name and clear the
+ * buffer changed flag. This handling of file names
+ * is different from the earlier versions, and
+ * is more compatable with Gosling EMACS than
+ * with ITS EMACS. Bound to "C-X C-W".
+ */
+/*ARGSUSED*/
+int filewrite(int f, int n)
+{
+	int	s;
+	Char		fname[NFILEN];
+
+#if	RESTRICT
+	if (restflag)		/* don't allow this command if restricted */
+		return(resterr());
+#endif
+	if ((s=mlreply(
+#if KMSGS
+		kterminal? CSTR(&Cxstr[5674]):
+#endif
+		CSTR(&Cxstr[5686]),
+					     fname, NFILEN)) != TRUE)
+		return (s);
+	if ((s=writeout(fname)) == TRUE) {
+		(void)copystr(&curbp->b_fname, fname);
+		curbp->b_flag &= ~BFCHG;
+		upmode();
+	}
+	return (s);
+}
+
+/*
+ * Save the contents of the current
+ * buffer in its associatd file. Do nothing
+ * if nothing has changed (this may be a bug, not a
+ * feature). Error if there is no remembered file
+ * name for the buffer. Bound to "C-X C-S". May
+ * get called by "C-Z".
+ */
+/*ARGSUSED*/
+int filesave(int f, int n)
+{
+	int	s;
+
+	if (curbp->b_mode & MDVIEW)	/* don't allow this command if	*/
+		return(rdonly());	/* we are in read only mode	*/
+	if ((curbp->b_flag & BFCHG) == 0) {	/* Return, no changes.	*/
+		mlwrite(
+#if KMSGS
+			kterminal? CSTR(&Cxstr[5699]):
+#endif
+			CSTR(&Cxstr[5714]));
+		return (TRUE);
+	}
+	if (!curbp->b_fname[0]) {		/* Must have a name.	*/
+		mlwrite(
+#if KMSGS
+		    kterminal? CSTR(&Cxstr[5733]):
+#endif
+		    CSTR(&Cxstr[5761]),
+		    curbp->b_bname);
+		return (FALSE);
+	}
+	if ((s=writeout(curbp->b_fname)) == TRUE) {
+		curbp->b_flag &= ~BFCHG;
+		upmode();
+	}
+	return (s);
+}
+
+/*
+ * This function performs the details of file
+ * writing. Uses the file management routines in the
+ * "fileio.c" package. The number of lines written is
+ * displayed. Sadly, it looks inside a LINE; provide
+ * a macro for this. Most of the grief is error
+ * checking of some sort.
+ */
+int writeout(Char *fn)
+{
+	int	s;
+	LINE	*lp;
+	int	nline;
+#if FEXPAND
+	Char *fexpand();
+#endif
+
+#if FEXPAND
+	fn = fexpand(fn);
+#endif
+#if	CRYPT
+	s = resetkey();
+	if (s != TRUE)
+		return(s);
+#endif
+        /* Open writes message. */
+#if	KANJI
+        if ((s=ffwopen(fn, KS_VALUE(curbp->b_code))) != FIOSUC) {
+#else
+        if ((s=ffwopen(fn)) != FIOSUC) {
+#endif
+                return (FALSE);
+        }
+	mlwrite(
+#if KMSGS
+	    kterminal? CSTR(&Cxstr[5790]):
+#endif
+	    CSTR(&Cxstr[5799]));
+						/* tell us were writing */
+	lp = lforw(curbp->b_linep);		/* First line.		*/
+	nline = 0;				/* Number of lines.	*/
+	while (lp != curbp->b_linep) {
+		if ((s=ffputline(&lp->l_text[0], llength(lp))) != FIOSUC)
+			break;
+		++nline;
+		lp = lforw(lp);
+	}
+	if (s == FIOSUC) {			/* No write error.	*/
+#if	KANJI
+		s = ffclose((unsigned *)NULL);
+#else
+		s = ffclose();
+#endif
+		if (s == FIOSUC) {		/* No close error.	*/
+			mlwrite(
+#if KMSGS
+			    kterminal? CSTR(&Cxstr[5811]):
+#endif
+			    CSTR(&Cxstr[5825]), nline,
+			    (nline==1)? CSTR(&Cxstr[6]):
+					CSTR(&Cxstr[412]));
+		}
+	} else					/* Ignore close error	*/
+		/* if a write error.	*/
+#if	KANJI
+		(void)ffclose((unsigned *)NULL);
+#else
+		(void)ffclose();
+#endif
+	if (s != FIOSUC)			/* Some sort of error.	*/
+		return (FALSE);
+	return (TRUE);
+}
+
+/*
+ * The command allows the user
+ * to modify the file name associated with
+ * the current buffer. It is like the "f" command
+ * in UNIX "ed". The operation is simple; just zap
+ * the name in the BUFFER structure, and mark the windows
+ * as needing an update. You can type a blank line at the
+ * prompt if you wish.
+ */
+/*ARGSUSED*/
+filename(int f, int n)
+{
+	int	s;
+	Char		fname[NFILEN];
+
+#if	RESTRICT
+	if (restflag)		/* don't allow this command if restricted */
+		return(resterr());
+#endif
+	if ((s=mlreply(
+#if KMSGS
+		kterminal? CSTR(&Cxstr[5843]):
+#endif
+		CSTR(&Cxstr[5854]),
+				       fname, NFILEN)) == ABORT)
+		return (s);
+	(void)copystr(&curbp->b_fname, (s!=FALSE)? fname: CSTR(&Cxstr[6]));
+	upmode();
+	curbp->b_mode &= ~MDVIEW;	/* no longer read only mode */
+	return (TRUE);
+}
+
+/*
+ * Insert file "fname" into the current
+ * buffer, Called by insert file command. Return the final
+ * status of the read.
+ */
+ifile(Char *fname)
+{
+
+	LINE	*lp0;
+	LINE	*lp1;
+	LINE	*lp2;
+	int	i;
+	BUFFER *bp;
+	int	s;
+	int	nbytes;
+	int	nline;
+	int		lflag;		/* any lines longer than allowed? */
+	Char		line[NLINE];
+#if FEXPAND
+	Char *fexpand();
+#endif
+
+#if FEXPAND
+	fname = fexpand(fname);
+#endif
+	bp = curbp;				/* Cheap.		*/
+	bp->b_flag |= BFCHG;			/* we have changed	*/
+	bp->b_flag &= ~BFINVS;			/* and are not temporary*/
+	/* Hard file open.	*/
+#if	KANJI
+	if ((s=ffropen(fname, KS_VALUE(bp->b_code))) == FIOERR)
+#else
+	if ((s=ffropen(fname)) == FIOERR)
+#endif
+		goto out;
+	if (s == FIOFNF) {			/* File not found.	*/
+		mlwrite(
+#if KMSGS
+		    kterminal? CSTR(&Cxstr[5861]):
+#endif
+		    CSTR(&Cxstr[5874]));
+		return(FALSE);
+	}
+	mlwrite(
+#if KMSGS
+	    kterminal? CSTR(&Cxstr[5889]):
+#endif
+	    CSTR(&Cxstr[5904]));
+
+#if	CRYPT
+	s = resetkey();
+	if (s != TRUE)
+		return(s);
+#endif
+	/* back up a line and save the mark here */
+	curwp->w_dotp = lback(curwp->w_dotp);
+	curwp->w_doto = 0;
+	curwp->w_markp = curwp->w_dotp;
+	curwp->w_marko = 0;
+
+	nline = 0;
+	lflag = FALSE;
+        while ((s=ffgetline(line, NLINE)) == FIOSUC || s == FIOLNG
+            || s == FIOFUN) {
+		if (s == FIOLNG) {
+			lflag = TRUE;
+			--nline;
+		}
+		nbytes = Cstrlen(line);
+		if ((lp1=lalloc(nbytes)) == NULL) {
+			s = FIOERR;		/* Keep message on the	*/
+			break;			/* display.		*/
+		}
+		lp0 = curwp->w_dotp;	/* line previous to insert */
+		lp2 = lp0->l_fp;	/* line after insert */
+
+		/* re-link new line between lp0 and lp2 */
+		lp2->l_bp = lp1;
+		lp0->l_fp = lp1;
+		lp1->l_bp = lp0;
+		lp1->l_fp = lp2;
+
+		/* and advance and write out the current line */
+		curwp->w_dotp = lp1;
+		for (i=0; i<nbytes; ++i)
+			lputc(lp1, i, line[i]);
+		++nline;
+                if (s == FIOFUN)
+                	break;
+	}
+	curbp->b_nlines = -1;	/* invalidate cached line count	*/
+	/* Ignore error */
+#if	KANJI
+	(void)ffclose((unsigned *)NULL);
+#else
+	(void)ffclose();
+#endif
+	curwp->w_markp = lforw(curwp->w_markp);
+	(void)Cstrcpy(line, CSTR(&Cxstr[5589]));
+	if (lflag)
+		(void)Cstrcat(line, 
+#if KMSGS
+				    kterminal? CSTR(&Cxstr[5591]):
+#endif
+				    CSTR(&Cxstr[5600]));
+	if (s == FIOFUN)
+		(void)Cstrcat(line, 
+#if KMSGS
+				    kterminal? CSTR(&Cxstr[5921]):
+#endif
+				    CSTR(&Cxstr[5632]));
+	if (s == FIOEOF || s == FIOFUN) {        /* Don't zap message!   */
+#if KANJI
+		(void)Cstrcat(line, itoaa(nline));
+		(void)Cstrcat(line, CSTR(&Cxstr[5931]));
+#else
+		(void)Cstrcat(line, CSTR(&Cxstr[5940]));
+		(void)Cstrcat(line, itoaa(nline));
+		(void)Cstrcat(line, CSTR(&Cxstr[5668]));
+		if (nline > 1)
+			(void)Cstrcat(line, CSTR(&Cxstr[412]));
+#endif /* KANJI */
+		(void)Cstrcat(line, CSTR(&Cxstr[30]));
+        }
+	if (s != FIOERR)
+		mlwrite(line);
+out:
+	/* advance to the next line and mark the window for changes */
+	curwp->w_dotp = lforw(curwp->w_dotp);
+	curwp->w_flag |= WFHARD | WFMODE;
+
+	/* copy window parameters back to the buffer structure */
+	curbp->b_dotp = curwp->w_dotp;
+	curbp->b_doto = curwp->w_doto;
+	curbp->b_markp = curwp->w_markp;
+	curbp->b_marko = curwp->w_marko;
+
+	if (s == FIOERR)			/* False if error.	*/
+		return (FALSE);
+	return (TRUE);
+}
+
+#if FEXPAND
+
+# include <pwd.h>
+
+Char *
+fexpand(Char *fn)
+{
+	Char *fn1;
+	static Char fbuf[NFILEN];
+	char user[256];
+	char *s;
+	struct passwd *p;
+#if USG
+	struct passwd *getpwnam();
+#endif
+
+	if (fn[0] != '~')
+		return fn;
+	if (fn[1] == '/' || !fn[1]) {
+		/* user's HOME directory */
+		if (!(s = getenv("HOME")))
+			return fn;
+		(void)Cstrcpy(fbuf, Cfromc(s));
+		(void)Cstrcat(fbuf, fn+1);
+		return fbuf;
+	}
+	/* specified user's login directory */
+	for (fn1 = fn+1, s = user; *fn1 && *fn1 != '/'; )
+		*s++ = *fn1++;
+	*s = '\0';
+	if (!(p = getpwnam(user)))
+		return fn;
+	(void)Cstrcpy(fbuf, Cfromc(p->pw_dir));
+	(void)Cstrcat(fbuf, fn1);
+	return fbuf;
+}
+#endif /*FEXPAND*/
+
+/* make sure a buffer name is unique */
+unqname(Char *name)
+{
+  Char *sp;
+
+  /* check to see if it is in the buffer list */
+  while (bfind(name, 0, FALSE) != NULL) {
+
+    /* go to the end of the name */
+    sp = name;
+    while (*sp)
+      ++sp;
+    if (sp == name || (*(sp-1) <'0' || *(sp-1) > '8')) {
+      *sp++ = '0';
+      *sp = 0;
+    } else
+      *(--sp) += 1;
+  }
+}
