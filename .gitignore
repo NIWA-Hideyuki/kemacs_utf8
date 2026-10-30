@@ -3,3 +3,28 @@
 *.save
 *.swp
 *.swp.bak
+
+# Build artifacts (object files and binaries)
+*.o
+kemacs
+make.file
+kpp/Cxx.c
+Cxx.c
+
+# Cstrings and kanji build outputs
+Cstrings/*.o
+kanji/kclose.o
+kanji/kfree.o
+kanji/kgetc.o
+kanji/kopen.o
+kanji/kalloc.o
+kanji/kputc.o
+kanji/jtos.o
+kanji/stoj.o
+kanji/wcwidth.o
+kanji/kanji.a
+kanji/libconv.a
+
+# KPP tools (built from source)
+kpp/kpp
+kpp/ftoc
