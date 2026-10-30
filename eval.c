@@ -16,6 +16,7 @@ extern unsigned int Cxstr[];
 #include	"estruct.h"
 #include	"edef.h"
 #include	"evar.h"
+#include	<limits.h>
 
 Char *itoaa(int i);
 extern char *shell_command_escape_char(const char *);
@@ -462,7 +463,7 @@ int setvar(int f, int n)  /* set a variable */
 			return(status);
 	} else {	/* macro line argument */
 		/* grab token and skip it */
-			execstr = token(execstr, var, NVSIZE+1);
+		execstr = token(execstr, var, NVSIZE+1);
 	}
 
 	/* check the legality and find the var */
@@ -497,7 +498,7 @@ int setvar(int f, int n)  /* set a variable */
 		var[4] = 0;
 		if (Cstrcmp(&var[1], CSTR(&Cxstr[3716])) == 0) {
 			/* grab token, and eval it */
-				execstr = token(execstr, var, NVSIZE+1);
+			execstr = token(execstr, var, NVSIZE+1);
 			(void)Cstrcpy(var, getval(var));
 			goto sv01;
 		}
@@ -570,9 +571,13 @@ stoi(Char *st)
 
 	/* scan digits, build value */
 	while ((c = *st++)) {
-	  if (isdigit(c))
+	  if (isdigit(c)) {
+	    /* Check for overflow before multiply/add.
+	       result * 10 + digit must not exceed INT_MAX. */
+	    if (result > (INT_MAX - (c - '0')) / 10)
+	      return(sign == 1 ? INT_MAX : INT_MIN);
 	    result = result * 10 + c - '0';
-	  else
+	  } else
 	    return(0);
 	}
 	return(result * sign);
