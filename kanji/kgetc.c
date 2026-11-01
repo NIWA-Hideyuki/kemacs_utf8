@@ -585,7 +585,11 @@ kgetc(KSTREAM * kp)
 	  if (KS_CODE(kp->ks_flag) == KS_JIS ||
 	      KS_CODE(kp->ks_flag) == KS_UTF8 ||
 	      KS_INTERP(kp->ks_flag) == KS_UKANJI) {
-	    KS_CODE(kp->ks_flag) = KS_JIS;
+	    /* Do NOT switch to KS_JIS here. A bare ESC is the Meta prefix
+	       for ordinary keys; committing KS_JIS on ESC alone left the
+	       decoder stuck in JIS mode, where SI/SO (Ctrl-N/Ctrl-O) were
+	       swallowed as locking-shift escapes. KS_JIS is committed below,
+	       only when a real JIS escape (ESC $ ... or ESC ( ...) is seen. */
 	    kp->ks_gstate += ESC;
 	    continue;
 	  }
@@ -821,6 +825,7 @@ kgetc(KSTREAM * kp)
 	  KS_INTERP(kp->ks_flag) = KS_KANJI;
 	  kp->ks_gstate &= ~(JKANJI|KANA), kp->ks_gstate |= JKANJI;
 	  KS_KI(kp->ks_flag) = (cc == '@')? KS_OLDJIS: KS_NEWJIS;
+	  KS_CODE(kp->ks_flag) = KS_JIS;	/* confirmed JIS X 0208 */
 	  continue;
 	}
 	/* other ESC sequence. pass through */
@@ -836,11 +841,13 @@ kgetc(KSTREAM * kp)
 	  KS_INTERP(kp->ks_flag) = KS_KANJI;
 	  kp->ks_gstate &= ~(JKANJI|KANA);
 	  KS_RI(kp->ks_flag) = (cc <= 'B')? KS_ASCII: KS_ROMAJI;
+	  KS_CODE(kp->ks_flag) = KS_JIS;	/* confirmed JIS X 0201 set */
 	  continue;
 	}
 	if (cc == 'I'){
 	  KS_INTERP(kp->ks_flag) = KS_KANJI;
 	  kp->ks_gstate &= ~(JKANJI|KANA), kp->ks_gstate |= KANA;
+	  KS_CODE(kp->ks_flag) = KS_JIS;	/* JIS X 0201 kana: needs KS_JIS */
 	  continue;
 	}
 	/* other ESC sequence. pass through */
