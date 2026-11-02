@@ -384,7 +384,8 @@ kgetc(KSTREAM * kp)
        /* Reset escaping status */
       if (kp->ks_gstate & KST_STATE == KST_EOF /* Add Nide */ ||
 	  KS_INTERP(kp->ks_flag) == KS_KANJI &&
-	  KS_CODE(kp->ks_flag) == KS_JIS) {
+	  (KS_CODE(kp->ks_flag) == KS_JIS ||
+	   (kp->ks_gstate & ESC_STATE) != NON_ESC)) {
 	sweep_esc(kp);
       }
       continue;
