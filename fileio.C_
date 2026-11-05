@@ -24,7 +24,7 @@ int ffropen(Char *fn)
 #endif
 
 #if KANJI
-	(void)strcpy(fn1, cfromC(fn));
+	(void)snprintf(fn1, sizeof(fn1), "%s", cfromC(fn));
 	if ((ffp=fopen(fn1, "r")) == NULL) return (FIOFNF);
 	KS_VALUE(cc) = code;
 	KS_THRU(cc) = 1; /* thru for file */
@@ -51,7 +51,7 @@ int ffwopen(Char *fn)
 	char fn1[NFILEN];
 #endif
 # if KANJI
-	(void)strcpy(fn1, cfromC(fn));
+	(void)snprintf(fn1, sizeof(fn1), "%s", cfromC(fn));
 	if ((ffp=fopen(fn1, "w")) == NULL) {
 # else
 	if ((ffp=fopen(fn, "w")) == NULL) {

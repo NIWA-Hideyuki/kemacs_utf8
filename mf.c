@@ -20,7 +20,7 @@ RCFILE	      = .kemacsrc
 
 /* Flags to CC, LD and INSTALL */
 #ifdef __GNUC__
-OPTIM	      = -O2
+OPTIM	      = -O2 -fstack-protector-strong -D_FORTIFY_SOURCE=2
 #else
 OPTIM	      = -O
 #endif

@@ -6,6 +6,7 @@
 #include	"ecomm.h"
 #include	"estruct.h"
 #include	"edef.h"
+#include	<stdlib.h>
 
 #include	<signal.h>
 #include	<pwd.h>
@@ -71,23 +72,6 @@ rtfrmshell(int SIGARG_T(dummy))
 	(void)signal(SIGCONT, rtfrmshell);
 }
 #endif
-
-int mktmpdir(char *s)
-{
-	char	*p;
-	long	l, lbase;
-	static	int i = 0;
-
-	p = s + strlen(s) - 6;
-	l = getpid() + (getpid() << 15) + time(NULL) + i++;
-	lbase = (l &= 0xffffffL);
-	do {
-		sprintf(p, "%06lX", l);
-		if(mkdir(s, 0700) == 0) return 0;
-		if(errno != EEXIST) return -1;
-	} while(l++, l &= 0xffffffL, l != lbase);
-	return -1;
-}
 
 /*
  * Run a one-liner in a subjob. When the command returns, wait for a single
@@ -172,9 +156,9 @@ int pipecmd(int f, int n)
 
 	/* make temporal dir */
 	strcpy(tmpdirname, tmpdirtmpl);
-	if(mktmpdir(tmpdirname) < 0) return(FALSE);
+	if(mkdtemp(tmpdirname) == NULL) return(FALSE);
 	chmod(tmpdirname, 0700); /* in case umask is like 0266... :-) */
-	sprintf(tmpfilnam, "%s/%s", tmpdirname, tmpfilbas);
+	snprintf(tmpfilnam, sizeof(tmpfilnam), "%s/%s", tmpdirname, tmpfilbas);
 	filnam = SafeCfromc(tmpfilnam);
 
 	TTflush();
@@ -249,10 +233,10 @@ int filter(int f, int n)
 
 	/* make temporal dir */
 	strcpy(tmpdirname, tmpdirtmpl);
-	if(mktmpdir(tmpdirname) < 0) return(FALSE);
+	if(mkdtemp(tmpdirname) == NULL) return(FALSE);
 	chmod(tmpdirname, 0700); /* in case umask is like 0266... :-) */
-	sprintf(tmpfilnam1, "%s/%s", tmpdirname, tmpfilbas1);
-	sprintf(tmpfilnam2, "%s/%s", tmpdirname, tmpfilbas2);
+	snprintf(tmpfilnam1, sizeof(tmpfilnam1), "%s/%s", tmpdirname, tmpfilbas1);
+	snprintf(tmpfilnam2, sizeof(tmpfilnam2), "%s/%s", tmpdirname, tmpfilbas2);
 	filnam1 = SafeCfromc(tmpfilnam1);
 	filnam2 = SafeCfromc(tmpfilnam2);
 

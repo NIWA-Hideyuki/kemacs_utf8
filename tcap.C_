@@ -308,14 +308,14 @@ int tcaprev(int state)  /* change reverse video status	*/
 int tcapfcol(int color)
 {
 	char buf[16];
-	(void)sprintf(buf, "\033[%dm", 30 + (color & 7));
+	(void)snprintf(buf, sizeof(buf), "\033[%dm", 30 + (color & 7));
 	out_str(buf);
 }
 
 int tcapbcol(int color)
 {
 	char buf[16];
-	(void)sprintf(buf, "\033[%dm", 40 + (color & 7));
+	(void)snprintf(buf, sizeof(buf), "\033[%dm", 40 + (color & 7));
 	out_str(buf);
 }
 # elif COLOR_DEPTH == 2
@@ -323,14 +323,14 @@ int tcapbcol(int color)
 int tcapfcol(int color)
 {
 	char buf[32];
-	(void)sprintf(buf, "\033[38;5;%dm", color & 0xFF);
+	(void)snprintf(buf, sizeof(buf), "\033[38;5;%dm", color & 0xFF);
 	out_str(buf);
 }
 
 int tcapbcol(int color)
 {
 	char buf[32];
-	(void)sprintf(buf, "\033[48;5;%dm", color & 0xFF);
+	(void)snprintf(buf, sizeof(buf), "\033[48;5;%dm", color & 0xFF);
 	out_str(buf);
 }
 # elif COLOR_DEPTH >= 3
@@ -351,7 +351,7 @@ int tcapfcol(int color)
 {
 	char buf[48];
 	int c = color & 7;
-	(void)sprintf(buf, "\033[38;2;%d;%d;%dm",
+	(void)snprintf(buf, sizeof(buf), "\033[38;2;%d;%d;%dm",
 		      rgb_table[c].r, rgb_table[c].g, rgb_table[c].b);
 	out_str(buf);
 }
@@ -360,7 +360,7 @@ int tcapbcol(int color)
 {
 	char buf[48];
 	int c = color & 7;
-	(void)sprintf(buf, "\033[48;2;%d;%d;%dm",
+	(void)snprintf(buf, sizeof(buf), "\033[48;2;%d;%d;%dm",
 		      rgb_table[c].r, rgb_table[c].g, rgb_table[c].b);
 	out_str(buf);
 }
