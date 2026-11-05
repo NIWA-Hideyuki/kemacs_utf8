@@ -1,3 +1,4 @@
+#define _GNU_SOURCE 1
 /*
  * wcwidth.c -- Unicode East Asian Width implementation for kemacs
  *

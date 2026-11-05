@@ -7,7 +7,7 @@
 # runtime functions.
 
 CC      = cc
-CFLAGS  = -O2 -std=gnu89 -I.. -I../kanji -I../Cstrings
+CFLAGS  = -O2 -std=gnu89 -DKEMACS_TEST -I.. -I../kanji -I../Cstrings
 LDFLAGS =
 
 # AddressSanitizer + UndefinedBehaviorSanitizer flags for memory-safety tests.

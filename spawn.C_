@@ -11,6 +11,8 @@
 #include	<signal.h>
 #include	<pwd.h>
 #include	<errno.h>
+#include	<sys/stat.h>
+#include	<sys/wait.h>
 extern int vttidy();
 static int System();
 

@@ -33,7 +33,7 @@ extern	int	fileread(int f, int n);
 extern	int	filefind(int f, int n);
 extern	int	filewrite(int f, int n);
 extern	int	filesave(int f, int n);
-extern	int	filename(void);
+extern	int	filename(int f, int n);
 extern	int	gotobol(int f, int n);
 extern	int	forwchar(int f, int n);
 extern	int	gotoeol(int f, int n);
@@ -52,7 +52,7 @@ extern	int	backsearch(int f, int n);
 extern	int	sreplace(int f, int n);
 extern	int	qreplace(int f, int n);
 extern	int	showcpos(int f, int n);
-extern	int	nextwind(void);
+extern	int	nextwind(int f, int n);
 extern	int	prevwind(int f, int n);
 extern	int	onlywind(int f, int n);
 extern	int	splitwind(int f, int n);
@@ -106,10 +106,10 @@ extern	int	namebuffer(int f, int n);
 
 extern	int	gotobop(int f, int n);
 extern	int	gotoeop(int f, int n);
-extern	int	fillpara(void);
+extern	int	fillpara(int f, int n);
 #endif
 
-extern	int	help(void);
+extern	int	help(int f, int n);
 extern	int	deskey(int f, int n);
 extern	int	viewfile(int f, int n);
 extern	int	insfile(int f, int n);
@@ -118,14 +118,14 @@ extern	int	scrnextdw(int f, int n);
 extern	int	bindtokey(int f, int n);
 extern	int	unbindkey(int f, int n);
 extern	int	namedcmd(int f, int n);
-extern	int	desbind(void);
+extern	int	desbind(int f, int n);
 extern	int	execcmd(int f, int n);
 extern	int	execbuf(int f, int n);
 extern	int	execfile(int f, int n);
 extern	int	nextbuffer(int f, int n);
 #if	WORDPRO
 
-extern	int	killpara(void);
+extern	int	killpara(int f, int n);
 #endif
 
 extern	int	setgmode(int f, int n);
@@ -183,8 +183,8 @@ extern	int	clrmes(int f, int n);
 extern	int	meta_pfx(void);
 extern	int	cex(void);
 extern	int	unarg(void);
-extern	int	istring(void);
-extern	int	unmark(void);
+extern	int	istring(int f, int n);
+extern	int	unmark(int f, int n);
 #if	ISRCH
 
 extern	int	fisearch(int f, int n);
@@ -256,7 +256,7 @@ extern	int	entab(int f, int n);
 
 #if	PROC
 
-extern	int	storeproc(void);
+extern	int	storeproc(int f, int n);
 extern	int	execproc(int f, int n);
 #endif
 

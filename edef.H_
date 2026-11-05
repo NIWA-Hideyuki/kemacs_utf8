@@ -579,4 +579,8 @@ extern void u_record(int type, LINE *lp, int offset, int length,
 extern void u_clear_undo(BUFFER *bp);
 extern void u_prune(BUFFER *bp);
 
+#ifndef KEMACS_TEST
+#include "proto.h"
+#endif
+
 #endif /* EDEF_H_ */
