@@ -250,6 +250,7 @@ clean:
 	      @ cd kpp; $(MAKE_KPP) clean
 	      @ cd kanji; $(MAKE_KANJI) clean
 	      @ cd Cstrings; $(MAKE_CSTR) clean
+	      @ cd tests; make clean
 	      @ rm -f $(PROGRAM) $(OBJS) $(CSRCS) $(HHDRS) Cxx.* Css.* a.out Cstr.data make.file *.bak core $(RCFILE)
 
 realclean:
@@ -257,6 +258,7 @@ realclean:
 	      @ cd kpp; $(MAKE_KPP) realclean
 	      @ cd kanji; $(MAKE_KANJI) realclean
 	      @ cd Cstrings; $(MAKE_CSTR) realclean
+	      @ cd tests; make realclean
 	      @ rm -f $(PROGRAM) $(OBJS) $(CSRCS) $(HHDRS) Cxx.* Css.* a.out Cstr.data make.file *.bak core $(RCFILE)
 
 install:	inst-bin inst-man inst-lib
