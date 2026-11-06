@@ -426,6 +426,6 @@ errchr(Char c, char * s)
 	static char mbuf[BUFSIZ];
 
 	bb[0] = c;
-	(void)sprintf(mbuf, "unexpected char '%s' in %s.", cfromC(bb), s);
+	(void)snprintf(mbuf, sizeof(mbuf), "unexpected char '%s' in %s.", cfromC(bb), s);
 	err(mbuf);
 }

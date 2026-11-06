@@ -1311,7 +1311,8 @@ int automode(int f, int n)
 			CSTR("No more memory"));
 		return(FALSE);
 	}
-	pattbl[npatent].pat = strcpy(q, p);
+	snprintf(q, strlen(p) + 1, "%s", p);
+	pattbl[npatent].pat = q;
 	pattbl[npatent++].mode = mode;
 	return(TRUE);
 }

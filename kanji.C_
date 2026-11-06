@@ -126,7 +126,8 @@ safec(char *c)
 
 	if (!(cc = malloc((unsigned)strlen(c)+1)))
 		return NULL;
-	return strcpy(cc, c);
+	snprintf(cc, strlen(c) + 1, "%s", c);
+	return cc;
 }
 
 #endif /*KANJI*/

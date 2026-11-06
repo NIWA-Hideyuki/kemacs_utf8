@@ -702,6 +702,12 @@ int execfile(int f, int n)	/* execute a series of commands in a file */
 	int status;	/* return status of name query */
 	Char fname[NSTRING];	/* name of file to execute */
 
+#if	RESTRICT
+	/* don't allow this command if restricted */
+	if (restflag)
+		return(resterr());
+#endif
+
 	if ((status = mlreply(
 #if KMSGS
 			kterminal? CSTR("実行するファイル名: "):

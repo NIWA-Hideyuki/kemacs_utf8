@@ -54,8 +54,14 @@ int spawncli(int f, int n)
 }
 
 #ifdef SIGTSTP
-int bktoshell(void)		/* suspend MicroEMACS and wait to wake up */
+int bktoshell(void)	/* suspend MicroEMACS and wait to wake up */
 {
+#if	RESTRICT
+	/* don't allow this command if restricted */
+	if (restflag)
+		return(resterr());
+#endif
+
 	movecursor(term.t_nrow, 0);		/* Seek to last line.	*/
 	TTflush();
 
@@ -157,7 +163,7 @@ int pipecmd(int f, int n)
 	}
 
 	/* make temporal dir */
-	strcpy(tmpdirname, tmpdirtmpl);
+	snprintf(tmpdirname, sizeof(tmpdirname), "%s", tmpdirtmpl);
 	if(mkdtemp(tmpdirname) == NULL) return(FALSE);
 	chmod(tmpdirname, 0700); /* in case umask is like 0266... :-) */
 	snprintf(tmpfilnam, sizeof(tmpfilnam), "%s/%s", tmpdirname, tmpfilbas);
@@ -234,7 +240,7 @@ int filter(int f, int n)
 		return(s);
 
 	/* make temporal dir */
-	strcpy(tmpdirname, tmpdirtmpl);
+	snprintf(tmpdirname, sizeof(tmpdirname), "%s", tmpdirtmpl);
 	if(mkdtemp(tmpdirname) == NULL) return(FALSE);
 	chmod(tmpdirname, 0700); /* in case umask is like 0266... :-) */
 	snprintf(tmpfilnam1, sizeof(tmpfilnam1), "%s/%s", tmpdirname, tmpfilbas1);
@@ -365,6 +371,12 @@ System(char * cmd, bool via_shell_p, char * inf, char * outf)
 {
 
     int s;
+
+#if	RESTRICT
+    /* don't allow shell execution if restricted */
+    if (restflag)
+	return(resterr());
+#endif
 #if	CLOCK
     SIGRET_T (*f)();
     unsigned t;

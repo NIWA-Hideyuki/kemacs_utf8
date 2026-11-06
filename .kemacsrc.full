@@ -110,9 +110,8 @@ bind-to-key execute-macro-40 M-T
 		write-message &cat "~nArgs: " %args
 	!endif
 	write-message "~nCompiling...~r~n"
-	set %args &cat " " %args
-	set %args &cat $cfname %args
-	shell-command &cat "exec /usr/local/lib/kemacs/ccg " %args 
+	set %args &cat &shell-command-escape $cfname " " %args
+	shell-command &cat "exec /usr/local/lib/kemacs/ccg " %args
 !endm
 bind-to-key execute-macro-39	M-E
 

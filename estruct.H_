@@ -35,7 +35,7 @@
 #define	AEDIT	1	/* advanced editing options:
 			   en/detabbing, rectangular regions [later]	*/
 #define	PROC	1	/* named procedures				*/
-#define RESTRICT 0	/* restricted use of commands			*/
+#define RESTRICT 1	/* restricted use of commands			*/
 #define CLOCK	1	/* periodically update clock on modeline	*/
 #define COMPAT	1	/* accept old version's macro definiton		*/
 #define PYMODE	1	/* Python mode: auto-indent, pyindent, etc.	*/
