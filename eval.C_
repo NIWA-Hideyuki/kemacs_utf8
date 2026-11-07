@@ -70,14 +70,34 @@ static Char *gtfun(Char *fname)  /* evaluate a function */
 	case UFNEG:	return(itoaa(-stoi(arg1)));
 	case UFCAT:	(void)Cstrcpy(result, arg1);
 			return(Cstrcat(result, arg2));
-	case UFLEFT:	(void)Cstrncpy(result, arg1, len=stoi(arg2));
-			result[len] = 0;	/* make sure null terminated */
-			return(result);
-	case UFRIGHT:	return(Cstrcpy(result, &arg1[stoi(arg2)-1]));
-	case UFMID:	(void)Cstrncpy(result, &arg1[stoi(arg2)-1],
-				len=stoi(arg3));
-			result[len] = 0;	/* make sure null terminated */
-			return(result);
+	case UFLEFT: {
+	        len = stoi(arg2);
+	        if (len < 0 || len >= 2 * NSTRING)
+	            return(errorm);
+	        (void)Cstrncpy(result, arg1, len);
+	        result[len] = 0;    /* make sure null terminated */
+	        return(result);
+	    }
+	case UFRIGHT: {
+	        int _pos = stoi(arg2);
+	        int _slen = Cstrlen(arg1);
+	        if (_pos < 1 || _pos > _slen + 1)
+	            return(errorm);
+	        return(Cstrcpy(result, &arg1[_pos - 1]));
+	    }
+	case UFMID: {
+	        int _pos = stoi(arg2);
+	        int _slen = Cstrlen(arg1);
+	        len = stoi(arg3);
+	        if (_pos < 1 || _pos > _slen + 1)
+	            return(errorm);
+	        if (len < 0 || len >= 2 * NSTRING)
+	            return(errorm);
+	        (void)Cstrncpy(result, &arg1[_pos - 1],
+	                    len);
+	        result[len] = 0;    /* make sure null terminated */
+	        return(result);
+	    }
 	case UFNOT:	return(ltos(stol(arg1) == FALSE));
 	case UFEQUAL:	return(ltos(stoi(arg1) == stoi(arg2)));
 	case UFLESS:	return(ltos(stoi(arg1) < stoi(arg2)));
