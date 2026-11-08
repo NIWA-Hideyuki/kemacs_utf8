@@ -242,10 +242,12 @@ main(int argc, char *argv[])
 #if	CRYPT
 	    /* set up for de-cryption if needed */
 	    if (eflag) {
-		curbp->b_mode |= MDCRYPT;
-		(void)copystr(&curbp->b_key, ekey);
-		cryptstr((Char *)NULL, (unsigned)0);
-		cryptstr(curbp->b_key, (unsigned)Cstrlen(curbp->b_key));
+	    	curbp->b_mode |= MDCRYPT;
+	    	(void)copystr(&curbp->b_key, ekey);
+	    	if (curbp->b_key != NULL) {
+	    		cryptstr((Char *)NULL, (unsigned)0);
+	    		cryptstr(curbp->b_key, (unsigned)Cstrlen(curbp->b_key));
+	    	}
 	    }
 #endif
 

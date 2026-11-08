@@ -115,15 +115,16 @@ utf8_to_internal(char *p, int n1)
   int cc;
 
   /* Try iconv-based UTF-8 -> EUC-JP conversion */
-  if (!conv_cd_failed && conv_cd == (iconv_t)(-1)) {
+  if (!conv_cd_failed && (conv_cd == (iconv_t)(-1) || conv_cd == NULL)) {
     conv_cd = iconv_open("EUC-JP", "UTF-8"); /* UTF-8 -> EUC-JP */
-    if (conv_cd == (iconv_t)(-1)) {
+    if (conv_cd == (iconv_t)(-1) || conv_cd == NULL) {
       conv_cd_failed = 1;
+      conv_cd = (iconv_t)(-1);
       puts("iconv_open(UTF-8 -> EUC-JP) failed; using fallback decoder\n");
     }
   }
 
-  if (!conv_cd_failed && conv_cd != (iconv_t)(-1)) {
+  if (!conv_cd_failed && conv_cd != (iconv_t)(-1) && conv_cd != NULL) {
     /* save original input for UTF-32 fallback */
     char *orig_p = p;
     size_t orig_n = n1;
@@ -155,15 +156,16 @@ utf8_to_internal(char *p, int n1)
   }
 
   /* Try UTF-8 -> UTF-32LE conversion (for non-BMP characters like emojis) */
-  if (!conv_cd_u32_failed && conv_cd_u32 == (iconv_t)(-1)) {
+  if (!conv_cd_u32_failed && (conv_cd_u32 == (iconv_t)(-1) || conv_cd_u32 == NULL)) {
     conv_cd_u32 = iconv_open("UTF-32LE", "UTF-8");
-    if (conv_cd_u32 == (iconv_t)(-1)) {
+    if (conv_cd_u32 == (iconv_t)(-1) || conv_cd_u32 == NULL) {
       conv_cd_u32_failed = 1;
+      conv_cd_u32 = (iconv_t)(-1);
       puts("iconv_open(UTF-8 -> UTF-32LE) failed; using manual fallback\n");
     }
   }
 
-  if (!conv_cd_u32_failed && conv_cd_u32 != (iconv_t)(-1)) {
+  if (!conv_cd_u32_failed && conv_cd_u32 != (iconv_t)(-1) && conv_cd_u32 != NULL) {
     char u32buf[8], *u32i = u32buf;
     size_t u32n = sizeof(u32buf);
     char *pin = p;
@@ -197,11 +199,11 @@ void
 kgetc_iconv_close(void)
 {
 #if HANDLE_UTF
-    if (conv_cd != (iconv_t)(-1)) {
+    if (conv_cd != (iconv_t)(-1) && conv_cd != NULL) {
         iconv_close(conv_cd);
         conv_cd = (iconv_t)(-1);
     }
-    if (conv_cd_u32 != (iconv_t)(-1)) {
+    if (conv_cd_u32 != (iconv_t)(-1) && conv_cd_u32 != NULL) {
         iconv_close(conv_cd_u32);
         conv_cd_u32 = (iconv_t)(-1);
     }

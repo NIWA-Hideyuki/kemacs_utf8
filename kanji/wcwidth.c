@@ -292,14 +292,15 @@ jis_to_codepoint(unsigned int jis)
     int len, cp;
 
     /* Lazy-init iconv handle (EUC-JP -> UTF-8) */
-    if (!conv_j2u_failed && conv_j2u == (iconv_t)(-1)) {
+    if (!conv_j2u_failed && (conv_j2u == (iconv_t)(-1) || conv_j2u == NULL)) {
         conv_j2u = iconv_open("UTF-8", "EUC-JP");
-        if (conv_j2u == (iconv_t)(-1)) {
+        if (conv_j2u == (iconv_t)(-1) || conv_j2u == NULL) {
             conv_j2u_failed = 1;
+            conv_j2u = (iconv_t)(-1);
             return -1;
         }
     }
-    if (conv_j2u_failed)
+    if (conv_j2u_failed || conv_j2u == (iconv_t)(-1) || conv_j2u == NULL)
         return -1;
 
     /* Reconstruct EUC-JP bytes from JIS code (add 0x80 to each byte) */
@@ -338,7 +339,7 @@ jis_to_codepoint(unsigned int jis)
 void
 wcwidth_iconv_close(void)
 {
-    if (conv_j2u != (iconv_t)(-1)) {
+    if (conv_j2u != (iconv_t)(-1) && conv_j2u != NULL) {
         iconv_close(conv_j2u);
         conv_j2u = (iconv_t)(-1);
     }

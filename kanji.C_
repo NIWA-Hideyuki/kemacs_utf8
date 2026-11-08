@@ -31,6 +31,8 @@ int kfopen(FILE * ffp, unsigned code)
 {
 
   kfp = kopen(ffp, code, 0);
+  if (kfp == NULL) return -1;
+  return 0;
 }
 
 /*
@@ -41,10 +43,13 @@ int kfopen(FILE * ffp, unsigned code)
 unsigned
 kfclose(void)
 {
-  unsigned code;
+  unsigned code = 0;
 
-  code = KS_VALUE(kfp->ks_flag);
-  kclose(kfp);
+  if (kfp != NULL) {
+    code = KS_VALUE(kfp->ks_flag);
+    kclose(kfp);
+    kfp = NULL;
+  }
   return code;
 }
 

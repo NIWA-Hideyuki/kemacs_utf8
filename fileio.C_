@@ -25,14 +25,14 @@ int ffropen(Char *fn)
 
 #if KANJI
 	(void)snprintf(fn1, sizeof(fn1), "%s", cfromC(fn));
-	if ((ffp=fopen(fn1, "r")) == NULL) return (FIOFNF);
+	if ((ffp=fopen(fn1, "r")) == NULL) { ffp = NULL; return (FIOFNF); }
 	KS_VALUE(cc) = code;
 	KS_THRU(cc) = 1; /* thru for file */
 	if (KS_INTERP(cc) != KS_BINARY) KS_INTERP(cc) = KS_UKANJI;
 	KS_EOLINT(cc) = KS_EOLUK;
-	kfopen(ffp, KS_VALUE(cc));
+	if (kfopen(ffp, KS_VALUE(cc)) != 0) { ffp = NULL; return (FIOERR); }
 #else
-	if ((ffp=fopen(fn, "r")) == NULL) return (FIOFNF);
+	if ((ffp=fopen(fn, "r")) == NULL) { ffp = NULL; return (FIOFNF); }
 #endif
 	return (FIOSUC);
 }
@@ -53,18 +53,19 @@ int ffwopen(Char *fn)
 # if KANJI
 	(void)snprintf(fn1, sizeof(fn1), "%s", cfromC(fn));
 	if ((ffp=fopen(fn1, "w")) == NULL) {
-# else
+#else
 	if ((ffp=fopen(fn, "w")) == NULL) {
-# endif
+#endif
+		ffp = NULL;
 		mlwrite(
 #if KANJI
-		    kterminal? CSTR("ファイルを書き込み用にオープンできません"):
+		    kterminal? CSTR("\x1b$B%U%!%$%k$r=q$-9~$_MQ$K%*!<%W%s$G$-$^$;$s\x1b(J"):
 #endif
 		    CSTR("Cannot open file for writing"));
 		return (FIOERR);
 	}
 #if KANJI
-	kfopen(ffp, code);
+	if (kfopen(ffp, code) != 0) { ffp = NULL; return (FIOERR); }
 #endif
 	return (FIOSUC);
 }
@@ -84,14 +85,17 @@ int ffclose(void)
   cc = kfclose();		/* close kanji stream */
   if (code != NULL) *code = cc;
 #endif
-  if (fclose(ffp)) {
-    mlwrite(
+  if (ffp != NULL) {
+    if (fclose(ffp)) {
+      mlwrite(
 #if KMSGS
-	    kterminal? CSTR("ファイル クローズ エラー"):
+	  kterminal? CSTR("\x1b$B%U%!%$%k\x1b(J \x1b$B%/%m!<%:\x1b(J \x1b$B%(%i!<\x1b(J"):
 #endif
-	    CSTR("Error closing file"));
-    return(FIOERR);
+	  CSTR("Error closing file"));
+      return(FIOERR);
+    }
   }
+  ffp = NULL;
   return(FIOSUC);
 }
 

@@ -18,6 +18,9 @@ int setcrkey(int f, int n)	/* reset encryption key of current buffer */
 	int odisinp;		/* original value of disinp */
 	Char key[NPAT];		/* new encryption string */
 
+	if (curbp == NULL || curbp->b_key == NULL)
+		return (FALSE);
+
 	/* turn command input echo off */
 	odisinp = disinp;
 	disinp = FALSE;

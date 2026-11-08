@@ -60,15 +60,16 @@ ujis_to_utf8(char *q, int n1, char **pp)
 {
 	size_t l = MAX_U8LEN /* *pp must have MAX_U8LEN bytes space */, n = n1;
 
-	if (!conv_wcd_failed && conv_wcd == (iconv_t)(-1)) {
+	if (!conv_wcd_failed && (conv_wcd == (iconv_t)(-1) || conv_wcd == NULL)) {
 		conv_wcd = iconv_open("UTF-8", "EUC-JP"); /* EUC-JP -> UTF-8 */
-		if (conv_wcd == (iconv_t)(-1)) {
+		if (conv_wcd == (iconv_t)(-1) || conv_wcd == NULL) {
 			conv_wcd_failed = 1;
+			conv_wcd = (iconv_t)(-1);
 			puts("iconv_open(EUC-JP -> UTF-8) failed; using fallback\n");
 		}
 	}
 
-	if (!conv_wcd_failed && conv_wcd != (iconv_t)(-1)) {
+	if (!conv_wcd_failed && conv_wcd != (iconv_t)(-1) && conv_wcd != NULL) {
 		if (-1 != iconv(conv_wcd, &q, &n, pp, &l)) {
 			return 1; /* *pp proceeded */
 		}
@@ -84,7 +85,7 @@ void
 kputc_iconv_close(void)
 {
 #if HANDLE_UTF
-    if (conv_wcd != (iconv_t)(-1)) {
+    if (conv_wcd != (iconv_t)(-1) && conv_wcd != NULL) {
         iconv_close(conv_wcd);
         conv_wcd = (iconv_t)(-1);
     }

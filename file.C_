@@ -124,12 +124,15 @@ int resetkey(void)	/* reset the encryption key if needed */
 {
 	int s;	/* return status */
 
+	if (curbp == NULL)
+		return (TRUE);
+
 	/* turn off the encryption flag */
 	cryptflag = FALSE;
 
 	/* if we are in crypt mode */
 	if (curbp->b_mode & MDCRYPT) {
-		if (curbp->b_key[0] == 0) {
+		if (curbp->b_key == NULL || curbp->b_key[0] == 0) {
 			s = setcrkey(FALSE, 0);
 			if (s != TRUE)
 				return(s);
@@ -139,6 +142,9 @@ int resetkey(void)	/* reset the encryption key if needed */
 		cryptflag = TRUE;
 
 		/* and set up the key to be used! */
+		if (curbp->b_key == NULL)
+			return (FALSE);
+
 		/* de-encrypt it */
 		cryptstr((Char *)NULL, (unsigned)0);
 		cryptstr(curbp->b_key, (unsigned)Cstrlen(curbp->b_key));
