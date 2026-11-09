@@ -110,10 +110,10 @@ test_memory_safety: test_memory_safety.c test.h $(CSSO)  \
 	$(CC) $(CFLAGS) $(SANFLAGS) test_memory_safety.c $(CSSO) \
 		$(SANLDFLAGS) -o test_memory_safety
 
-all: test_kanji test_search test_line test_eval test_undo test_python test_cmode test_batch test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow test_memory_safety
+all: test_kanji test_search test_line test_eval test_undo test_python test_cmode test_batch test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow test_memory_safety test_tcap test_spawn test_fileio
 
 run: all
-	@for t in test_kanji test_search test_line test_eval test_undo test_python test_cmode test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow; do \
+	@for t in test_kanji test_search test_line test_eval test_undo test_python test_cmode test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow test_tcap test_spawn test_fileio; do \
 		echo "=== Running $$t ==="; \
 		./$$t || exit 1; \
 	done
@@ -126,5 +126,18 @@ run: all
 	@echo ""
 	@echo "=== All tests passed ==="
 
+# --- test_tcap ---
+test_tcap: test_tcap.c ../Css.o
+	$(CC) $(CFLAGS) test_tcap.c ../Css.o -lncurses -o test_tcap
+
+# --- test_spawn ---
+test_spawn: test_spawn.c ../Css.o $(CSTR_A) $(KANJI_A)
+	$(CC) $(CFLAGS) test_spawn.c ../Css.o $(CSTR_A) $(KANJI_A) -o test_spawn
+
+# --- test_fileio ---
+test_fileio: test_fileio.c ../kanji.o ../Css.o $(CSTR_A) $(KANJI_A)
+	$(CC) $(CFLAGS) test_fileio.c ../kanji.o ../Css.o $(CSTR_A) $(KANJI_A) -o test_fileio
+
+
 clean:
-	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_modeline_gutter test_python test_cmode test_screen_no_overflow test_memory_safety test_undo
+	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_modeline_gutter test_python test_cmode test_screen_no_overflow test_memory_safety test_undo test_tcap test_spawn test_fileio

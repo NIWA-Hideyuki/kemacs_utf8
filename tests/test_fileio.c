@@ -1,0 +1,105 @@
+#include "test.h"
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+
+int mlwrite();
+
+#define maindef
+#include "../ecomm.h"
+#include "../estruct.h"
+#include "../edef.h"
+#include "../fileio.c"
+#undef maindef
+
+int mlwrite() { return TRUE; }
+TERM term;
+
+static void test_ffropen_missing(void)
+{
+    Char *fn = Cfromc("/tmp/kemacs_fileio_no_such_file_xyz.txt");
+    int rc = ffropen(fn, 0);
+    TEST_ASSERT_INT(rc, FIOFNF, "missing file returns FIOFNF");
+    Free(fn);
+}
+
+static void test_roundtrip(void)
+{
+    char tmpname[] = "/tmp/kemacs_fileio_roundtrip.txt";
+    Char *fn = Cfromc(tmpname);
+    Char buf[NLINE];
+    int rc;
+    rc = ffwopen(fn, 0);
+    TEST_ASSERT_INT(rc, FIOSUC, "ffwopen success");
+    Char line[] = {'h','i',0};
+    rc = ffputline(line, 2);
+    TEST_ASSERT_INT(rc, FIOSUC, "ffputline success");
+    rc = ffclose(NULL);
+    TEST_ASSERT_INT(rc, FIOSUC, "ffclose write success");
+    rc = ffropen(fn, 0);
+    TEST_ASSERT_INT(rc, FIOSUC, "ffropen success");
+    rc = ffgetline(buf, NLINE);
+    TEST_ASSERT_INT(rc, FIOSUC, "ffgetline success");
+    TEST_ASSERT_INT(buf[0], (Char)'h', "content[0]");
+    TEST_ASSERT_INT(buf[1], (Char)'i', "content[1]");
+    TEST_ASSERT_INT(buf[2], 0, "content null-terminated");
+    rc = ffclose(NULL);
+    TEST_ASSERT_INT(rc, FIOSUC, "ffclose read success");
+    unlink(tmpname);
+    Free(fn);
+}
+
+static void test_ffgetline_eof(void)
+{
+    char tmpname[] = "/tmp/kemacs_fileio_empty.txt";
+    FILE *f = fopen(tmpname, "w"); if (f) fclose(f);
+    Char *fn = Cfromc(tmpname);
+    Char buf[NLINE];
+    int rc;
+    rc = ffropen(fn, 0);
+    TEST_ASSERT_INT(rc, FIOSUC, "open empty");
+    rc = ffgetline(buf, NLINE);
+    TEST_ASSERT_INT(rc, FIOEOF, "empty file returns FIOEOF");
+    rc = ffclose(NULL);
+    TEST_ASSERT_INT(rc, FIOSUC, "close");
+    unlink(tmpname);
+    Free(fn);
+}
+
+static void test_ffgetline_long(void)
+{
+    char tmpname[] = "/tmp/kemacs_fileio_long.txt";
+    FILE *f = fopen(tmpname, "w");
+    if (f) { fputs("abcdefghijklmnopqrstuvwxyz", f); fclose(f); }
+    Char *fn = Cfromc(tmpname);
+    Char buf[8];
+    int rc;
+    rc = ffropen(fn, 0);
+    TEST_ASSERT_INT(rc, FIOSUC, "open long");
+    rc = ffgetline(buf, 8);
+    TEST_ASSERT_INT(rc, FIOLNG, "long line returns FIOLNG");
+    rc = ffclose(NULL);
+    TEST_ASSERT_INT(rc, FIOSUC, "close");
+    unlink(tmpname);
+    Free(fn);
+}
+
+static void test_ffclose_null(void)
+{
+    int rc = ffclose(NULL);
+    TEST_ASSERT_INT(rc, FIOSUC, "ffclose on NULL ffp returns success");
+}
+
+TEST_LIST({
+    {"test_ffropen_missing", test_ffropen_missing},
+    {"test_roundtrip", test_roundtrip},
+    {"test_ffgetline_eof", test_ffgetline_eof},
+    {"test_ffgetline_long", test_ffgetline_long},
+    {"test_ffclose_null", test_ffclose_null}
+})
+
+int main(void)
+{
+    RUN_TESTS();
+}
