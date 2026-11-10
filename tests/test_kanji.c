@@ -556,6 +556,130 @@ static void test_hiragana_katakana_width(void)
     TEST_ASSERT_INT(char_width(0x0141), 1, "half-width katakana 0x0141 still narrow");
 }
 
+/* ================================================================ */
+/*  SJIS: kdetermine, kgetc, kputc                                 */
+/* ================================================================ */
+
+/* ---- in-memory input stream helpers for SJIS kgetc tests ---- */
+typedef struct { const unsigned char *data; int len; int pos; } sjis_in_t;
+
+static int sjis_get(caddr_t id, char *buf, int len)
+{
+    sjis_in_t *in = (sjis_in_t *)id;
+    int avail = in->len - in->pos;
+    int n;
+    if (avail <= 0) return -1;
+    n = (len < avail) ? len : avail;
+    memcpy(buf, in->data + in->pos, (size_t)n);
+    in->pos += n;
+    return n;
+}
+
+static int run_kgetc_sjis(const unsigned char *data, int len, int *out, int outcap)
+{
+    KSTREAM ks;
+    sjis_in_t in;
+    int n = 0, c;
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = (caddr_t)&in;
+    ks.ks_getf = sjis_get;
+    in.data = data; in.len = len; in.pos = 0;
+    KS_CODE(ks.ks_flag) = KS_SJIS;
+    KS_THRU(ks.ks_flag) = 1;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    while ((c = kgetc(&ks)) != EOF && n < outcap)
+        out[n++] = c;
+    return n;
+}
+
+/* ---- output capture helpers for SJIS kputc tests ---- */
+static char sjis_putbuf[256];
+static int sjis_putlen = 0;
+
+static int sjis_put(caddr_t id, char *buf, int len)
+{
+    if (sjis_putlen + len < (int)sizeof(sjis_putbuf)) {
+        memcpy(sjis_putbuf + sjis_putlen, buf, len);
+        sjis_putlen += len;
+    }
+    return len;
+}
+
+static void sjis_put_reset(void)
+{
+    sjis_putlen = 0;
+    sjis_putbuf[0] = '\0';
+}
+
+static void test_kdetermine_sjis(void)
+{
+    char d1[2] = { (char)0x82, (char)0xA0 };
+
+    TEST_ASSERT_INT(kdetermine(d1, 2), KS_SJIS, "kdetermine SJIS a");
+}
+
+static void test_kgetc_sjis_kanji(void)
+{
+    unsigned char data[] = { 0x82, 0xA0 };
+    int out[16];
+    int n = run_kgetc_sjis(data, 2, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc SJIS kanji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc SJIS kanji value");
+}
+
+static void test_kgetc_sjis_kana(void)
+{
+    unsigned char data[] = { 0xA1 };
+    int out[16];
+    int n = run_kgetc_sjis(data, 1, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc SJIS kana count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x0121, "kgetc SJIS kana value");
+}
+
+static void test_kputc_sjis_kanji(void)
+{
+    KSTREAM ks;
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = NULL;
+    ks.ks_putf = sjis_put;
+    KS_CODE(ks.ks_flag) = KS_SJIS;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    KS_THRU(ks.ks_flag) = 1;
+    ks.ks_pstate = NORMAL;
+
+    sjis_put_reset();
+    kputc(0x2422, &ks);
+
+    TEST_ASSERT_INT(sjis_putlen, 2, "kputc SJIS kanji length");
+    if (sjis_putlen >= 2) {
+        TEST_ASSERT_EQ((unsigned char)sjis_putbuf[0], 0x82, "kputc SJIS kanji byte0");
+        TEST_ASSERT_EQ((unsigned char)sjis_putbuf[1], 0xA0, "kputc SJIS kanji byte1");
+    }
+}
+
+static void test_kputc_sjis_kana(void)
+{
+    KSTREAM ks;
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = NULL;
+    ks.ks_putf = sjis_put;
+    KS_CODE(ks.ks_flag) = KS_SJIS;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    KS_THRU(ks.ks_flag) = 1;
+    ks.ks_pstate = NORMAL;
+
+    sjis_put_reset();
+    kputc(0x0121, &ks);
+
+    TEST_ASSERT_INT(sjis_putlen, 1, "kputc SJIS kana length");
+    if (sjis_putlen >= 1)
+        TEST_ASSERT_EQ((unsigned char)sjis_putbuf[0], 0xA1, "kputc SJIS kana byte0");
+}
+
 TEST_LIST({
     {"stoj/jtos known pairs",  test_stoj_jtos_known},
     {"stoj/jtos round-trip",   test_stoj_jtos_roundtrip},
@@ -581,6 +705,11 @@ TEST_LIST({
     {"iscombchar",             test_iscombchar},
     {"char_width 8bit",        test_char_width_8bit},
     {"hiragana/katakana width",  test_hiragana_katakana_width},
+    {"kdetermine SJIS",         test_kdetermine_sjis},
+    {"kgetc SJIS kanji",       test_kgetc_sjis_kanji},
+    {"kgetc SJIS kana",        test_kgetc_sjis_kana},
+    {"kputc SJIS kanji",       test_kputc_sjis_kanji},
+    {"kputc SJIS kana",        test_kputc_sjis_kana},
 })
 
 int main(void)
