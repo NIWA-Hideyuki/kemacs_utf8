@@ -560,31 +560,35 @@ static void test_hiragana_katakana_width(void)
 /*  SJIS: kdetermine, kgetc, kputc                                 */
 /* ================================================================ */
 
-/* ---- in-memory input stream helpers for SJIS kgetc tests ---- */
-typedef struct { const unsigned char *data; int len; int pos; } sjis_in_t;
+/* ---- in-memory input stream helpers for kgetc tests ---- */
+typedef struct { const unsigned char *data; int len; int pos; int chunk; } mem_in_t;
 
-static int sjis_get(caddr_t id, char *buf, int len)
+static int mem_get(caddr_t id, char *buf, int len)
 {
-    sjis_in_t *in = (sjis_in_t *)id;
+    mem_in_t *in = (mem_in_t *)id;
     int avail = in->len - in->pos;
     int n;
     if (avail <= 0) return -1;
     n = (len < avail) ? len : avail;
+    if (in->chunk > 0 && n > in->chunk) n = in->chunk;
     memcpy(buf, in->data + in->pos, (size_t)n);
     in->pos += n;
     return n;
 }
 
-static int run_kgetc_sjis(const unsigned char *data, int len, int *out, int outcap)
+/* Run kgetc over an in-memory buffer.  chunk > 0 limits each read to
+   that many bytes, exercising the broken-multibyte ks_buf path. */
+static int run_kgetc_code(const unsigned char *data, int len, int code,
+                          int chunk, int *out, int outcap)
 {
     KSTREAM ks;
-    sjis_in_t in;
+    mem_in_t in;
     int n = 0, c;
     memset(&ks, 0, sizeof ks);
     ks.ks_id = (caddr_t)&in;
-    ks.ks_getf = sjis_get;
-    in.data = data; in.len = len; in.pos = 0;
-    KS_CODE(ks.ks_flag) = KS_SJIS;
+    ks.ks_getf = mem_get;
+    in.data = data; in.len = len; in.pos = 0; in.chunk = chunk;
+    KS_CODE(ks.ks_flag) = code;
     KS_THRU(ks.ks_flag) = 1;
     KS_INTERP(ks.ks_flag) = KS_KANJI;
     while ((c = kgetc(&ks)) != EOF && n < outcap)
@@ -592,23 +596,34 @@ static int run_kgetc_sjis(const unsigned char *data, int len, int *out, int outc
     return n;
 }
 
-/* ---- output capture helpers for SJIS kputc tests ---- */
-static char sjis_putbuf[256];
-static int sjis_putlen = 0;
-
-static int sjis_put(caddr_t id, char *buf, int len)
+static int run_kgetc_sjis(const unsigned char *data, int len, int *out, int outcap)
 {
-    if (sjis_putlen + len < (int)sizeof(sjis_putbuf)) {
-        memcpy(sjis_putbuf + sjis_putlen, buf, len);
-        sjis_putlen += len;
+    return run_kgetc_code(data, len, KS_SJIS, 0, out, outcap);
+}
+
+static int run_kgetc_ujis(const unsigned char *data, int len, int chunk,
+                          int *out, int outcap)
+{
+    return run_kgetc_code(data, len, KS_UJIS, chunk, out, outcap);
+}
+
+/* ---- output capture helpers for kputc tests ---- */
+static char cap_buf[256];
+static int cap_len = 0;
+
+static int cap_put(caddr_t id, char *buf, int len)
+{
+    if (cap_len + len < (int)sizeof(cap_buf)) {
+        memcpy(cap_buf + cap_len, buf, len);
+        cap_len += len;
     }
     return len;
 }
 
-static void sjis_put_reset(void)
+static void cap_reset(void)
 {
-    sjis_putlen = 0;
-    sjis_putbuf[0] = '\0';
+    cap_len = 0;
+    cap_buf[0] = '\0';
 }
 
 static void test_kdetermine_sjis(void)
@@ -645,19 +660,19 @@ static void test_kputc_sjis_kanji(void)
     KSTREAM ks;
     memset(&ks, 0, sizeof ks);
     ks.ks_id = NULL;
-    ks.ks_putf = sjis_put;
+    ks.ks_putf = cap_put;
     KS_CODE(ks.ks_flag) = KS_SJIS;
     KS_INTERP(ks.ks_flag) = KS_KANJI;
     KS_THRU(ks.ks_flag) = 1;
     ks.ks_pstate = NORMAL;
 
-    sjis_put_reset();
+    cap_reset();
     kputc(0x2422, &ks);
 
-    TEST_ASSERT_INT(sjis_putlen, 2, "kputc SJIS kanji length");
-    if (sjis_putlen >= 2) {
-        TEST_ASSERT_EQ((unsigned char)sjis_putbuf[0], 0x82, "kputc SJIS kanji byte0");
-        TEST_ASSERT_EQ((unsigned char)sjis_putbuf[1], 0xA0, "kputc SJIS kanji byte1");
+    TEST_ASSERT_INT(cap_len, 2, "kputc SJIS kanji length");
+    if (cap_len >= 2) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0x82, "kputc SJIS kanji byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0xA0, "kputc SJIS kanji byte1");
     }
 }
 
@@ -666,18 +681,345 @@ static void test_kputc_sjis_kana(void)
     KSTREAM ks;
     memset(&ks, 0, sizeof ks);
     ks.ks_id = NULL;
-    ks.ks_putf = sjis_put;
+    ks.ks_putf = cap_put;
     KS_CODE(ks.ks_flag) = KS_SJIS;
     KS_INTERP(ks.ks_flag) = KS_KANJI;
     KS_THRU(ks.ks_flag) = 1;
     ks.ks_pstate = NORMAL;
 
-    sjis_put_reset();
+    cap_reset();
     kputc(0x0121, &ks);
 
-    TEST_ASSERT_INT(sjis_putlen, 1, "kputc SJIS kana length");
-    if (sjis_putlen >= 1)
-        TEST_ASSERT_EQ((unsigned char)sjis_putbuf[0], 0xA1, "kputc SJIS kana byte0");
+    TEST_ASSERT_INT(cap_len, 1, "kputc SJIS kana length");
+    if (cap_len >= 1)
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xA1, "kputc SJIS kana byte0");
+}
+
+/* ================================================================ */
+/*  EUC-JP (UJIS): kdetermine, kgetc, kputc, ujis_to_utf8           */
+/* ================================================================ */
+
+/* EUC-JP encodes JIS X 0208 as two bytes 0xA1-0xFE (JIS byte | 0x80),
+   JIS X 0201 half-width kana as SSHFT2 (0x8E) + (kana byte | 0x80),
+   and JIS X 0212 as SSHFT3 (0x8F) + two bytes.  kemacs' internal
+   encoding stores JIS X 0208 as 0x2121-0x7E7E and half-width kana as
+   0x0100-0x017F. */
+
+static void test_kdetermine_ujis(void)
+{
+    /* 0xFE and 0xFD are valid EUC-JP lead bytes but not valid SJIS
+       lead bytes (SJIS leads are 0x81-0xFC).  0xFE is also invalid as
+       a UTF-8 lead byte, so kdetermine can decide UJIS immediately;
+       0xFD starts a (bogus) 5-byte UTF-8 sequence, so a trail byte
+       outside the UTF-8 continuation range (0x80-0xBF) is needed to
+       rule UTF-8 out. */
+    char d1[2] = { (char)0xFE, (char)0xA1 };
+    TEST_ASSERT_INT(kdetermine(d1, 2), KS_UJIS, "kdetermine UJIS 0xFE lead");
+
+    char d2[2] = { (char)0xFD, (char)0xC0 };
+    TEST_ASSERT_INT(kdetermine(d2, 2), KS_UJIS, "kdetermine UJIS 0xFD lead");
+
+    /* 0xA4 0xA2 (EUC-JP あ) is also a valid pair of SJIS half-width
+       kana bytes, so kdetermine cannot decide and returns -1. */
+    char d3[2] = { (char)0xA4, (char)0xA2 };
+    TEST_ASSERT_INT(kdetermine(d3, 2), -1, "kdetermine ambiguous EUC/SJIS");
+}
+
+static void test_kgetc_ujis_kanji(void)
+{
+    unsigned char data[] = { 0xA4, 0xA2 };  /* あ */
+    int out[16];
+    int n = run_kgetc_ujis(data, 2, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UJIS kanji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc UJIS kanji value");
+}
+
+static void test_kgetc_ujis_katakana(void)
+{
+    unsigned char data[] = { 0xA5, 0xA2 };  /* ア */
+    int out[16];
+    int n = run_kgetc_ujis(data, 2, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UJIS katakana count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2522, "kgetc UJIS katakana value");
+}
+
+static void test_kgetc_ujis_fullwidth_space(void)
+{
+    unsigned char data[] = { 0xA1, 0xA1 };  /* fullwidth space */
+    int out[16];
+    int n = run_kgetc_ujis(data, 2, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UJIS fullwidth space count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2121, "kgetc UJIS fullwidth space value");
+}
+
+static void test_kgetc_ujis_halfwidth_kana(void)
+{
+    unsigned char data[] = { 0x8E, 0xA1 };  /* SSHFT2 + ｡ */
+    int out[16];
+    int n = run_kgetc_ujis(data, 2, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UJIS half-width kana count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x0121, "kgetc UJIS half-width kana value");
+}
+
+static void test_kgetc_ujis_mixed_ascii(void)
+{
+    unsigned char data[] = { 'A', 0xA4, 0xA2, 'B' };
+    int out[16];
+    int n = run_kgetc_ujis(data, 4, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 3, "kgetc UJIS mixed count");
+    if (n == 3) {
+        TEST_ASSERT_INT(out[0], 'A', "kgetc UJIS mixed byte 0");
+        TEST_ASSERT_INT(out[1], 0x2422, "kgetc UJIS mixed kanji");
+        TEST_ASSERT_INT(out[2], 'B', "kgetc UJIS mixed byte 2");
+    }
+}
+
+static void test_kgetc_ujis_broken_lead(void)
+{
+    /* A lone EUC-JP lead byte at EOF is flushed unchanged. */
+    unsigned char data[] = { 0xA4 };
+    int out[16];
+    int n = run_kgetc_ujis(data, 1, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UJIS broken lead count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0xA4, "kgetc UJIS broken lead byte");
+}
+
+static void test_kgetc_ujis_split_reads(void)
+{
+    /* chunk=1 forces lead and trail bytes into separate reads,
+       exercising the ks_buf broken-character recombination path. */
+    unsigned char kanji[] = { 0xA4, 0xA2 };
+    unsigned char kana[] = { 0x8E, 0xA1 };
+    int out[16];
+    int n;
+
+    n = run_kgetc_ujis(kanji, 2, 1, out, 16);
+    TEST_ASSERT_INT(n, 1, "kgetc UJIS split kanji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc UJIS split kanji value");
+
+    n = run_kgetc_ujis(kana, 2, 1, out, 16);
+    TEST_ASSERT_INT(n, 1, "kgetc UJIS split kana count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x0121, "kgetc UJIS split kana value");
+}
+
+static void test_kgetc_ujis_autodetect(void)
+{
+    /* KS_UKANJI lets kgetc call kdetermine; 0xFE 0xA1 is unambiguous
+       UJIS and decodes to internal 0x7E21 (JIS row 0x7E, cell 0x21). */
+    KSTREAM ks;
+    mem_in_t in;
+    unsigned char data[] = { 0xFE, 0xA1 };
+    int c;
+
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = (caddr_t)&in;
+    ks.ks_getf = mem_get;
+    in.data = data; in.len = 2; in.pos = 0; in.chunk = 0;
+    KS_THRU(ks.ks_flag) = 1;
+    KS_INTERP(ks.ks_flag) = KS_UKANJI;
+
+    c = kgetc(&ks);
+    TEST_ASSERT_INT(c, 0x7E21, "kgetc auto-detect UJIS value");
+    TEST_ASSERT_INT(KS_CODE(ks.ks_flag), KS_UJIS, "kdetermine selected KS_UJIS");
+}
+
+static void test_kputc_ujis_kanji(void)
+{
+    KSTREAM ks;
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = NULL;
+    ks.ks_putf = cap_put;
+    KS_CODE(ks.ks_flag) = KS_UJIS;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    KS_THRU(ks.ks_flag) = 1;
+    ks.ks_pstate = NORMAL;
+
+    cap_reset();
+    kputc(0x2422, &ks);
+
+    TEST_ASSERT_INT(cap_len, 2, "kputc UJIS kanji length");
+    if (cap_len >= 2) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xA4, "kputc UJIS kanji byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0xA2, "kputc UJIS kanji byte1");
+    }
+}
+
+static void test_kputc_ujis_halfwidth_kana(void)
+{
+    KSTREAM ks;
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = NULL;
+    ks.ks_putf = cap_put;
+    KS_CODE(ks.ks_flag) = KS_UJIS;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    KS_THRU(ks.ks_flag) = 1;
+    ks.ks_pstate = NORMAL;
+
+    cap_reset();
+    kputc(0x0121, &ks);
+
+    TEST_ASSERT_INT(cap_len, 2, "kputc UJIS half-width kana length");
+    if (cap_len >= 2) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0x8E, "kputc UJIS kana byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0xA1, "kputc UJIS kana byte1");
+    }
+}
+
+static void test_kputc_ujis_ascii(void)
+{
+    KSTREAM ks;
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = NULL;
+    ks.ks_putf = cap_put;
+    KS_CODE(ks.ks_flag) = KS_UJIS;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    KS_THRU(ks.ks_flag) = 1;
+    ks.ks_pstate = NORMAL;
+
+    cap_reset();
+    kputc('A', &ks);
+
+    TEST_ASSERT_INT(cap_len, 1, "kputc UJIS ascii length");
+    if (cap_len >= 1)
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0x41, "kputc UJIS ascii byte");
+}
+
+static void test_ujis_roundtrip(void)
+{
+    struct { unsigned char bytes[2]; int internal; } cases[] = {
+        { { 0xA4, 0xA2 }, 0x2422 },  /* あ */
+        { { 0xA5, 0xA2 }, 0x2522 },  /* ア */
+        { { 0xBD, 0xA9 }, 0x3D29 },  /* 秋 */
+        { { 0xA1, 0xA1 }, 0x2121 },  /* fullwidth space */
+        { { 0x8E, 0xA1 }, 0x0121 },  /* half-width kana ｡ */
+    };
+    int i;
+
+    for (i = 0; i < (int)(sizeof cases / sizeof cases[0]); i++) {
+        KSTREAM ks;
+        int out[4], n, j;
+
+        n = run_kgetc_ujis(cases[i].bytes, 2, 0, out, 4);
+        TEST_ASSERT_INT(n, 1, "UJIS roundtrip kgetc count");
+        if (n != 1)
+            continue;
+        TEST_ASSERT_INT(out[0], cases[i].internal, "UJIS roundtrip kgetc value");
+
+        memset(&ks, 0, sizeof ks);
+        ks.ks_id = NULL;
+        ks.ks_putf = cap_put;
+        KS_CODE(ks.ks_flag) = KS_UJIS;
+        KS_INTERP(ks.ks_flag) = KS_KANJI;
+        KS_THRU(ks.ks_flag) = 1;
+        ks.ks_pstate = NORMAL;
+
+        cap_reset();
+        kputc(out[0], &ks);
+
+        TEST_ASSERT_INT(cap_len, 2, "UJIS roundtrip kputc length");
+        for (j = 0; j < 2 && j < cap_len; j++)
+            TEST_ASSERT_EQ((unsigned char)cap_buf[j], cases[i].bytes[j],
+                           "UJIS roundtrip byte");
+    }
+}
+
+static void test_ujis_to_utf8_kanji(void)
+{
+    /* EUC-JP 0xA4A2 = あ U+3042 -> UTF-8 E3 81 82 */
+    char inbuf[4];
+    char outbuf[32];
+    char *outptr = outbuf;
+    int rc, outlen;
+
+    inbuf[0] = (char)0xA4; inbuf[1] = (char)0xA2;
+    rc = ujis_to_utf8(inbuf, 2, &outptr);
+    TEST_ASSERT_INT(rc, 1, "ujis_to_utf8 kanji return");
+    outlen = outptr - outbuf;
+    TEST_ASSERT_INT(outlen, 3, "kanji should produce 3 UTF-8 bytes");
+    if (outlen == 3) {
+        TEST_ASSERT_EQ((unsigned char)outbuf[0], 0xE3, "0xA4A2 byte 0");
+        TEST_ASSERT_EQ((unsigned char)outbuf[1], 0x81, "0xA4A2 byte 1");
+        TEST_ASSERT_EQ((unsigned char)outbuf[2], 0x82, "0xA4A2 byte 2");
+    }
+}
+
+static void test_ujis_to_utf8_halfwidth_kana(void)
+{
+    /* EUC-JP 0x8E 0xA1 = half-width kana ｡ U+FF61 -> UTF-8 EF BD A1 */
+    char inbuf[4];
+    char outbuf[32];
+    char *outptr = outbuf;
+    int rc, outlen;
+
+    inbuf[0] = (char)0x8E; inbuf[1] = (char)0xA1;
+    rc = ujis_to_utf8(inbuf, 2, &outptr);
+    TEST_ASSERT_INT(rc, 1, "ujis_to_utf8 half-width kana return");
+    outlen = outptr - outbuf;
+    TEST_ASSERT_INT(outlen, 3, "half-width kana should produce 3 UTF-8 bytes");
+    if (outlen == 3) {
+        TEST_ASSERT_EQ((unsigned char)outbuf[0], 0xEF, "0x8EA1 byte 0");
+        TEST_ASSERT_EQ((unsigned char)outbuf[1], 0xBD, "0x8EA1 byte 1");
+        TEST_ASSERT_EQ((unsigned char)outbuf[2], 0xA1, "0x8EA1 byte 2");
+    }
+}
+
+static void test_kputc_utf8_kanji(void)
+{
+    /* KS_UTF8: internal kanji is converted through EUC-JP to UTF-8. */
+    KSTREAM ks;
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = NULL;
+    ks.ks_putf = cap_put;
+    KS_CODE(ks.ks_flag) = KS_UTF8;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    KS_THRU(ks.ks_flag) = 1;
+    ks.ks_pstate = NORMAL;
+
+    cap_reset();
+    kputc(0x2422, &ks);
+
+    TEST_ASSERT_INT(cap_len, 3, "kputc UTF-8 kanji length");
+    if (cap_len >= 3) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xE3, "kputc UTF-8 kanji byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0x81, "kputc UTF-8 kanji byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], 0x82, "kputc UTF-8 kanji byte2");
+    }
+}
+
+static void test_kputc_utf8_halfwidth_kana(void)
+{
+    /* KS_UTF8: internal half-width kana goes through EUC-JP SSHFT2. */
+    KSTREAM ks;
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = NULL;
+    ks.ks_putf = cap_put;
+    KS_CODE(ks.ks_flag) = KS_UTF8;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    KS_THRU(ks.ks_flag) = 1;
+    ks.ks_pstate = NORMAL;
+
+    cap_reset();
+    kputc(0x0121, &ks);
+
+    TEST_ASSERT_INT(cap_len, 3, "kputc UTF-8 half-width kana length");
+    if (cap_len >= 3) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xEF, "kputc UTF-8 kana byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0xBD, "kputc UTF-8 kana byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], 0xA1, "kputc UTF-8 kana byte2");
+    }
 }
 
 TEST_LIST({
@@ -710,6 +1052,23 @@ TEST_LIST({
     {"kgetc SJIS kana",        test_kgetc_sjis_kana},
     {"kputc SJIS kanji",       test_kputc_sjis_kanji},
     {"kputc SJIS kana",        test_kputc_sjis_kana},
+    {"kdetermine UJIS",        test_kdetermine_ujis},
+    {"kgetc UJIS kanji",       test_kgetc_ujis_kanji},
+    {"kgetc UJIS katakana",    test_kgetc_ujis_katakana},
+    {"kgetc UJIS fullwidth sp", test_kgetc_ujis_fullwidth_space},
+    {"kgetc UJIS hankaku kana", test_kgetc_ujis_halfwidth_kana},
+    {"kgetc UJIS mixed ascii", test_kgetc_ujis_mixed_ascii},
+    {"kgetc UJIS broken lead", test_kgetc_ujis_broken_lead},
+    {"kgetc UJIS split reads", test_kgetc_ujis_split_reads},
+    {"kgetc UJIS autodetect",  test_kgetc_ujis_autodetect},
+    {"kputc UJIS kanji",       test_kputc_ujis_kanji},
+    {"kputc UJIS hankaku kana", test_kputc_ujis_halfwidth_kana},
+    {"kputc UJIS ascii",       test_kputc_ujis_ascii},
+    {"UJIS roundtrip",         test_ujis_roundtrip},
+    {"ujis_to_utf8 kanji",     test_ujis_to_utf8_kanji},
+    {"ujis_to_utf8 hankaku",   test_ujis_to_utf8_halfwidth_kana},
+    {"kputc UTF-8 kanji",      test_kputc_utf8_kanji},
+    {"kputc UTF-8 hankaku",    test_kputc_utf8_halfwidth_kana},
 })
 
 int main(void)

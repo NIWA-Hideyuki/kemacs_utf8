@@ -4,27 +4,31 @@
 
 最終更新: kemacs UTF-8 ブランチ — ロケール対応ひらがな/カタカナ幅 (kana_is_wide)
 
-`make test` は `tests/` ディレクトリのサブ Makefile を呼び出し、以下の**11のテストプログラム**をビルドして順次実行する。
+`make test` は `tests/` ディレクトリのサブ Makefile を呼び出し、以下の**16のテストプログラム**をビルドして順次実行する。
 各プログラムは `test.h` フレームワークの `TEST_ASSERT*` マクロでアサーションを評価する。
 
 ## 実行結果サマリー
 
 | テストプログラム | テスト関数数 | アサーション結果 | 対象 |
 |---|---|---|---|
-|| test_kanji | 24 | 9016 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (ロケール対応 kana_is_wide) |
+|| test_kanji | 46 | 9100 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (ロケール対応 kana_is_wide) |
 || test_search | 18 | 37 成功 / 0 失敗 | 検索エンジン (scanner/amatch/mceq/eq) |
 || test_line | 12 | 65 成功 / 0 失敗 | バッファ行操作 (linsert/ldelete/lnewline) |
 ||| test_undo | 13 | 73 成功 / 0 失敗 | undo/redo システム (INSERT/DELETE/NEWLINE/JOIN) |
 ||| test_eval | 9 | 45 成功 / 0 失敗 | 式評価器ヘルパー (stoi/itoaa/gettyp/stol/ltos) |
 ||| test_python | 21 | 50 成功 / 0 失敗 | Python インデント (pyinsert/pyindent/py_backspace/py_indent_region) |
+|| test_cmode | 35 | 49 成功 / 0 失敗 | CMODE インデント (cinsert/cindent/cindent_region/c_mode) |
 ||| test_vtputc_overflow | — | 35 成功 / 0 失敗 | 画面描画・行あふれ('$')マーカー (80列, kana narrow/wide) |
 ||| test_modeline_gutter | — | 20 成功 / 0 失敗 | モデルインライン番号描画 (kana_is_wide 境界) |
 || test_display_gutter | — | 107 成功 / 0 失敗 | ガーター描画 (行番号幅・切り詰め) |
 ||| test_screen_no_overflow | — | 61 成功 / 0 失敗 | 画面描画オーバーフローなし (80列境界) |
+|| test_tcap | 12 | 15 成功 / 0 失敗 | 端末制御 (tcap / terminfo) |
+|| test_spawn | 5 | 9 成功 / 0 失敗 | 外部コマンド起動 (spawn) |
+|| test_fileio | 5 | 17 成功 / 0 失敗 | ファイル入出力 (kfopen/kfgetc/kfputc/kfclose) |
 || test_memory_safety | — | 14671 成功 / 0 失敗 | バッファオーバーフロー・メモリリーク検証 (ASan + UBSan, line.c/undo.c) |
 |||| test_batch | 16 | 55 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定・Python 変数) |
 
-> **合計: 12のテストプログラム / 24,216 アセーション群 — 全テスト合格 (exit code 0)**
+> **合計: 16のテストプログラム / 24,409 アセーション群 — 全テスト合格 (exit code 0)**
 
 ---
 
@@ -58,6 +62,28 @@
 || 22 | iscombchar | iscombchar (結合文字判定) |
 || 23 | char_width 8bit | 文字幅 (8ビット文字) |
 || 24 | hiragana/katakana width | ひらがな/カタカナの文字幅 |
+| 25 | kdetermine SJIS | kdetermine (SJIS 判定) |
+| 26 | kgetc SJIS kanji | SJIS 漢字入力 (kgetc) |
+| 27 | kgetc SJIS kana | SJIS 半角カナ入力 (kgetc) |
+| 28 | kputc SJIS kanji | SJIS 漢字出力 (kputc) |
+| 29 | kputc SJIS kana | SJIS 半角カナ出力 (kputc) |
+| 30 | kdetermine UJIS | kdetermine (EUC-JP 判定) |
+| 31 | kgetc UJIS kanji | EUC-JP 漢字入力 (kgetc) |
+| 32 | kgetc UJIS katakana | EUC-JP カタカナ入力 (kgetc) |
+| 33 | kgetc UJIS fullwidth sp | EUC-JP 全角スペース入力 (kgetc) |
+| 34 | kgetc UJIS hankaku kana | EUC-JP 半角カナ入力 (kgetc) |
+| 35 | kgetc UJIS mixed ascii | EUC-JP + ASCII 混在入力 (kgetc) |
+| 36 | kgetc UJIS broken lead | EUC-JP 先頭バイト単独 (kgetc) |
+| 37 | kgetc UJIS split reads | EUC-JP 分割読み込み (ks_buf 再結合) |
+| 38 | kgetc UJIS autodetect | EUC-JP 自動判定 (KS_UKANJI → kdetermine) |
+| 39 | kputc UJIS kanji | EUC-JP 漢字出力 (kputc) |
+| 40 | kputc UJIS hankaku kana | EUC-JP 半角カナ出力 (kputc) |
+| 41 | kputc UJIS ascii | EUC-JP ASCII 透過 (kputc) |
+| 42 | UJIS roundtrip | EUC-JP ラウンドトリップ (kgetc → kputc) |
+| 43 | ujis_to_utf8 kanji | EUC-JP → UTF-8 (漢字) |
+| 44 | ujis_to_utf8 hankaku | EUC-JP → UTF-8 (半角カナ) |
+| 45 | kputc UTF-8 kanji | 内部漢字 → UTF-8 出力 (EUC-JP 経由) |
+| 46 | kputc UTF-8 hankaku | 内部半角カナ → UTF-8 出力 (EUC-JP 経由) |
 
 ---
 
