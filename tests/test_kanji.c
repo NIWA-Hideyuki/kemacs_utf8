@@ -1578,6 +1578,549 @@ static void test_jis_roundtrip(void)
     }
 }
 
+/* ================================================================ */
+/*  UTF-8: kgetc input, kputc output, unicode handling              */
+/* ================================================================ */
+
+/* kgetc(KS_UTF8) converts raw UTF-8 to the internal 16-bit code via
+   utf8_to_internal(): JIS X 0208 -> kanji/kana code, JIS X 0212 ->
+   SSHFT3 + code, BMP codepoints without an EUC-JP mapping -> direct
+   Unicode tagged with UNICODE_MARK, non-BMP -> direct codepoint.
+   kputc(KS_UTF8) reverses this: iskanji goes through EUC-JP -> UTF-8,
+   iskana through EUC-JP SSHFT2, isunicode through codepoint_to_utf8(). */
+
+static int run_kgetc_utf8(const unsigned char *data, int len, int chunk,
+                          int *out, int outcap)
+{
+    return run_kgetc_code(data, len, KS_UTF8, chunk, out, outcap);
+}
+
+/* Set up a KS_UTF8 output stream. */
+static void utf8_out(KSTREAM *ks)
+{
+    memset(ks, 0, sizeof *ks);
+    ks->ks_id = NULL;
+    ks->ks_putf = cap_put;
+    KS_CODE(ks->ks_flag) = KS_UTF8;
+    KS_INTERP(ks->ks_flag) = KS_KANJI;
+    KS_THRU(ks->ks_flag) = 1;
+    ks->ks_pstate = NORMAL;
+}
+
+static void test_kgetc_utf8_ascii(void)
+{
+    unsigned char data[] = { 'A', 'B' };
+    int out[16];
+    int n = run_kgetc_utf8(data, 2, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 2, "kgetc UTF-8 ASCII count");
+    if (n == 2) {
+        TEST_ASSERT_INT(out[0], 'A', "kgetc UTF-8 ASCII byte 0");
+        TEST_ASSERT_INT(out[1], 'B', "kgetc UTF-8 ASCII byte 1");
+    }
+}
+
+static void test_kgetc_utf8_kanji(void)
+{
+    /* U+3042 あ = E3 81 82 -> internal 0x2422 */
+    unsigned char data[] = { 0xE3, 0x81, 0x82 };
+    KSTREAM ks;
+    mem_in_t in;
+    int out[16];
+    int n = 0, c;
+
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = (caddr_t)&in;
+    ks.ks_getf = mem_get;
+    in.data = data; in.len = 3; in.pos = 0; in.chunk = 0;
+    KS_CODE(ks.ks_flag) = KS_UTF8;
+    KS_THRU(ks.ks_flag) = 1;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+
+    while ((c = kgetc(&ks)) != EOF && n < 16)
+        out[n++] = c;
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 kanji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc UTF-8 kanji value");
+    TEST_ASSERT_INT(KS_INTERP(ks.ks_flag), KS_KANJI, "kgetc UTF-8 kanji interp");
+}
+
+static void test_kgetc_utf8_katakana(void)
+{
+    /* U+30A2 ア = E3 82 A2 -> internal 0x2522 */
+    unsigned char data[] = { 0xE3, 0x82, 0xA2 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 3, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 katakana count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2522, "kgetc UTF-8 katakana value");
+}
+
+static void test_kgetc_utf8_fullwidth_space(void)
+{
+    /* U+3000 = E3 80 80 -> internal 0x2121 */
+    unsigned char data[] = { 0xE3, 0x80, 0x80 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 3, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 fullwidth space count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2121, "kgetc UTF-8 fullwidth space value");
+}
+
+static void test_kgetc_utf8_halfwidth_kana(void)
+{
+    /* U+FF61 ｡ = EF BD A1 -> internal 0x0121 */
+    unsigned char data[] = { 0xEF, 0xBD, 0xA1 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 3, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 half-width kana count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x0121, "kgetc UTF-8 half-width kana value");
+}
+
+static void test_kgetc_utf8_hojo_kanji(void)
+{
+    /* U+00E9 é has no JIS X 0208 mapping; iconv maps it to JIS X 0212
+       (EUC-JP 8F AB B1).  kgetc emits SSHFT3 then the 2-byte code. */
+    unsigned char data[] = { 0xC3, 0xA9 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 2, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 2, "kgetc UTF-8 hojo-kanji count");
+    if (n == 2) {
+        TEST_ASSERT_INT(out[0], SSHFT3, "kgetc UTF-8 hojo-kanji SSHFT3");
+        TEST_ASSERT_INT(out[1], 0x2B31, "kgetc UTF-8 hojo-kanji code");
+    }
+}
+
+static void test_kgetc_utf8_emoji(void)
+{
+    /* U+1F600 = F0 9F 98 80: no EUC-JP mapping, stored as a direct
+       Unicode codepoint (>= 0x10000). */
+    unsigned char data[] = { 0xF0, 0x9F, 0x98, 0x80 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 4, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 emoji count");
+    if (n == 1) {
+        TEST_ASSERT_INT(out[0], 0x1F600, "kgetc UTF-8 emoji value");
+        TEST_ASSERT(isunicode(out[0]), "kgetc UTF-8 emoji isunicode");
+    }
+}
+
+static void test_kgetc_utf8_bmp_unicode(void)
+{
+    /* U+2764 HEAVY BLACK HEART = E2 9D A4: BMP codepoint with no EUC-JP
+       mapping, stored directly and tagged with UNICODE_MARK so iskanji()
+       does not mistake it for a JIS X 0208 cell. */
+    unsigned char data[] = { 0xE2, 0x9D, 0xA4 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 3, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 BMP unicode count");
+    if (n == 1) {
+        TEST_ASSERT_INT(out[0], 0x2764 | UNICODE_MARK, "kgetc UTF-8 BMP unicode value");
+        TEST_ASSERT(isunicode(out[0]), "kgetc UTF-8 BMP unicode isunicode");
+        TEST_ASSERT(!iskanji(out[0]), "kgetc UTF-8 BMP unicode not kanji");
+    }
+}
+
+static void test_kgetc_utf8_combining(void)
+{
+    /* U+0301 COMBINING ACUTE = CC 81: no EUC-JP mapping. */
+    unsigned char data[] = { 0xCC, 0x81 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 2, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 combining count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x0301 | UNICODE_MARK, "kgetc UTF-8 combining value");
+}
+
+static void test_kgetc_utf8_mixed(void)
+{
+    unsigned char data[] = { 'A', 0xE3, 0x81, 0x82, 'B' };
+    int out[16];
+    int n = run_kgetc_utf8(data, 5, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 3, "kgetc UTF-8 mixed count");
+    if (n == 3) {
+        TEST_ASSERT_INT(out[0], 'A',    "kgetc UTF-8 mixed byte 0");
+        TEST_ASSERT_INT(out[1], 0x2422, "kgetc UTF-8 mixed kanji");
+        TEST_ASSERT_INT(out[2], 'B',    "kgetc UTF-8 mixed byte 2");
+    }
+}
+
+static void test_kgetc_utf8_lenient_continuation(void)
+{
+    /* E3 81 41: iconv rejects the bad continuation, and the manual
+       fallback masks continuation bytes with 0x3F without a range check,
+       so the sequence decodes to U+3041 (ぁ) tagged as direct Unicode.
+       Document the lenient fallback. */
+    unsigned char data[] = { 0xE3, 0x81, 0x41 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 3, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 lenient continuation count");
+    if (n == 1) {
+        TEST_ASSERT_INT(out[0], 0x3041 | UNICODE_MARK,
+                        "kgetc UTF-8 lenient continuation value");
+        TEST_ASSERT(isunicode(out[0]), "kgetc UTF-8 lenient continuation isunicode");
+    }
+}
+
+static void test_kgetc_utf8_invalid_lead5(void)
+{
+    /* 0xF8 and 0xFC are not valid UTF-8 leads; utf8_to_internal returns -1
+       and kgetc emits the raw bytes unchanged. */
+    unsigned char b5[] = { 0xF8, 0x80, 0x80, 0x80, 0x80 };
+    unsigned char b6[] = { 0xFC, 0x80, 0x80, 0x80, 0x80, 0x80 };
+    int out[16];
+    int n, i;
+
+    n = run_kgetc_utf8(b5, 5, 0, out, 16);
+    TEST_ASSERT_INT(n, 5, "kgetc UTF-8 invalid 5-byte lead count");
+    for (i = 0; i < 5 && i < n; i++)
+        TEST_ASSERT_EQ((unsigned char)out[i], b5[i],
+                       "kgetc UTF-8 invalid 5-byte lead byte");
+
+    n = run_kgetc_utf8(b6, 6, 0, out, 16);
+    TEST_ASSERT_INT(n, 6, "kgetc UTF-8 invalid 6-byte lead count");
+    for (i = 0; i < 6 && i < n; i++)
+        TEST_ASSERT_EQ((unsigned char)out[i], b6[i],
+                       "kgetc UTF-8 invalid 6-byte lead byte");
+}
+
+static void test_kgetc_utf8_lone_continuation(void)
+{
+    /* A lone continuation byte has no lead; it passes through. */
+    unsigned char data[] = { 0x80 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 1, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 lone continuation count");
+    if (n == 1)
+        TEST_ASSERT_EQ((unsigned char)out[0], 0x80, "kgetc UTF-8 lone continuation byte");
+}
+
+static void test_kgetc_utf8_invalid_lead(void)
+{
+    /* 0xFF is not a valid UTF-8 lead; it passes through. */
+    unsigned char data[] = { 0xFF };
+    int out[16];
+    int n = run_kgetc_utf8(data, 1, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 invalid lead count");
+    if (n == 1)
+        TEST_ASSERT_EQ((unsigned char)out[0], 0xFF, "kgetc UTF-8 invalid lead byte");
+}
+
+static void test_kgetc_utf8_truncated(void)
+{
+    /* A 3-byte sequence cut to 2 bytes at EOF is flushed unchanged. */
+    unsigned char data[] = { 0xE3, 0x81 };
+    int out[16];
+    int n = run_kgetc_utf8(data, 2, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 2, "kgetc UTF-8 truncated count");
+    if (n == 2) {
+        TEST_ASSERT_EQ((unsigned char)out[0], 0xE3, "kgetc UTF-8 truncated byte 0");
+        TEST_ASSERT_EQ((unsigned char)out[1], 0x81, "kgetc UTF-8 truncated byte 1");
+    }
+}
+
+static void test_kgetc_utf8_split_reads(void)
+{
+    /* chunk=1 forces each byte into a separate read, exercising the
+       ks_buf broken-multibyte recombination path. */
+    unsigned char kanji[] = { 0xE3, 0x81, 0x82 };
+    unsigned char kana[] = { 0xEF, 0xBD, 0xA1 };
+    int out[16];
+    int n;
+
+    n = run_kgetc_utf8(kanji, 3, 1, out, 16);
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 split kanji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc UTF-8 split kanji value");
+
+    n = run_kgetc_utf8(kana, 3, 1, out, 16);
+    TEST_ASSERT_INT(n, 1, "kgetc UTF-8 split kana count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x0121, "kgetc UTF-8 split kana value");
+}
+
+static void test_kgetc_utf8_ukanjii_fallback(void)
+{
+    /* KS_UKANJI cannot select KS_UTF8: kdetermine() stays ambiguous because
+       every valid UTF-8 sequence is also valid SJIS, so the decoder falls
+       back to SJIS and misdecodes the bytes.  Document the limitation. */
+    KSTREAM ks;
+    mem_in_t in;
+    unsigned char data[] = { 0xE3, 0x81, 0x82 };
+    int out[16];
+    int n = 0, c;
+
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = (caddr_t)&in;
+    ks.ks_getf = mem_get;
+    in.data = data; in.len = 3; in.pos = 0; in.chunk = 0;
+    KS_THRU(ks.ks_flag) = 1;
+    KS_INTERP(ks.ks_flag) = KS_UKANJI;
+
+    while ((c = kgetc(&ks)) != EOF && n < 16)
+        out[n++] = c;
+
+    TEST_ASSERT_INT(n, 2, "kgetc UTF-8 UKANJI fallback count");
+    if (n == 2)
+        TEST_ASSERT_INT(out[0], 0x6561, "kgetc UTF-8 UKANJI misdecoded kanji");
+    TEST_ASSERT_INT(KS_CODE(ks.ks_flag), KS_SJIS,
+                    "kgetc UTF-8 UKANJI falls back to SJIS");
+    TEST_ASSERT_INT(KS_INTERP(ks.ks_flag), KS_KANJI,
+                    "kgetc UTF-8 UKANJI interp");
+}
+
+static void test_kputc_utf8_ascii(void)
+{
+    KSTREAM ks;
+    utf8_out(&ks);
+
+    cap_reset();
+    kputc('A', &ks);
+
+    TEST_ASSERT_INT(cap_len, 1, "kputc UTF-8 ASCII length");
+    if (cap_len >= 1)
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0x41, "kputc UTF-8 ASCII byte");
+}
+
+static void test_kputc_utf8_katakana(void)
+{
+    /* internal 0x2522 -> EUC-JP A5 A2 -> UTF-8 E3 82 A2 */
+    KSTREAM ks;
+    utf8_out(&ks);
+
+    cap_reset();
+    kputc(0x2522, &ks);
+
+    TEST_ASSERT_INT(cap_len, 3, "kputc UTF-8 katakana length");
+    if (cap_len >= 3) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xE3, "kputc UTF-8 katakana byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0x82, "kputc UTF-8 katakana byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], 0xA2, "kputc UTF-8 katakana byte2");
+    }
+}
+
+static void test_kputc_utf8_fullwidth_space(void)
+{
+    KSTREAM ks;
+    utf8_out(&ks);
+
+    cap_reset();
+    kputc(0x2121, &ks);
+
+    TEST_ASSERT_INT(cap_len, 3, "kputc UTF-8 fullwidth space length");
+    if (cap_len >= 3) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xE3, "kputc UTF-8 fwsp byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0x80, "kputc UTF-8 fwsp byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], 0x80, "kputc UTF-8 fwsp byte2");
+    }
+}
+
+static void test_kputc_utf8_emoji(void)
+{
+    /* Direct Unicode codepoints bypass EUC-JP and are encoded directly. */
+    KSTREAM ks;
+    utf8_out(&ks);
+
+    cap_reset();
+    kputc(0x1F600, &ks);
+
+    TEST_ASSERT_INT(cap_len, 4, "kputc UTF-8 emoji length");
+    if (cap_len >= 4) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xF0, "kputc UTF-8 emoji byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0x9F, "kputc UTF-8 emoji byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], 0x98, "kputc UTF-8 emoji byte2");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[3], 0x80, "kputc UTF-8 emoji byte3");
+    }
+}
+
+static void test_kputc_utf8_bmp_unicode(void)
+{
+    /* Tagged BMP codepoints are re-encoded from the stripped codepoint. */
+    KSTREAM ks;
+    utf8_out(&ks);
+
+    cap_reset();
+    kputc(0x2764 | UNICODE_MARK, &ks);
+
+    TEST_ASSERT_INT(cap_len, 3, "kputc UTF-8 BMP unicode length");
+    if (cap_len >= 3) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xE2, "kputc UTF-8 BMP unicode byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0x9D, "kputc UTF-8 BMP unicode byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], 0xA4, "kputc UTF-8 BMP unicode byte2");
+    }
+}
+
+static void test_kputc_utf8_combining(void)
+{
+    KSTREAM ks;
+    utf8_out(&ks);
+
+    cap_reset();
+    kputc(0x0301 | UNICODE_MARK, &ks);
+
+    TEST_ASSERT_INT(cap_len, 2, "kputc UTF-8 combining length");
+    if (cap_len >= 2) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0xCC, "kputc UTF-8 combining byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0x81, "kputc UTF-8 combining byte1");
+    }
+}
+
+static void test_kputc_utf8_mixed(void)
+{
+    KSTREAM ks;
+    utf8_out(&ks);
+
+    cap_reset();
+    kputc(0x2422, &ks);
+    kputc('A', &ks);
+    kputc(0x0121, &ks);
+    kputc(0x1F600, &ks);
+
+    {
+        static const unsigned char exp[] = {
+            0xE3, 0x81, 0x82,              /* あ */
+            0x41,                          /* A */
+            0xEF, 0xBD, 0xA1,              /* ｡ */
+            0xF0, 0x9F, 0x98, 0x80         /* U+1F600 */
+        };
+        int i;
+
+        TEST_ASSERT_INT(cap_len, (int)sizeof exp, "kputc UTF-8 mixed length");
+        for (i = 0; i < (int)sizeof exp && i < cap_len; i++)
+            TEST_ASSERT_EQ((unsigned char)cap_buf[i], exp[i],
+                           "kputc UTF-8 mixed byte");
+    }
+}
+
+static void test_utf8_roundtrip(void)
+{
+    /* kgetc -> internal -> kputc must reproduce the original bytes. */
+    unsigned char data[] = {
+        0xE3, 0x81, 0x82,              /* あ */
+        0xEF, 0xBD, 0xA1,              /* ｡ */
+        0xF0, 0x9F, 0x98, 0x80         /* U+1F600 */
+    };
+    KSTREAM ks;
+    int out[16];
+    int n, i;
+
+    n = run_kgetc_utf8(data, (int)sizeof data, 0, out, 16);
+    TEST_ASSERT_INT(n, 3, "UTF-8 roundtrip kgetc count");
+    if (n != 3)
+        return;
+    TEST_ASSERT_INT(out[0], 0x2422,  "UTF-8 roundtrip kgetc kanji");
+    TEST_ASSERT_INT(out[1], 0x0121,  "UTF-8 roundtrip kgetc kana");
+    TEST_ASSERT_INT(out[2], 0x1F600, "UTF-8 roundtrip kgetc emoji");
+
+    utf8_out(&ks);
+    cap_reset();
+    kputc(out[0], &ks);
+    kputc(out[1], &ks);
+    kputc(out[2], &ks);
+
+    TEST_ASSERT_INT(cap_len, (int)sizeof data, "UTF-8 roundtrip kputc length");
+    for (i = 0; i < (int)sizeof data && i < cap_len; i++)
+        TEST_ASSERT_EQ((unsigned char)cap_buf[i], data[i],
+                       "UTF-8 roundtrip byte");
+}
+
+static void test_utf8_restbytes(void)
+{
+    /* Boundary table for utf8_restbytes(). */
+    TEST_ASSERT_INT(utf8_restbytes(0x00), 0, "utf8_restbytes 0x00");
+    TEST_ASSERT_INT(utf8_restbytes(0x7F), 0, "utf8_restbytes 0x7F");
+    TEST_ASSERT_INT(utf8_restbytes(0x80), -1, "utf8_restbytes 0x80");
+    TEST_ASSERT_INT(utf8_restbytes(0xBF), -1, "utf8_restbytes 0xBF");
+    TEST_ASSERT_INT(utf8_restbytes(0xC0), -1, "utf8_restbytes 0xC0");
+    TEST_ASSERT_INT(utf8_restbytes(0xC1), -1, "utf8_restbytes 0xC1");
+    TEST_ASSERT_INT(utf8_restbytes(0xC2), 1, "utf8_restbytes 0xC2");
+    TEST_ASSERT_INT(utf8_restbytes(0xDF), 1, "utf8_restbytes 0xDF");
+    TEST_ASSERT_INT(utf8_restbytes(0xE0), 2, "utf8_restbytes 0xE0");
+    TEST_ASSERT_INT(utf8_restbytes(0xEF), 2, "utf8_restbytes 0xEF");
+    TEST_ASSERT_INT(utf8_restbytes(0xF0), 3, "utf8_restbytes 0xF0");
+    TEST_ASSERT_INT(utf8_restbytes(0xF7), 3, "utf8_restbytes 0xF7");
+    TEST_ASSERT_INT(utf8_restbytes(0xF8), 4, "utf8_restbytes 0xF8");
+    TEST_ASSERT_INT(utf8_restbytes(0xFB), 4, "utf8_restbytes 0xFB");
+    TEST_ASSERT_INT(utf8_restbytes(0xFC), 5, "utf8_restbytes 0xFC");
+    TEST_ASSERT_INT(utf8_restbytes(0xFD), 5, "utf8_restbytes 0xFD");
+    TEST_ASSERT_INT(utf8_restbytes(0xFE), -1, "utf8_restbytes 0xFE");
+    TEST_ASSERT_INT(utf8_restbytes(0xFF), -1, "utf8_restbytes 0xFF");
+}
+
+static void test_utf8_to_internal_valid(void)
+{
+    char buf[4];
+    int cp;
+
+    /* U+3042 -> JIS X 0208 0x2422 */
+    buf[0] = (char)0xE3; buf[1] = (char)0x81; buf[2] = (char)0x82;
+    cp = utf8_to_internal(buf, 3);
+    TEST_ASSERT_EQ(cp, 0x2422, "utf8_to_internal U+3042");
+
+    /* U+FF61 -> half-width kana 0x0121 */
+    buf[0] = (char)0xEF; buf[1] = (char)0xBD; buf[2] = (char)0xA1;
+    cp = utf8_to_internal(buf, 3);
+    TEST_ASSERT_EQ(cp, 0x0121, "utf8_to_internal U+FF61");
+
+    /* U+1F600 -> direct codepoint */
+    buf[0] = (char)0xF0; buf[1] = (char)0x9F; buf[2] = (char)0x98; buf[3] = (char)0x80;
+    cp = utf8_to_internal(buf, 4);
+    TEST_ASSERT_EQ(cp, 0x1F600, "utf8_to_internal U+1F600");
+
+    /* U+2764 -> tagged direct Unicode */
+    buf[0] = (char)0xE2; buf[1] = (char)0x9D; buf[2] = (char)0xA4;
+    cp = utf8_to_internal(buf, 3);
+    TEST_ASSERT_EQ(cp, 0x2764 | UNICODE_MARK, "utf8_to_internal U+2764");
+
+    /* U+00E9 -> JIS X 0212 hojo-kanji (0x2B31 | 0x8000) */
+    buf[0] = (char)0xC3; buf[1] = (char)0xA9;
+    cp = utf8_to_internal(buf, 2);
+    TEST_ASSERT_EQ(cp, 0xAB31, "utf8_to_internal U+00E9");
+}
+
+static void test_utf8_to_codepoint_roundtrip(void)
+{
+    static const unsigned int cps[] = {
+        0x7F, 0x80, 0x7FF, 0x800, 0xFFFF, 0x10000, 0x10FFFF
+    };
+    int i;
+
+    for (i = 0; i < (int)(sizeof cps / sizeof cps[0]); i++) {
+        char buf[8];
+        int len = codepoint_to_utf8(cps[i], buf);
+        int cp = utf8_to_codepoint(buf, len);
+        TEST_ASSERT_EQ(cp, (int)cps[i], "codepoint_to_utf8/utf8_to_codepoint roundtrip");
+    }
+}
+
+static void test_kdetermine_utf8_ambiguous(void)
+{
+    /* kdetermine() can never select KS_UTF8: every valid UTF-8 multibyte
+       sequence is also a valid SJIS sequence, so the result stays
+       ambiguous (-1).  Document the limitation. */
+    char d1[3] = { (char)0xE3, (char)0x81, (char)0x82 };  /* あ */
+    char d2[4] = { (char)0xF0, (char)0x9F, (char)0x98, (char)0x80 };
+    char d3[2] = { (char)0xC3, (char)0xA9 };               /* é */
+
+    TEST_ASSERT_INT(kdetermine(d1, 3), -1, "kdetermine UTF-8 3-byte ambiguous");
+    TEST_ASSERT_INT(kdetermine(d2, 4), -1, "kdetermine UTF-8 4-byte ambiguous");
+    TEST_ASSERT_INT(kdetermine(d3, 2), -1, "kdetermine UTF-8 2-byte ambiguous");
+}
+
 TEST_LIST({
     {"stoj/jtos known pairs",  test_stoj_jtos_known},
     {"stoj/jtos round-trip",   test_stoj_jtos_roundtrip},
@@ -1651,6 +2194,35 @@ TEST_LIST({
     {"kputc JIS EOF kana",     test_kputc_jis_eof_kana},
     {"kputc JIS EOF clean",    test_kputc_jis_eof_clean},
     {"JIS roundtrip",          test_jis_roundtrip},
+    {"kgetc UTF-8 ASCII",      test_kgetc_utf8_ascii},
+    {"kgetc UTF-8 kanji",      test_kgetc_utf8_kanji},
+    {"kgetc UTF-8 katakana",   test_kgetc_utf8_katakana},
+    {"kgetc UTF-8 fullwidth sp", test_kgetc_utf8_fullwidth_space},
+    {"kgetc UTF-8 hankaku kana", test_kgetc_utf8_halfwidth_kana},
+    {"kgetc UTF-8 hojo-kanji", test_kgetc_utf8_hojo_kanji},
+    {"kgetc UTF-8 emoji",      test_kgetc_utf8_emoji},
+    {"kgetc UTF-8 BMP unicode", test_kgetc_utf8_bmp_unicode},
+    {"kgetc UTF-8 combining",  test_kgetc_utf8_combining},
+    {"kgetc UTF-8 mixed",      test_kgetc_utf8_mixed},
+    {"kgetc UTF-8 lenient cont", test_kgetc_utf8_lenient_continuation},
+    {"kgetc UTF-8 invalid lead5", test_kgetc_utf8_invalid_lead5},
+    {"kgetc UTF-8 lone cont",  test_kgetc_utf8_lone_continuation},
+    {"kgetc UTF-8 invalid lead", test_kgetc_utf8_invalid_lead},
+    {"kgetc UTF-8 truncated",  test_kgetc_utf8_truncated},
+    {"kgetc UTF-8 split reads", test_kgetc_utf8_split_reads},
+    {"kgetc UTF-8 UKANJI fallback", test_kgetc_utf8_ukanjii_fallback},
+    {"kputc UTF-8 ASCII",      test_kputc_utf8_ascii},
+    {"kputc UTF-8 katakana",   test_kputc_utf8_katakana},
+    {"kputc UTF-8 fullwidth sp", test_kputc_utf8_fullwidth_space},
+    {"kputc UTF-8 emoji",      test_kputc_utf8_emoji},
+    {"kputc UTF-8 BMP unicode", test_kputc_utf8_bmp_unicode},
+    {"kputc UTF-8 combining",  test_kputc_utf8_combining},
+    {"kputc UTF-8 mixed",      test_kputc_utf8_mixed},
+    {"UTF-8 roundtrip",        test_utf8_roundtrip},
+    {"utf8_restbytes",         test_utf8_restbytes},
+    {"utf8_to_internal valid", test_utf8_to_internal_valid},
+    {"utf8_to_codepoint roundtrip", test_utf8_to_codepoint_roundtrip},
+    {"kdetermine UTF-8 ambiguous", test_kdetermine_utf8_ambiguous},
 })
 
 int main(void)

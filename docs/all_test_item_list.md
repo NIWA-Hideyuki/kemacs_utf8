@@ -11,7 +11,7 @@
 
 | テストプログラム | テスト関数数 | アサーション結果 | 対象 |
 |---|---|---|---|
-|| test_kanji | 72 | 9234 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (SJIS/EUC-JP/JIS/UTF-8, ロケール対応 kana_is_wide) |
+|| test_kanji | 101 | 9375 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (SJIS/EUC-JP/JIS/UTF-8, ロケール対応 kana_is_wide) |
 || test_search | 18 | 37 成功 / 0 失敗 | 検索エンジン (scanner/amatch/mceq/eq) |
 || test_line | 12 | 65 成功 / 0 失敗 | バッファ行操作 (linsert/ldelete/lnewline) |
 ||| test_undo | 13 | 73 成功 / 0 失敗 | undo/redo システム (INSERT/DELETE/NEWLINE/JOIN) |
@@ -28,7 +28,7 @@
 || test_memory_safety | — | 14671 成功 / 0 失敗 | バッファオーバーフロー・メモリリーク検証 (ASan + UBSan, line.c/undo.c) |
 |||| test_batch | 16 | 55 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定・Python 変数) |
 
-> **合計: 16のテストプログラム / 24,543 アセーション群 — 全テスト合格 (exit code 0)**
+> **合計: 16のテストプログラム / 24,684 アセーション群 — 全テスト合格 (exit code 0)**
 
 ---
 
@@ -110,6 +110,35 @@
 | 70 | kputc JIS EOF kana | JIS EOF フラッシュ (SI) |
 | 71 | kputc JIS EOF clean | JIS EOF (保留状態なし) |
 | 72 | JIS roundtrip | JIS ラウンドトリップ (kgetc → kputc) |
+| 73 | kgetc UTF-8 ASCII | UTF-8 ASCII 透過 (kgetc) |
+| 74 | kgetc UTF-8 kanji | UTF-8 漢字入力 (kgetc) |
+| 75 | kgetc UTF-8 katakana | UTF-8 カタカナ入力 (kgetc) |
+| 76 | kgetc UTF-8 fullwidth sp | UTF-8 全角スペース入力 (kgetc) |
+| 77 | kgetc UTF-8 hankaku kana | UTF-8 半角カナ入力 (kgetc) |
+| 78 | kgetc UTF-8 hojo-kanji | UTF-8 補助漢字入力 (JIS X 0212, SSHFT3) |
+| 79 | kgetc UTF-8 emoji | UTF-8 4バイト文字入力 (直接 Unicode) |
+| 80 | kgetc UTF-8 BMP unicode | UTF-8 BMP Unicode 入力 (UNICODE_MARK タグ) |
+| 81 | kgetc UTF-8 combining | UTF-8 結合文字入力 |
+| 82 | kgetc UTF-8 mixed | UTF-8 + ASCII 混在入力 (kgetc) |
+| 83 | kgetc UTF-8 lenient cont | UTF-8 不正継続バイトの寛容デコード |
+| 84 | kgetc UTF-8 invalid lead5 | UTF-8 5/6バイト不正リード (生バイト出力) |
+| 85 | kgetc UTF-8 lone cont | UTF-8 単独継続バイト |
+| 86 | kgetc UTF-8 invalid lead | UTF-8 不正リードバイト (0xFF) |
+| 87 | kgetc UTF-8 truncated | UTF-8 途中までのマルチバイト (EOF フラッシュ) |
+| 88 | kgetc UTF-8 split reads | UTF-8 分割読み込み (ks_buf 再結合) |
+| 89 | kgetc UTF-8 UKANJI fallback | KS_UKANJI が UTF-8 を選べない (SJIS フォールバック) |
+| 90 | kputc UTF-8 ASCII | UTF-8 ASCII 出力 (kputc) |
+| 91 | kputc UTF-8 katakana | UTF-8 カタカナ出力 (kputc) |
+| 92 | kputc UTF-8 fullwidth sp | UTF-8 全角スペース出力 (kputc) |
+| 93 | kputc UTF-8 emoji | 直接 Unicode → UTF-8 出力 (kputc) |
+| 94 | kputc UTF-8 BMP unicode | UNICODE_MARK 付き BMP → UTF-8 出力 (kputc) |
+| 95 | kputc UTF-8 combining | 結合文字 → UTF-8 出力 (kputc) |
+| 96 | kputc UTF-8 mixed | UTF-8 混合出力 (漢字+ASCII+半角カナ+絵文字) |
+| 97 | UTF-8 roundtrip | UTF-8 ラウンドトリップ (kgetc → kputc) |
+| 98 | utf8_restbytes | utf8_restbytes 境界テーブル |
+| 99 | utf8_to_internal valid | UTF-8 → 内部表現 (有効入力) |
+| 100 | utf8_to_codepoint roundtrip | codepoint_to_utf8 ↔ utf8_to_codepoint ラウンドトリップ |
+| 101 | kdetermine UTF-8 ambiguous | kdetermine が UTF-8 を確定できない (-1) |
 
 ---
 
