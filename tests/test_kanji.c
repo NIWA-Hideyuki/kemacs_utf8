@@ -1022,6 +1022,562 @@ static void test_kputc_utf8_halfwidth_kana(void)
     }
 }
 
+/* ================================================================ */
+/*  JIS (ISO-2022-JP): escape state machine and output              */
+/* ================================================================ */
+
+/* JIS is the 7-bit escape-based encoding: ESC $ B / ESC $ @ switch to
+   JIS X 0208 kanji, ESC ( B / J / H switch to ASCII, ESC ( I switches
+   to JIS X 0201 half-width kana, and SO (0x0e) / SI (0x0f) toggle the
+   G1 kana shift.  Internal codes are the same JIS X 0208 2-byte values
+   used by UJIS and SJIS. */
+
+static int run_kgetc_jis(const unsigned char *data, int len, int chunk,
+                         int *out, int outcap)
+{
+    return run_kgetc_code(data, len, KS_JIS, chunk, out, outcap);
+}
+
+/* Run kgetc over JIS bytes and return the final KSTREAM so tests can
+   inspect KS_CODE / KS_KI / KS_RI / KS_INTERP. */
+static int run_kgetc_jis_ks(const unsigned char *data, int len, int chunk,
+                            int *out, int outcap, KSTREAM *ks_out)
+{
+    KSTREAM ks;
+    mem_in_t in;
+    int n = 0, c;
+
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = (caddr_t)&in;
+    ks.ks_getf = mem_get;
+    in.data = data; in.len = len; in.pos = 0; in.chunk = chunk;
+    KS_CODE(ks.ks_flag) = KS_JIS;
+    KS_THRU(ks.ks_flag) = 1;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    while ((c = kgetc(&ks)) != EOF && n < outcap)
+        out[n++] = c;
+    if (ks_out)
+        *ks_out = ks;
+    return n;
+}
+
+/* Set up a KS_JIS output stream with the given kanji version (KS_KI)
+   and alphabet set (KS_RI). */
+static void jis_out(KSTREAM *ks, int ki, int ri)
+{
+    memset(ks, 0, sizeof *ks);
+    ks->ks_id = NULL;
+    ks->ks_putf = cap_put;
+    KS_CODE(ks->ks_flag) = KS_JIS;
+    KS_INTERP(ks->ks_flag) = KS_KANJI;
+    KS_THRU(ks->ks_flag) = 1;
+    KS_KI(ks->ks_flag) = ki;
+    KS_RI(ks->ks_flag) = ri;
+    ks->ks_pstate = NORMAL;
+}
+
+static void test_kgetc_jis_kanji(void)
+{
+    unsigned char data[] = { 0x1b, '$', 'B', 0x24, 0x22 };  /* ESC $ B あ */
+    KSTREAM ks;
+    int out[16];
+    int n = run_kgetc_jis_ks(data, 5, 0, out, 16, &ks);
+
+    TEST_ASSERT_INT(n, 1, "kgetc JIS kanji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc JIS kanji value");
+    TEST_ASSERT_INT(KS_CODE(ks.ks_flag), KS_JIS, "kgetc JIS kanji code");
+    TEST_ASSERT_INT(KS_KI(ks.ks_flag), KS_NEWJIS, "kgetc JIS kanji KS_KI");
+    TEST_ASSERT_INT(KS_INTERP(ks.ks_flag), KS_KANJI, "kgetc JIS kanji interp");
+}
+
+static void test_kgetc_jis_old_kanji(void)
+{
+    /* ESC $ @ selects the older JIS X 0208-1978 variant. */
+    unsigned char data[] = { 0x1b, '$', '@', 0x24, 0x22 };
+    KSTREAM ks;
+    int out[16];
+    int n = run_kgetc_jis_ks(data, 5, 0, out, 16, &ks);
+
+    TEST_ASSERT_INT(n, 1, "kgetc JIS old kanji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc JIS old kanji value");
+    TEST_ASSERT_INT(KS_KI(ks.ks_flag), KS_OLDJIS, "kgetc JIS old KS_KI");
+}
+
+static void test_kgetc_jis_esc_dol_par(void)
+{
+    /* ESC $ ( B is the 4-byte form of the JIS X 0208 shift. */
+    unsigned char data[] = { 0x1b, '$', '(', 'B', 0x25, 0x22 };  /* ア */
+    KSTREAM ks;
+    int out[16];
+    int n = run_kgetc_jis_ks(data, 6, 0, out, 16, &ks);
+
+    TEST_ASSERT_INT(n, 1, "kgetc JIS ESC $ ( B count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2522, "kgetc JIS ESC $ ( B value");
+    TEST_ASSERT_INT(KS_CODE(ks.ks_flag), KS_JIS, "kgetc JIS ESC $ ( B code");
+}
+
+static void test_kgetc_jis_ascii(void)
+{
+    /* ESC ( B switches to ASCII; bytes pass through unchanged. */
+    unsigned char data[] = { 0x1b, '(', 'B', 'A', 'B' };
+    KSTREAM ks;
+    int out[16];
+    int n = run_kgetc_jis_ks(data, 5, 0, out, 16, &ks);
+
+    TEST_ASSERT_INT(n, 2, "kgetc JIS ASCII count");
+    if (n == 2) {
+        TEST_ASSERT_INT(out[0], 'A', "kgetc JIS ASCII byte 0");
+        TEST_ASSERT_INT(out[1], 'B', "kgetc JIS ASCII byte 1");
+    }
+    TEST_ASSERT_INT(KS_RI(ks.ks_flag), KS_ASCII, "kgetc JIS ASCII KS_RI");
+}
+
+static void test_kgetc_jis_romaji(void)
+{
+    /* ESC ( J switches to Romaji (JIS X 0201 Latin). */
+    unsigned char data[] = { 0x1b, '(', 'J', 'A' };
+    KSTREAM ks;
+    int out[16];
+    int n = run_kgetc_jis_ks(data, 4, 0, out, 16, &ks);
+
+    TEST_ASSERT_INT(n, 1, "kgetc JIS romaji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 'A', "kgetc JIS romaji value");
+    TEST_ASSERT_INT(KS_RI(ks.ks_flag), KS_ROMAJI, "kgetc JIS romaji KS_RI");
+}
+
+static void test_kgetc_jis_kana(void)
+{
+    /* ESC ( I switches to JIS X 0201 half-width kana. */
+    unsigned char data[] = { 0x1b, '(', 'I', 0x24, 0x25 };
+    int out[16];
+    int n = run_kgetc_jis(data, 5, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 2, "kgetc JIS kana count");
+    if (n == 2) {
+        TEST_ASSERT_INT(out[0], 0x0124, "kgetc JIS kana value 0");
+        TEST_ASSERT_INT(out[1], 0x0125, "kgetc JIS kana value 1");
+    }
+}
+
+static void test_kgetc_jis_kana_to_ascii(void)
+{
+    /* ESC ( I kana, then ESC ( B returns to ASCII. */
+    unsigned char data[] = { 0x1b, '(', 'I', 0x24, 0x1b, '(', 'B', 'A' };
+    int out[16];
+    int n = run_kgetc_jis(data, 8, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 2, "kgetc JIS kana->ASCII count");
+    if (n == 2) {
+        TEST_ASSERT_INT(out[0], 0x0124, "kgetc JIS kana->ASCII kana");
+        TEST_ASSERT_INT(out[1], 'A', "kgetc JIS kana->ASCII ascii");
+    }
+}
+
+static void test_kgetc_jis_so_si(void)
+{
+    /* SO (0x0e) shifts to G1 kana, SI (0x0f) shifts back.  After SI the
+       two following bytes are plain ASCII, not a kanji pair. */
+    unsigned char data[] = { SHFTOU, 0x24, SHFTIN, 0x24, 0x22 };
+    int out[16];
+    int n = run_kgetc_jis(data, 5, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 3, "kgetc JIS SO/SI count");
+    if (n == 3) {
+        TEST_ASSERT_INT(out[0], 0x0124, "kgetc JIS SO kana value");
+        TEST_ASSERT_INT(out[1], 0x24, "kgetc JIS after SI byte 0");
+        TEST_ASSERT_INT(out[2], 0x22, "kgetc JIS after SI byte 1");
+    }
+}
+
+static void test_kgetc_jis_so_kana(void)
+{
+    /* SO alone is enough to enter kana mode; several kana follow. */
+    unsigned char data[] = { SHFTOU, 0x24, 0x25 };
+    int out[16];
+    int n = run_kgetc_jis(data, 3, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 2, "kgetc JIS SO kana count");
+    if (n == 2) {
+        TEST_ASSERT_INT(out[0], 0x0124, "kgetc JIS SO kana value 0");
+        TEST_ASSERT_INT(out[1], 0x0125, "kgetc JIS SO kana value 1");
+    }
+}
+
+static void test_kgetc_jis_esc_passthrough(void)
+{
+    /* Unrecognized ESC sequences are passed through unchanged. */
+    unsigned char s1[] = { 0x1b, 'z' };
+    unsigned char s2[] = { 0x1b, '$', 'X' };
+    unsigned char s3[] = { 0x1b, '(', 'X' };
+    int out[16];
+    int n;
+
+    n = run_kgetc_jis(s1, 2, 0, out, 16);
+    TEST_ASSERT_INT(n, 2, "kgetc JIS ESC z count");
+    if (n == 2) {
+        TEST_ASSERT_EQ((unsigned char)out[0], 0x1b, "kgetc JIS ESC z byte 0");
+        TEST_ASSERT_EQ((unsigned char)out[1], 'z', "kgetc JIS ESC z byte 1");
+    }
+
+    n = run_kgetc_jis(s2, 3, 0, out, 16);
+    TEST_ASSERT_INT(n, 3, "kgetc JIS ESC $ X count");
+    if (n == 3) {
+        TEST_ASSERT_EQ((unsigned char)out[0], 0x1b, "kgetc JIS ESC $ X byte 0");
+        TEST_ASSERT_EQ((unsigned char)out[1], '$', "kgetc JIS ESC $ X byte 1");
+        TEST_ASSERT_EQ((unsigned char)out[2], 'X', "kgetc JIS ESC $ X byte 2");
+    }
+
+    n = run_kgetc_jis(s3, 3, 0, out, 16);
+    TEST_ASSERT_INT(n, 3, "kgetc JIS ESC ( X count");
+    if (n == 3) {
+        TEST_ASSERT_EQ((unsigned char)out[0], 0x1b, "kgetc JIS ESC ( X byte 0");
+        TEST_ASSERT_EQ((unsigned char)out[1], '(', "kgetc JIS ESC ( X byte 1");
+        TEST_ASSERT_EQ((unsigned char)out[2], 'X', "kgetc JIS ESC ( X byte 2");
+    }
+}
+
+static void test_kgetc_jis_broken_kanji(void)
+{
+    /* ESC $ B followed by a single kanji byte at EOF: the byte is
+       flushed unchanged. */
+    unsigned char data[] = { 0x1b, '$', 'B', 0x24 };
+    int out[16];
+    int n = run_kgetc_jis(data, 4, 0, out, 16);
+
+    TEST_ASSERT_INT(n, 1, "kgetc JIS broken kanji count");
+    if (n == 1)
+        TEST_ASSERT_EQ((unsigned char)out[0], 0x24, "kgetc JIS broken kanji byte");
+}
+
+static void test_kgetc_jis_split_reads(void)
+{
+    /* chunk=1 forces the ESC sequence and the kanji pair to arrive in
+       separate reads, exercising the ks_buf recombination path. */
+    unsigned char kanji[] = { 0x1b, '$', 'B', 0x24, 0x22 };
+    unsigned char kana[] = { 0x1b, '(', 'I', 0x24 };
+    int out[16];
+    int n;
+
+    n = run_kgetc_jis(kanji, 5, 1, out, 16);
+    TEST_ASSERT_INT(n, 1, "kgetc JIS split kanji count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc JIS split kanji value");
+
+    n = run_kgetc_jis(kana, 4, 1, out, 16);
+    TEST_ASSERT_INT(n, 1, "kgetc JIS split kana count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x0124, "kgetc JIS split kana value");
+}
+
+static void test_kgetc_jis_ks_pass(void)
+{
+    /* KS_PASS disables SI/SO processing: SO is delivered as a control
+       byte and does not switch to kana. */
+    KSTREAM ks;
+    mem_in_t in;
+    unsigned char data[] = { SHFTOU, 0x24 };
+    int out[16];
+    int n = 0, c;
+
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = (caddr_t)&in;
+    ks.ks_getf = mem_get;
+    in.data = data; in.len = 2; in.pos = 0; in.chunk = 0;
+    KS_CODE(ks.ks_flag) = KS_JIS;
+    KS_THRU(ks.ks_flag) = 1;
+    KS_INTERP(ks.ks_flag) = KS_KANJI;
+    KS_PASS(ks.ks_flag) = 1;
+
+    while ((c = kgetc(&ks)) != EOF && n < 16)
+        out[n++] = c;
+
+    TEST_ASSERT_INT(n, 2, "kgetc JIS KS_PASS count");
+    if (n == 2) {
+        TEST_ASSERT_EQ((unsigned char)out[0], SHFTOU, "kgetc JIS KS_PASS SO byte");
+        TEST_ASSERT_EQ((unsigned char)out[1], 0x24, "kgetc JIS KS_PASS data byte");
+    }
+}
+
+static void test_kgetc_jis_autodetect(void)
+{
+    /* A UTF-8 stream containing a real JIS escape (the kpp path) must
+       commit KS_JIS and decode the following kanji pair. */
+    KSTREAM ks;
+    mem_in_t in;
+    unsigned char data[] = { 0x1b, '$', 'B', 0x24, 0x22 };
+    int out[16];
+    int n = 0, c;
+
+    memset(&ks, 0, sizeof ks);
+    ks.ks_id = (caddr_t)&in;
+    ks.ks_getf = mem_get;
+    in.data = data; in.len = 5; in.pos = 0; in.chunk = 0;
+    KS_CODE(ks.ks_flag) = KS_UTF8;
+    KS_THRU(ks.ks_flag) = 1;
+    KS_INTERP(ks.ks_flag) = KS_UKANJI;
+
+    while ((c = kgetc(&ks)) != EOF && n < 16)
+        out[n++] = c;
+
+    TEST_ASSERT_INT(n, 1, "kgetc JIS autodetect count");
+    if (n == 1)
+        TEST_ASSERT_INT(out[0], 0x2422, "kgetc JIS autodetect value");
+    TEST_ASSERT_INT(KS_CODE(ks.ks_flag), KS_JIS, "kgetc JIS autodetect code");
+    TEST_ASSERT_INT(KS_INTERP(ks.ks_flag), KS_KANJI, "kgetc JIS autodetect interp");
+}
+
+static void test_kputc_jis_kanji(void)
+{
+    /* OLDJIS (default KS_KI) emits ESC $ @. */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x2422, &ks);
+
+    TEST_ASSERT_INT(cap_len, 5, "kputc JIS kanji length");
+    if (cap_len >= 5) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0x1b, "kputc JIS kanji byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], '$',  "kputc JIS kanji byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], '@',  "kputc JIS kanji byte2");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[3], 0x24, "kputc JIS kanji byte3");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[4], 0x22, "kputc JIS kanji byte4");
+    }
+}
+
+static void test_kputc_jis_newjis(void)
+{
+    /* NEWJIS emits ESC $ B. */
+    KSTREAM ks;
+    jis_out(&ks, KS_NEWJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x2422, &ks);
+
+    TEST_ASSERT_INT(cap_len, 5, "kputc JIS NEWJIS length");
+    if (cap_len >= 5) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0x1b, "kputc JIS NEWJIS byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], '$',  "kputc JIS NEWJIS byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], 'B',  "kputc JIS NEWJIS byte2");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[3], 0x24, "kputc JIS NEWJIS byte3");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[4], 0x22, "kputc JIS NEWJIS byte4");
+    }
+}
+
+static void test_kputc_jis_kana(void)
+{
+    /* Half-width kana is emitted as SO (0x0e) + kana byte. */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x0121, &ks);
+
+    TEST_ASSERT_INT(cap_len, 2, "kputc JIS kana length");
+    if (cap_len >= 2) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], SHFTOU, "kputc JIS kana byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0x21,   "kputc JIS kana byte1");
+    }
+}
+
+static void test_kputc_jis_fullwidth_space(void)
+{
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x2121, &ks);
+
+    TEST_ASSERT_INT(cap_len, 5, "kputc JIS fullwidth space length");
+    if (cap_len >= 5) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0x1b, "kputc JIS fwsp byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], '$',  "kputc JIS fwsp byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], '@',  "kputc JIS fwsp byte2");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[3], 0x21, "kputc JIS fwsp byte3");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[4], 0x21, "kputc JIS fwsp byte4");
+    }
+}
+
+static void test_kputc_jis_kanji_ascii(void)
+{
+    /* ASCII after kanji closes the JIS shift with ESC ( J (ROMAJI). */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x2422, &ks);
+    kputc('A', &ks);
+
+    TEST_ASSERT_INT(cap_len, 9, "kputc JIS kanji+ASCII length");
+    if (cap_len >= 9) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[5], 0x1b, "kputc JIS kanji+ASCII byte5");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[6], '(',  "kputc JIS kanji+ASCII byte6");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[7], 'J',  "kputc JIS kanji+ASCII byte7");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[8], 'A',  "kputc JIS kanji+ASCII byte8");
+    }
+}
+
+static void test_kputc_jis_kanji_ascii_ri(void)
+{
+    /* KS_RI = KS_ASCII makes the shift-close use ESC ( B. */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ASCII);
+
+    cap_reset();
+    kputc(0x2422, &ks);
+    kputc('A', &ks);
+
+    TEST_ASSERT_INT(cap_len, 9, "kputc JIS kanji+ASCII(RI) length");
+    if (cap_len >= 9) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[5], 0x1b, "kputc JIS kanji+ASCII(RI) byte5");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[6], '(',  "kputc JIS kanji+ASCII(RI) byte6");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[7], 'B',  "kputc JIS kanji+ASCII(RI) byte7");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[8], 'A',  "kputc JIS kanji+ASCII(RI) byte8");
+    }
+}
+
+static void test_kputc_jis_kana_ascii(void)
+{
+    /* ASCII after kana closes the shift with SI (0x0f). */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x0121, &ks);
+    kputc('A', &ks);
+
+    TEST_ASSERT_INT(cap_len, 4, "kputc JIS kana+ASCII length");
+    if (cap_len >= 4) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], SHFTOU, "kputc JIS kana+ASCII byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], 0x21,   "kputc JIS kana+ASCII byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], SHFTIN, "kputc JIS kana+ASCII byte2");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[3], 'A',    "kputc JIS kana+ASCII byte3");
+    }
+}
+
+static void test_kputc_jis_mixed(void)
+{
+    /* kanji -> kana -> ASCII: SO enters kana, SI + ESC ( J leaves. */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x2422, &ks);
+    kputc(0x0121, &ks);
+    kputc('A', &ks);
+
+    TEST_ASSERT_INT(cap_len, 12, "kputc JIS mixed length");
+    if (cap_len >= 12) {
+        static const unsigned char exp[] = {
+            0x1b, '$', '@', 0x24, 0x22,   /* kanji あ */
+            SHFTOU, 0x21,                 /* kana ｡ */
+            SHFTIN, 0x1b, '(', 'J', 'A'   /* SI, ESC ( J, 'A' */
+        };
+        int i;
+        for (i = 0; i < 12; i++)
+            TEST_ASSERT_EQ((unsigned char)cap_buf[i], exp[i],
+                           "kputc JIS mixed byte");
+    }
+}
+
+static void test_kputc_jis_eof_kanji(void)
+{
+    /* kputc(EOF) flushes a pending JIS shift with ESC ( J. */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x2422, &ks);
+    cap_reset();
+    TEST_ASSERT_INT(kputc(EOF, &ks), EOF, "kputc JIS EOF return");
+
+    TEST_ASSERT_INT(cap_len, 3, "kputc JIS EOF flush length");
+    if (cap_len >= 3) {
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], 0x1b, "kputc JIS EOF byte0");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[1], '(',  "kputc JIS EOF byte1");
+        TEST_ASSERT_EQ((unsigned char)cap_buf[2], 'J',  "kputc JIS EOF byte2");
+    }
+    TEST_ASSERT_INT(ks.ks_pstate, NORMAL, "kputc JIS EOF resets pstate");
+}
+
+static void test_kputc_jis_eof_kana(void)
+{
+    /* kputc(EOF) after kana emits SI. */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    kputc(0x0121, &ks);
+    cap_reset();
+    TEST_ASSERT_INT(kputc(EOF, &ks), EOF, "kputc JIS EOF(kana) return");
+
+    TEST_ASSERT_INT(cap_len, 1, "kputc JIS EOF(kana) flush length");
+    if (cap_len >= 1)
+        TEST_ASSERT_EQ((unsigned char)cap_buf[0], SHFTIN,
+                       "kputc JIS EOF(kana) byte");
+    TEST_ASSERT_INT(ks.ks_pstate, NORMAL, "kputc JIS EOF(kana) resets pstate");
+}
+
+static void test_kputc_jis_eof_clean(void)
+{
+    /* kputc(EOF) with no pending shift emits nothing. */
+    KSTREAM ks;
+    jis_out(&ks, KS_OLDJIS, KS_ROMAJI);
+
+    cap_reset();
+    TEST_ASSERT_INT(kputc(EOF, &ks), EOF, "kputc JIS EOF(clean) return");
+    TEST_ASSERT_INT(cap_len, 0, "kputc JIS EOF(clean) emits nothing");
+    TEST_ASSERT_INT(ks.ks_pstate, NORMAL, "kputc JIS EOF(clean) pstate");
+}
+
+static void test_jis_roundtrip(void)
+{
+    /* A full JIS sequence decodes to internal codes and re-encodes to
+       an equivalent JIS byte stream (SO/SI instead of ESC ( I / ESC ( B
+       for the kana section). */
+    unsigned char data[] = {
+        0x1b, '$', 'B', 0x24, 0x22,     /* あ */
+        0x1b, '(', 'B', 'A',             /* ASCII A */
+        0x1b, '(', 'I', 0x24,            /* half-width kana ｡ */
+        0x1b, '(', 'B'                   /* back to ASCII */
+    };
+    KSTREAM ks;
+    int out[16];
+    int n, i;
+
+    n = run_kgetc_jis(data, (int)sizeof data, 0, out, 16);
+    TEST_ASSERT_INT(n, 3, "JIS roundtrip kgetc count");
+    if (n != 3)
+        return;
+    TEST_ASSERT_INT(out[0], 0x2422, "JIS roundtrip kgetc kanji");
+    TEST_ASSERT_INT(out[1], 'A',    "JIS roundtrip kgetc ascii");
+    TEST_ASSERT_INT(out[2], 0x0124, "JIS roundtrip kgetc kana");
+
+    jis_out(&ks, KS_NEWJIS, KS_ASCII);
+    cap_reset();
+    kputc(out[0], &ks);
+    kputc(out[1], &ks);
+    kputc(out[2], &ks);
+    kputc(EOF, &ks);
+
+    {
+        static const unsigned char exp[] = {
+            0x1b, '$', 'B', 0x24, 0x22,   /* kanji あ */
+            0x1b, '(', 'B', 'A',          /* ASCII A */
+            SHFTOU, 0x24,                 /* kana ｡ */
+            SHFTIN                          /* SI from EOF flush */
+        };
+        TEST_ASSERT_INT(cap_len, (int)sizeof exp, "JIS roundtrip kputc length");
+        for (i = 0; i < (int)sizeof exp && i < cap_len; i++)
+            TEST_ASSERT_EQ((unsigned char)cap_buf[i], exp[i],
+                           "JIS roundtrip kputc byte");
+    }
+}
+
 TEST_LIST({
     {"stoj/jtos known pairs",  test_stoj_jtos_known},
     {"stoj/jtos round-trip",   test_stoj_jtos_roundtrip},
@@ -1069,6 +1625,32 @@ TEST_LIST({
     {"ujis_to_utf8 hankaku",   test_ujis_to_utf8_halfwidth_kana},
     {"kputc UTF-8 kanji",      test_kputc_utf8_kanji},
     {"kputc UTF-8 hankaku",    test_kputc_utf8_halfwidth_kana},
+    {"kgetc JIS kanji",        test_kgetc_jis_kanji},
+    {"kgetc JIS old kanji",    test_kgetc_jis_old_kanji},
+    {"kgetc JIS ESC $ ( B",    test_kgetc_jis_esc_dol_par},
+    {"kgetc JIS ASCII",        test_kgetc_jis_ascii},
+    {"kgetc JIS romaji",       test_kgetc_jis_romaji},
+    {"kgetc JIS kana",         test_kgetc_jis_kana},
+    {"kgetc JIS kana->ASCII",  test_kgetc_jis_kana_to_ascii},
+    {"kgetc JIS SO/SI",        test_kgetc_jis_so_si},
+    {"kgetc JIS SO kana",      test_kgetc_jis_so_kana},
+    {"kgetc JIS ESC pass",     test_kgetc_jis_esc_passthrough},
+    {"kgetc JIS broken kanji", test_kgetc_jis_broken_kanji},
+    {"kgetc JIS split reads",  test_kgetc_jis_split_reads},
+    {"kgetc JIS KS_PASS",      test_kgetc_jis_ks_pass},
+    {"kgetc JIS autodetect",   test_kgetc_jis_autodetect},
+    {"kputc JIS kanji",        test_kputc_jis_kanji},
+    {"kputc JIS NEWJIS",       test_kputc_jis_newjis},
+    {"kputc JIS kana",         test_kputc_jis_kana},
+    {"kputc JIS fullwidth sp", test_kputc_jis_fullwidth_space},
+    {"kputc JIS kanji+ASCII",  test_kputc_jis_kanji_ascii},
+    {"kputc JIS kanji+ASCII RI", test_kputc_jis_kanji_ascii_ri},
+    {"kputc JIS kana+ASCII",   test_kputc_jis_kana_ascii},
+    {"kputc JIS mixed",        test_kputc_jis_mixed},
+    {"kputc JIS EOF kanji",    test_kputc_jis_eof_kanji},
+    {"kputc JIS EOF kana",     test_kputc_jis_eof_kana},
+    {"kputc JIS EOF clean",    test_kputc_jis_eof_clean},
+    {"JIS roundtrip",          test_jis_roundtrip},
 })
 
 int main(void)

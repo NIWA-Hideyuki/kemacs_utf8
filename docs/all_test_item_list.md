@@ -11,7 +11,7 @@
 
 | テストプログラム | テスト関数数 | アサーション結果 | 対象 |
 |---|---|---|---|
-|| test_kanji | 46 | 9100 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (ロケール対応 kana_is_wide) |
+|| test_kanji | 72 | 9234 成功 / 0 失敗 | 文字エンコーディング変換・文字幅判定 (SJIS/EUC-JP/JIS/UTF-8, ロケール対応 kana_is_wide) |
 || test_search | 18 | 37 成功 / 0 失敗 | 検索エンジン (scanner/amatch/mceq/eq) |
 || test_line | 12 | 65 成功 / 0 失敗 | バッファ行操作 (linsert/ldelete/lnewline) |
 ||| test_undo | 13 | 73 成功 / 0 失敗 | undo/redo システム (INSERT/DELETE/NEWLINE/JOIN) |
@@ -28,7 +28,7 @@
 || test_memory_safety | — | 14671 成功 / 0 失敗 | バッファオーバーフロー・メモリリーク検証 (ASan + UBSan, line.c/undo.c) |
 |||| test_batch | 16 | 55 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定・Python 変数) |
 
-> **合計: 16のテストプログラム / 24,409 アセーション群 — 全テスト合格 (exit code 0)**
+> **合計: 16のテストプログラム / 24,543 アセーション群 — 全テスト合格 (exit code 0)**
 
 ---
 
@@ -84,6 +84,32 @@
 | 44 | ujis_to_utf8 hankaku | EUC-JP → UTF-8 (半角カナ) |
 | 45 | kputc UTF-8 kanji | 内部漢字 → UTF-8 出力 (EUC-JP 経由) |
 | 46 | kputc UTF-8 hankaku | 内部半角カナ → UTF-8 出力 (EUC-JP 経由) |
+| 47 | kgetc JIS kanji | JIS 漢字入力 (ESC $ B, kgetc) |
+| 48 | kgetc JIS old kanji | JIS 漢字入力 (ESC $ @, 旧 JIS) |
+| 49 | kgetc JIS ESC $ ( B | JIS 4バイトシフト (ESC $ ( B) |
+| 50 | kgetc JIS ASCII | JIS ASCII モード (ESC ( B) |
+| 51 | kgetc JIS romaji | JIS ローマ字モード (ESC ( J) |
+| 52 | kgetc JIS kana | JIS 半角カナ入力 (ESC ( I) |
+| 53 | kgetc JIS kana->ASCII | JIS カナ→ASCII 復帰 (ESC ( B) |
+| 54 | kgetc JIS SO/SI | JIS SO/SI ロッキングシフト |
+| 55 | kgetc JIS SO kana | JIS SO によるカナシフト |
+| 56 | kgetc JIS ESC pass | JIS 未定義 ESC シーケンスの透過 |
+| 57 | kgetc JIS broken kanji | JIS 途中までの漢字バイト (EOF フラッシュ) |
+| 58 | kgetc JIS split reads | JIS 分割読み込み (ks_buf 再結合) |
+| 59 | kgetc JIS KS_PASS | JIS KS_PASS による SI/SO 無効化 |
+| 60 | kgetc JIS autodetect | UTF-8 ストリーム中の JIS エスケープ検出 |
+| 61 | kputc JIS kanji | JIS 漢字出力 (ESC $ @) |
+| 62 | kputc JIS NEWJIS | JIS 漢字出力 (ESC $ B) |
+| 63 | kputc JIS kana | JIS 半角カナ出力 (SO + バイト) |
+| 64 | kputc JIS fullwidth sp | JIS 全角スペース出力 |
+| 65 | kputc JIS kanji+ASCII | JIS 漢字→ASCII 出力 (ESC ( J) |
+| 66 | kputc JIS kanji+ASCII RI | JIS 漢字→ASCII 出力 (KS_RI=ASCII, ESC ( B) |
+| 67 | kputc JIS kana+ASCII | JIS カナ→ASCII 出力 (SI) |
+| 68 | kputc JIS mixed | JIS 漢字→カナ→ASCII 混合出力 |
+| 69 | kputc JIS EOF kanji | JIS EOF フラッシュ (ESC ( J) |
+| 70 | kputc JIS EOF kana | JIS EOF フラッシュ (SI) |
+| 71 | kputc JIS EOF clean | JIS EOF (保留状態なし) |
+| 72 | JIS roundtrip | JIS ラウンドトリップ (kgetc → kputc) |
 
 ---
 
