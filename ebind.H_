@@ -44,6 +44,8 @@ KEYTAB	keytab[NBINDS] = {
 	{CTLX|CTLFLG|'E',	entab},
 #endif
 	{CTLX|CTLFLG|'F',	filefind},
+	{CTLX|CTLFLG|'G',	md_insert_heading},
+	{CTLX|CTLFLG|'H',	md_heading_up},
 	{CTLX|CTLFLG|'I',	insfile},
 	{CTLX|CTLFLG|'L',	lowerregion},
 	{CTLX|CTLFLG|'M',	delmode},
@@ -91,6 +93,7 @@ KEYTAB	keytab[NBINDS] = {
 #endif
 	{CTLX|'W',		resize},
 	{CTLX|'X',		nextbuffer},
+	{CTLX|'Y',		md_conceal_toggle},
 	{CTLX|'Z',		enlargewind},
 	{CTLX|'R',		redo},
 	{CTLX|'U',		undo},
@@ -134,14 +137,16 @@ KEYTAB	keytab[NBINDS] = {
 #endif
 	{META|'F',		forwword},
 	{META|'G',		gotoline},
-#if	PYMODE
-	{META|'J',		pyindent},
-#endif
+	{META|'I',		md_italic},
+	{META|'J',		smart_indent},
 	{META|'K',		bindtokey},
 	{META|'L',		lowerword},
 	{META|'M',		setgmode},
 #if	WORDPRO
 	{META|'N',		gotoeop},
+#endif
+	{META|'O',		md_outline},
+#if	WORDPRO
 	{META|'P',		gotobop},
 	{META|'Q',		fillpara},
 #endif
@@ -153,6 +158,7 @@ KEYTAB	keytab[NBINDS] = {
 	{META|'V',		backpage},
 	{META|'W',		copyregion},
 	{META|'X',		namedcmd},
+	{META|'Y',		md_preview},
 	{META|'Z',		quickexit},
 	{META|0x7F,		delbword},
 	{SPEC|META|'A',		backline},

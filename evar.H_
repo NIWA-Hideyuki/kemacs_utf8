@@ -74,6 +74,8 @@ static Char *get_curchar_hook();
 static int put_curchar_hook();
 static int put_modeline_hook();
 static int put_showlinenum_hook(), put_linenumwidth_hook();
+/* Markdown string defaults are applied when the variable is unset. */
+static Char *get_md_str_hook();
 #if	CLOCK
 static int put_cperiod_hook();
 #endif
@@ -178,8 +180,28 @@ ENVAR envars[] = {
 	   (char *)&c_follow_source, get_bool_hook, put_bool_hook},
 	{CSTR("c-gnu-indent-offset"), EV_GLOBAL,	/* GNU style half-indent offset (columns) */
 	   (char *)&c_gnu_indent, get_int_hook, put_int_hook},
-	{CSTR("c-brace-standalone-func"), EV_GLOBAL,	/* Stroustrup: function brace on own line */
+	{CSTR("c-brace-standalone-func"),	EV_GLOBAL,	/* Stroustrup: function brace on own line */
 	   (char *)&c_brace_func, get_bool_hook, put_bool_hook},
+	{CSTR("md-indent-width"),	EV_GLOBAL,	/* Markdown indent width (spaces) */
+	   (char *)&md_indent_width, get_int_hook, put_int_hook},
+	{CSTR("md-use-spaces"),		EV_GLOBAL,	/* Use spaces for Markdown indent */
+	   (char *)&md_use_spaces, get_bool_hook, put_bool_hook},
+	{CSTR("md-auto-list"),		EV_GLOBAL,	/* Continue list markers on newline */
+	   (char *)&md_auto_list, get_bool_hook, put_bool_hook},
+	{CSTR("md-list-bullets"),	EV_GLOBAL,	/* Bullets cycled by md-list-toggle */
+	   (char *)&md_list_bullets, get_md_str_hook, put_str_hook},
+	{CSTR("md-fence-lang"),		EV_GLOBAL,	/* Default fence language */
+	   (char *)&md_fence_lang, get_md_str_hook, put_str_hook},
+	{CSTR("md-heading-max"),	EV_GLOBAL,	/* Maximum heading level */
+	   (char *)&md_heading_max, get_int_hook, put_int_hook},
+	{CSTR("md-conceal"),		EV_GLOBAL,	/* Conceal line-leading markers */
+	   (char *)&md_conceal, get_bool_hook, put_bool_hook},
+	{CSTR("md-auto-pair"),		EV_GLOBAL,	/* Auto-pair markup characters */
+	   (char *)&md_auto_pair, get_bool_hook, put_bool_hook},
+	{CSTR("md-preview-command"),	EV_GLOBAL,	/* External preview command */
+	   (char *)&md_preview_command, get_md_str_hook, put_str_hook},
+	{CSTR("md-preview-on-save"),	EV_GLOBAL,	/* Run preview after filesave */
+	   (char *)&md_preview_on_save, get_bool_hook, put_bool_hook},
 };
 
 #define	NEVARS	(sizeof(envars) / sizeof(ENVAR))

@@ -234,6 +234,25 @@ get_str_hook(ENVAR *evp)
 	return (!p? CSTR(""): p);
 }
 
+/*
+ * Markdown string variables are NULL when unset so that put_str_hook's
+ * copy() can free the previous value safely (a static Cxstr pointer
+ * cannot be freed).  Return the documented default while unset.
+ */
+static Char *
+get_md_str_hook(ENVAR *evp)
+{
+	Char *p = *((Char **)evp->ev_addr);
+
+	if (p != NULL)
+		return p;
+	if (Cstrcmp(evp->ev_name, CSTR("md-list-bullets")) == 0)
+		return CSTR("- * +");
+	if (Cstrcmp(evp->ev_name, CSTR("md-preview-command")) == 0)
+		return CSTR("grip %f");
+	return CSTR("");
+}
+
 static int
 put_int_hook(ENVAR *evp, Char *val)
 {

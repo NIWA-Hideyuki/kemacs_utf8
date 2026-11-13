@@ -39,6 +39,7 @@
 #define CLOCK	1	/* periodically update clock on modeline	*/
 #define COMPAT	1	/* accept old version's macro definiton		*/
 #define PYMODE	1	/* Python mode: auto-indent, pyindent, etc.	*/
+#define MDMODE	1	/* Markdown mode: marker-aware editing	*/
 
 #define MAX_SCREEN_LINES	128	/* max # of lines on screen	*/
 #define MAX_SCREEN_COLUMNS	256	/* max # of columns on screen	*/
@@ -265,7 +266,9 @@ enum bmode {
 	bm_view,
 #define MDVIEW	(1<<(int)bm_view)	/* read-only buffer		*/
 	bm_over,
-#define MDOVER	(1<<(int)bm_over)	/* overwrite mode		*/
+#define MDOVER	(1<<(int)bm_over)	/* overwrite mode			*/
+	bm_mdmod,
+#define MDMDMOD (1<<(int)bm_mdmod)	/* Markdown mode: marker-aware editing */
 #if	MAGIC
 	bm_magic,
 # define MDMAGIC (1<<(int)bm_magic)	/* regular expresions in search */

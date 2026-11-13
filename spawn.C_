@@ -11,6 +11,7 @@
 #include	<signal.h>
 #include	<pwd.h>
 #include	<errno.h>
+#include	<fcntl.h>
 #include	<sys/stat.h>
 #include	<sys/wait.h>
 extern int vttidy();
@@ -115,6 +116,379 @@ int spawn(int f, int n)
 		;
 	sgarbf = TRUE;
 	return (TRUE);
+}
+
+/*
+ * ================================================================
+ * Async preview support
+ * ================================================================
+ *
+ * spawn_preview() runs $md-preview-command in the background with its
+ * stdout/stderr connected to a pipe.  preview_poll() (called once per
+ * iteration of the main command loop) appends whatever the command
+ * wrote to a dedicated buffer, so the output never touches the
+ * terminal nor the buffer that was current when the preview started.
+ *
+ * The child calls setsid(), so it leads its own process group and
+ * killing -pv_pid terminates the whole group (e.g. grip and any
+ * helpers it spawned) without signalling kemacs itself.
+ */
+
+#define PREV_PIPE_BUFSIZ	1024	/* pipe read chunk		*/
+#define PREV_LINE_BUFSIZ	NLINE	/* output line accumulator	*/
+
+typedef struct {
+	pid_t	pv_pid;			/* child process id (0: none)	*/
+	int	pv_fd;			/* read end of the pipe (-1: none) */
+	int	pv_active;		/* TRUE while the child runs	*/
+	int	pv_dirty;		/* new output waiting for a redraw */
+	int	pv_something;		/* some output arrived at least once */
+	BUFFER	*pv_bp;			/* output buffer		*/
+	BUFFER	*pv_prev;		/* buffer to restore when closing */
+	Char	pv_tmp[NLINE];		/* temporary file to remove on close */
+} PREVIEW;
+
+static PREVIEW prev;
+
+static Char	prev_line[PREV_LINE_BUFSIZ];	/* partial output line	*/
+static int	prev_line_len = 0;
+static int	prev_line_started = 0;	/* a line is open (even if empty) */
+
+/*
+ * preview_flush_line() -- append the accumulated partial line to the
+ * preview buffer as one complete line.
+ */
+static void
+preview_flush_line(void)
+{
+	if (prev.pv_bp == NULL || (prev_line_len == 0 && !prev_line_started))
+		return;
+	prev_line[prev_line_len] = 0;
+	if (addline(prev.pv_bp, prev_line) == TRUE) {
+		prev.pv_something = TRUE;
+		prev.pv_dirty = TRUE;
+	}
+	prev_line_len = 0;
+	prev_line_started = 0;
+}
+
+/*
+ * preview_ingest() -- split raw command output into lines and append
+ * them to the preview buffer.  A trailing partial line is kept until
+ * the next chunk or until the process ends.
+ */
+static void
+preview_ingest(char *data, int len)
+{
+	int i;
+
+	for (i = 0; i < len; i++) {
+		unsigned char c = (unsigned char)data[i];
+
+		if (c == '\r')			/* strip CR from CRLF	*/
+			continue;
+		if (c == '\n') {
+			prev_line_started = 1;
+			preview_flush_line();
+			continue;
+		}
+		if (prev_line_len >= PREV_LINE_BUFSIZ - 1) {
+			/* very long line: wrap instead of overflowing */
+			prev_line_started = 1;
+			preview_flush_line();
+		}
+		prev_line[prev_line_len++] = (Char)c;
+		prev_line_started = 1;
+	}
+}
+
+/*
+ * preview_mark_dirty() -- flag every window showing the preview buffer
+ * for a redraw, and keep the cursor at the end so new output is visible.
+ */
+static void
+preview_mark_dirty(void)
+{
+	WINDOW *wp;
+
+	if (prev.pv_bp == NULL)
+		return;
+	wp = wheadp;
+	while (wp != NULL) {
+		if (wp->w_bufp == prev.pv_bp) {
+			wp->w_flag |= WFHARD;
+			if (wp == curwp && curbp == prev.pv_bp) {
+				wp->w_dotp = prev.pv_bp->b_linep;
+				wp->w_doto = 0;
+			}
+		}
+		wp = wp->w_wndp;
+	}
+}
+
+/*
+ * preview_reap() -- collect the child if it exited and drain any output
+ * still sitting in the pipe.
+ */
+static void
+preview_reap(void)
+{
+	char	buf[PREV_PIPE_BUFSIZ];
+	int	n;
+	int	st;
+
+	if (!prev.pv_active || prev.pv_pid <= 0)
+		return;
+	if (waitpid(prev.pv_pid, &st, WNOHANG) != prev.pv_pid)
+		return;
+	prev.pv_active = FALSE;
+	if (prev.pv_fd >= 0) {
+		while ((n = read(prev.pv_fd, buf, sizeof(buf))) > 0)
+			preview_ingest(buf, n);
+		(void)close(prev.pv_fd);
+		prev.pv_fd = -1;
+	}
+	preview_flush_line();
+	if (prev.pv_bp != NULL) {
+		(void)addline(prev.pv_bp, CSTR("[preview finished]"));
+		prev.pv_something = TRUE;
+		prev.pv_dirty = TRUE;
+	}
+}
+
+/*
+ * preview_kill_process() -- terminate the preview process (whole process
+ * group) and close the pipe.
+ */
+static void
+preview_kill_process(void)
+{
+	int	st;
+	int	i;
+
+	if (prev.pv_pid <= 0)
+		return;
+	(void)kill(-prev.pv_pid, SIGTERM);
+	(void)kill(prev.pv_pid, SIGTERM);
+	for (i = 0; i < 50; i++) {
+		if (waitpid(prev.pv_pid, &st, WNOHANG) == prev.pv_pid)
+			break;
+		millisleep(TRUE, 10);
+	}
+	if (i >= 50) {
+		(void)kill(-prev.pv_pid, SIGKILL);
+		(void)kill(prev.pv_pid, SIGKILL);
+		(void)waitpid(prev.pv_pid, &st, 0);
+	}
+	prev.pv_pid = 0;
+	prev.pv_active = FALSE;
+	if (prev.pv_fd >= 0) {
+		(void)close(prev.pv_fd);
+		prev.pv_fd = -1;
+	}
+}
+
+/*
+ * preview_detach() -- detach the preview buffer from every window and
+ * attach repl instead.  Mirrors the bookkeeping done by swbuffer() and
+ * delwind().
+ */
+static void
+preview_detach(BUFFER *bp, BUFFER *repl)
+{
+	WINDOW *wp;
+
+	if (bp == NULL || repl == NULL)
+		return;
+	wp = wheadp;
+	while (wp != NULL) {
+		if (wp->w_bufp == bp) {
+			if (--bp->b_nwnd == 0) {
+				bp->b_dotp  = wp->w_dotp;
+				bp->b_doto  = wp->w_doto;
+				bp->b_markp = wp->w_markp;
+				bp->b_marko = wp->w_marko;
+			}
+			wp->w_bufp = repl;
+			if (repl->b_nwnd++ == 0) {
+				wp->w_dotp  = repl->b_dotp;
+				wp->w_doto  = repl->b_doto;
+				wp->w_markp = repl->b_markp;
+				wp->w_marko = repl->b_marko;
+			}
+			wp->w_linep = repl->b_linep;
+			wp->w_flag |= WFMODE|WFFORCE|WFHARD;
+		}
+		wp = wp->w_wndp;
+	}
+}
+
+/*
+ * preview_poll() -- read whatever the preview command has written so far.
+ * Called once per iteration of the main command loop.
+ */
+void
+preview_poll(void)
+{
+	char	buf[PREV_PIPE_BUFSIZ];
+	int	n;
+
+	if (prev.pv_bp == NULL && !prev.pv_active)
+		return;
+	if (prev.pv_fd >= 0) {
+		while ((n = read(prev.pv_fd, buf, sizeof(buf))) > 0)
+			preview_ingest(buf, n);
+		if (n == 0) {			/* EOF: child closed stdout */
+			(void)close(prev.pv_fd);
+			prev.pv_fd = -1;
+		}
+	}
+	preview_reap();
+	if (prev.pv_dirty) {
+		preview_mark_dirty();
+		prev.pv_dirty = FALSE;
+	}
+}
+
+/*
+ * preview_wait_first() -- give a freshly started preview command a moment
+ * to produce its first output (grip prints its banner immediately), so
+ * the buffer is not empty when M-Y returns.  Bounded at ~300 ms.
+ */
+void
+preview_wait_first(void)
+{
+	int	i;
+
+	for (i = 0; i < 15; i++) {
+		preview_poll();
+		if (prev.pv_something || !prev.pv_active)
+			break;
+		millisleep(TRUE, 20);
+	}
+}
+
+/*
+ * preview_close() -- kill the preview process, drop its buffer and
+ * restore the buffer that was current before the preview started.
+ */
+void
+preview_close(void)
+{
+	BUFFER	*bp;
+	BUFFER	*repl;
+	int	curwasprev;
+
+	if (prev.pv_bp == NULL && !prev.pv_active) {
+		prev_line_len = 0;
+		prev_line_started = 0;
+		return;
+	}
+	preview_kill_process();
+	bp = prev.pv_bp;
+	repl = prev.pv_prev;
+	curwasprev = (bp != NULL && curbp == bp);
+	preview_flush_line();		/* keep a trailing partial line	*/
+	prev.pv_bp = NULL;
+	prev.pv_prev = NULL;
+	prev_line_len = 0;
+	prev_line_started = 0;
+	if (bp != NULL) {
+		if (curwasprev && repl != NULL && repl != bp)
+			(void)swbuffer(repl);
+		preview_detach(bp, repl);
+		(void)bclear(bp);
+		(void)zotbuf(bp);
+	}
+	if (prev.pv_tmp[0] != 0) {
+		(void)unlink(cfromC(prev.pv_tmp));
+		prev.pv_tmp[0] = 0;
+	}
+}
+
+/*
+ * preview_abort() -- ^C in the preview buffer kills the preview process
+ * and closes only that buffer.  Returns FALSE when the current buffer is
+ * not the preview buffer, leaving the normal ^C behaviour untouched.
+ */
+int
+preview_abort(void)
+{
+	if (prev.pv_bp == NULL || curbp != prev.pv_bp)
+		return FALSE;
+	preview_close();
+	return TRUE;
+}
+
+/*
+ * spawn_preview() -- run cmd asynchronously, capturing its output into a
+ * buffer called bname.  tmpfile (may be empty) is removed when the
+ * preview is closed.  Returns TRUE on success.
+ */
+int
+spawn_preview(Char *cmd, Char *bname, Char *tmpfile)
+{
+	int	fds[2];
+	pid_t	pid;
+	int	i;
+
+	if (cmd == NULL || cmd[0] == 0 || bname == NULL)
+		return FALSE;
+	preview_close();			/* stop any previous preview */
+
+	if (pipe(fds) < 0)
+		return FALSE;
+	if ((pid = fork()) < 0) {
+		(void)close(fds[0]);
+		(void)close(fds[1]);
+		return FALSE;
+	}
+	if (pid == 0) {
+		int devnull;
+
+		(void)setsid();			/* own process group	*/
+		if ((devnull = open("/dev/null", O_RDONLY)) >= 0) {
+			(void)dup2(devnull, 0);
+			if (devnull > 2)
+				(void)close(devnull);
+		}
+		(void)dup2(fds[1], 1);
+		(void)dup2(fds[1], 2);
+		(void)close(fds[0]);
+		(void)close(fds[1]);
+		(void)execlp("/bin/sh", "sh", "-c", cfromC(cmd), (char *)NULL);
+		_exit(127);
+	}
+	(void)close(fds[1]);
+	(void)fcntl(fds[0], F_SETFL, O_NONBLOCK);
+
+	prev.pv_pid = pid;
+	prev.pv_fd = fds[0];
+	prev.pv_active = TRUE;
+	prev.pv_dirty = FALSE;
+	prev.pv_something = FALSE;
+	prev_line_len = 0;
+	prev_line_started = 0;
+	prev.pv_tmp[0] = 0;
+	if (tmpfile != NULL) {
+		for (i = 0; tmpfile[i] && i < NLINE - 1; i++)
+			prev.pv_tmp[i] = tmpfile[i];
+		prev.pv_tmp[i] = 0;
+	}
+
+	prev.pv_bp = bfind(bname, TRUE, BFINVS);
+	if (prev.pv_bp == NULL) {
+		(void)close(fds[0]);
+		prev.pv_fd = -1;
+		prev.pv_pid = 0;
+		prev.pv_active = FALSE;
+		return FALSE;
+	}
+	prev.pv_bp->b_mode |= MDVIEW;
+	prev.pv_prev = curbp;
+	(void)bclear(prev.pv_bp);
+	(void)swbuffer(prev.pv_bp);
+	return TRUE;
 }
 
 /*

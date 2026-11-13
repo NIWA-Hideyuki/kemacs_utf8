@@ -240,6 +240,50 @@ extern	int	cindent_region(int f, int n);
 extern	int	c_mode(int f, int n);
 extern	int	c_detect_style(int f, int n);
 extern	int	c_follow_source_cmd(int f, int n);
+extern	int	mdinsert(void);
+extern	int	mdindent(int f, int n);
+extern	int	md_backspace(int f, int n);
+extern	int	md_tab(int f, int n);
+extern	int	smart_indent(int f, int n);
+extern	int	md_mode(int f, int n);
+extern	int	md_insert_heading(int f, int n);
+extern	int	md_heading_up(int f, int n);
+extern	int	md_heading_down(int f, int n);
+extern	int	md_heading_cycle(int f, int n);
+extern	int	md_list_toggle(int f, int n);
+extern	int	md_list_demote(int f, int n);
+extern	int	md_list_promote(int f, int n);
+extern	int	md_list_renumber(int f, int n);
+extern	int	md_bold(int f, int n);
+extern	int	md_italic(int f, int n);
+extern	int	md_code(int f, int n);
+extern	int	md_strike(int f, int n);
+extern	int	md_insert_link(int f, int n);
+extern	int	md_task_toggle(int f, int n);
+extern	int	md_quote_region(int f, int n);
+extern	int	md_quote_toggle(int f, int n);
+extern	int	md_insert_fence(int f, int n);
+extern	int	md_goto_fence(int f, int n);
+extern	int	md_table_next_cell(int f, int n);
+extern	int	md_outline(int f, int n);
+extern	int	md_goto_heading(int f, int n);
+extern	void	md_draw_line(LINE *lp);
+extern	int	md_heading_level(LINE *lp);
+extern	int	md_in_fence(LINE *lp);
+extern	int	md_line_is_list(LINE *lp);
+extern	int	md_current_heading(Char *buf, int bufsize, LINE *lp);
+extern	int	md_pair_char(Char c);
+extern	int	md_self_insert(int n, Char c);
+extern	int	md_conceal_toggle(int f, int n);
+extern	int	md_build_preview_command(Char *out, int size, Char *fname);
+extern	int	md_preview(int f, int n);
+
+/* Async preview engine (spawn.c) */
+extern	int	spawn_preview(Char *cmd, Char *bname, Char *tmpfile);
+extern	void	preview_poll(void);
+extern	void	preview_wait_first(void);
+extern	int	preview_abort(void);
+extern	void	preview_close(void);
 #if AUTOMODE
 
 extern	int	automode(int f, int n);
@@ -722,8 +766,35 @@ NBIND	names[] = {
 	{CSTR("cindent"),		cindent},
 	{CSTR("cindent-region"),	cindent_region},
 	{CSTR("c-mode"),		c_mode},
-	{CSTR("c-detect-style"),	c_detect_style},
-	{CSTR("c-follow-source"),	c_follow_source_cmd},
+	{CSTR("c-detect-style"),		c_detect_style},
+	{CSTR("c-follow-source"),		c_follow_source_cmd},
+
+	{CSTR("md-mode"),		md_mode},
+	{CSTR("mdindent"),		mdindent},
+	{CSTR("smart-indent"),		smart_indent},
+	{CSTR("md-insert-heading"),	md_insert_heading},
+	{CSTR("md-heading-up"),		md_heading_up},
+	{CSTR("md-heading-down"),	md_heading_down},
+	{CSTR("md-heading-cycle"),	md_heading_cycle},
+	{CSTR("md-list-toggle"),	md_list_toggle},
+	{CSTR("md-list-demote"),	md_list_demote},
+	{CSTR("md-list-promote"),	md_list_promote},
+	{CSTR("md-list-renumber"),	md_list_renumber},
+	{CSTR("md-bold"),		md_bold},
+	{CSTR("md-italic"),		md_italic},
+	{CSTR("md-code"),		md_code},
+	{CSTR("md-strike"),		md_strike},
+	{CSTR("md-insert-link"),	md_insert_link},
+	{CSTR("md-task-toggle"),	md_task_toggle},
+	{CSTR("md-quote-region"),	md_quote_region},
+	{CSTR("md-quote-toggle"),	md_quote_toggle},
+	{CSTR("md-insert-fence"),	md_insert_fence},
+	{CSTR("md-goto-fence"),		md_goto_fence},
+	{CSTR("md-table-next-cell"),	md_table_next_cell},
+	{CSTR("md-outline"),		md_outline},
+	{CSTR("md-goto-heading"),	md_goto_heading},
+	{CSTR("md-preview"),		md_preview},
+	{CSTR("md-conceal-toggle"),	md_conceal_toggle},
 	{CSTR(""),			NULL}
 
 };

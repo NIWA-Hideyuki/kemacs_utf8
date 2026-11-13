@@ -191,6 +191,18 @@ EXT int	c_case_indent	INIT(0);	/* case label indent relative to switch */
 EXT int	c_pp_indent	INIT(0);	/* Preprocessor directive indent */
 EXT int	c_auto_close	INIT(TRUE);	/* Auto-close brace indentation */
 
+/* MDMODE configuration variables */
+EXT int	md_indent_width	INIT(2);	/* Markdown indent width (spaces) */
+EXT int	md_use_spaces	INIT(TRUE);	/* Use spaces (not tabs) for Markdown indent */
+EXT int	md_auto_list	INIT(TRUE);	/* Continue list markers on newline */
+EXT Char	*md_list_bullets INIT(NULL); /* Bullets cycled by md-list-toggle */
+EXT Char	*md_fence_lang	INIT(NULL);	/* Default fence language */
+EXT int	md_heading_max	INIT(6);	/* Maximum heading level */
+EXT int	md_conceal	INIT(FALSE);	/* Conceal line-leading markers */
+EXT int	md_auto_pair	INIT(FALSE);	/* Auto-pair markup characters */
+EXT Char	*md_preview_command INIT(NULL);	/* External preview command */
+EXT int	md_preview_on_save INIT(FALSE);	/* Run preview after filesave */
+
 EXT Ckey	kbdm[NKBDM]	INIT({CTLX|')'});	/* Macro				*/
 
 EXT Char	*execstr	INIT(NULL);			/* pointer to string to execute	*/
@@ -209,7 +221,7 @@ EXT Char	*modename[]						/* name of modes		*/
 
 	= {	CSTR("WRAP"), CSTR("CMODE"), CSTR("PYMODE"), CSTR("SPELL"),
 
-		CSTR("EXACT"), CSTR("VIEW"), CSTR("OVER"),
+		CSTR("EXACT"), CSTR("VIEW"), CSTR("OVER"), CSTR("MDMODE"),
 
 # if MAGIC
 
@@ -245,7 +257,7 @@ EXT Char	modecode[]						/* letters to represent modes */
 
 #ifdef maindef
 
-	= {	'W', 'C', 'P', 'S', 'E', 'V', 'O',
+	= {	'W', 'C', 'P', 'S', 'E', 'V', 'O', 'D',
 
 # if MAGIC
 
@@ -371,14 +383,16 @@ EXT int		kterminal	INIT(0);			/* use KANJI messages			*/
 
 #if AUTOMODE
 
-EXT int		npatent		INIT(2);			/* # of pattern table entry	*/
+EXT int		npatent		INIT(4);		/* # of pattern table entry	*/
 
-EXT PATTBL	pattbl[NMPAT] 				/* pattern table	*/
+EXT PATTBL	pattbl[NMPAT] 					/* pattern table	*/
 
 # ifdef maindef
 
-	= {	{ "\\.[ch]$", MDCMOD },
-		{ "\\.py$",   MDPYMOD } }
+	= {	{ "\\.[ch]$",	MDCMOD },
+		{ "\\.py$",	MDPYMOD },
+		{ "\\.md$",	MDMDMOD },
+		{ "\\.markdown$", MDMDMOD } }
 
 # endif
 

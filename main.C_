@@ -343,6 +343,7 @@ int recedit(bool toplev, int n)
     upmode();
     while (TRUE) {
 	do {
+	    preview_poll();				/* collect preview output */
 	    update(FALSE);				/* Fix up the screen	*/
 	    c = getcmd();
 #if	CLOCK
@@ -475,8 +476,11 @@ int recedit(bool toplev, int n)
 /*ARGSUSED*/
 int exitrecedit(int f, int n)
 {
-    exitedit = TRUE;
-    return(TRUE);
+	/* ^C in the preview buffer stops the preview instead of the editor */
+	if (preview_abort() == TRUE)
+		return (TRUE);
+	exitedit = TRUE;
+	return(TRUE);
 }
 
 /*
@@ -605,6 +609,9 @@ int execute(Ckey c, int f, int n)
 			status = insbrace(n, (Char)c);
 		else if (c == '#' && (curbp->b_mode & MDCMOD) != 0)
 			status = inspound();
+		else if ((curbp->b_mode & MDMDMOD) != 0 && md_auto_pair &&
+			 md_pair_char((Char)c))
+			status = md_self_insert(n, (Char)c);
 		else {
 			status = linsert(n, (Char)c);
 		}
@@ -684,6 +691,7 @@ int quit(int f, int n)
 #endif
 		CSTR("Modified buffers exist. Leave anyway")))
 									     == TRUE) {
+		preview_close();		/* stop a running preview	*/
 		vttidy();
 		exit(0);
 	}

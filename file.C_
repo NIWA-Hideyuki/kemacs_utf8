@@ -10,6 +10,9 @@
 #include	"estruct.h"
 #include	"edef.h"
 
+/* Markdown mode save hook (defined in mdmode.c) */
+extern int md_preview(int f, int n);
+
 /*
  * Read a file into the current
  * buffer. This is really easy; all you do it
@@ -483,6 +486,11 @@ int filesave(int f, int n)
 		curbp->b_flag &= ~BFCHG;
 		upmode();
 	}
+#if MDMODE
+	/* Markdown mode: optionally run the external preview after saving */
+	if (s == TRUE && (curbp->b_mode & MDMDMOD) != 0 && md_preview_on_save)
+		(void)md_preview(FALSE, 0);
+#endif
 	return (s);
 }
 

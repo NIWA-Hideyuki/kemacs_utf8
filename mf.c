@@ -143,7 +143,8 @@ OBJS		= basic.o \\
 		window.o \\
 		word.o \\
 		python.o \\
-		cmode.o
+		cmode.o \\
+		mdmode.o
 
 SRCS	      = basic.C_ \\
 		bind.C_ \\
@@ -170,7 +171,8 @@ SRCS	      = basic.C_ \\
 		window.C_ \\
 		word.C_ \\
 		python.C_ \\
-		cmode.C_
+		cmode.C_ \\
+		mdmode.C_
 
 CSRCS	      = basic.c \\
 		bind.c \\
@@ -197,7 +199,8 @@ CSRCS	      = basic.c \\
 		window.c \\
 		word.c \\
 		python.c \\
-		cmode.c
+		cmode.c \\
+		mdmode.c
 
 HDRS	      = ebind.H_ \\
 		ecomm.H_ \\
@@ -410,6 +413,7 @@ window.c: window.C_
 word.c: word.C_
 python.c: python.C_
 cmode.c: cmode.C_
+mdmode.c: mdmode.C_
 
 $(RCFILE):	$(RCFILE).tmpl
 		sed -e 's|_PREFIX_|$(PREFIX)|g' $(RCFILE).tmpl > $@

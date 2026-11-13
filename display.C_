@@ -10,6 +10,13 @@
 #include	"estruct.h"
 #include	"edef.h"
 
+/* Markdown mode display hooks (defined in mdmode.c) */
+extern void md_draw_line(LINE *lp);
+extern int md_heading_level(LINE *lp);
+extern int md_in_fence(LINE *lp);
+extern int md_line_is_list(LINE *lp);
+extern int md_current_heading(Char *buf, int bufsize, LINE *lp);
+
 #if	HAVE_STDARG
  /* 2005/1/30 by NIDE, N.  Very old cc does not know #elif (??) */
 # define HANDLE_VARIABLE_ARGS
@@ -627,8 +634,13 @@ int updone(WINDOW *wp)
 		draw_gutter(sline, lineno);
 	}
 	vtmove(sline, gw);
-	for (i=0; i < llength(lp); ++i)
-		vtputc(lgetc(lp, i));
+#if MDMODE
+	if ((wp->w_bufp->b_mode & MDMDMOD) != 0 && md_conceal)
+		md_draw_line(lp);
+	else
+#endif
+		for (i=0; i < llength(lp); ++i)
+			vtputc(lgetc(lp, i));
 #if	COLOR
 	vscreen[sline]->v_rfcolor = wp->w_fcolor;
 	vscreen[sline]->v_rbcolor = wp->w_bcolor;
@@ -668,8 +680,13 @@ int updall(WINDOW *wp)
 		    int this_lineno = lineno;
 		    if (lp != wp->w_bufp->b_linep) {
 			/* if we are not at the end */
-			for (i=0; i < llength(lp); ++i)
-			    vtputc(lgetc(lp, i));
+#if MDMODE
+			if ((wp->w_bufp->b_mode & MDMDMOD) != 0 && md_conceal)
+				md_draw_line(lp);
+			else
+#endif
+				for (i=0; i < llength(lp); ++i)
+				    vtputc(lgetc(lp, i));
 			lp = lforw(lp);
 			++lineno;
 		    } else {
@@ -758,8 +775,14 @@ int upddex(void)
 						draw_gutter(i, lineno);
 					}
 					vtmove(i, gw);
-					for (j = 0; j < llength(lp); ++j)
-						vtputc(lgetc(lp, j));
+#if MDMODE
+					if ((wp->w_bufp->b_mode & MDMDMOD) != 0 &&
+					    md_conceal)
+						md_draw_line(lp);
+					else
+#endif
+						for (j = 0; j < llength(lp); ++j)
+							vtputc(lgetc(lp, j));
 					vteeol();
 					if (gw > 0)
 					    draw_gutter(i, lineno);
@@ -886,8 +909,13 @@ int updext(void)
 #if !KANJI
     lp = curwp->w_dotp;		/* line to output */
 #endif
-    for (j=0; j<llength(lp); ++j)	/* until the end-of-line */
-        vtputc(lgetc(lp, j));
+#if MDMODE
+    if ((curwp->w_bufp->b_mode & MDMDMOD) != 0 && md_conceal)
+	md_draw_line(lp);
+    else
+#endif
+	for (j=0; j<llength(lp); ++j)	/* until the end-of-line */
+	    vtputc(lgetc(lp, j));
 
     /* truncate the virtual line, restore tab offset */
     vteeol();
@@ -1104,6 +1132,7 @@ int modeline(WINDOW *wp)
     int i;		/* loop index */
     int firstm;	/* is this the first mode? */
     static Char mline[NLINE];	/* buffer for mode line */
+    static Char hbuf[NLINE];	/* Markdown section heading buffer */
 
     n = wp->w_toprow+wp->w_ntrows;		/* Location. */
     vscreen[n]->v_flag |= VFCHG | VFREQ | VFCOL; /* Redraw next time. */
@@ -1221,6 +1250,35 @@ int modeline(WINDOW *wp)
 		n++;
 	    }
 	    continue;
+#if MDMODE
+	case 'h':
+	    /* current line heading level, e.g. "H2" */
+	    if ((bp->b_mode & MDMDMOD) != 0) {
+		int lvl = md_heading_level(wp->w_dotp);
+		if (lvl > 0) {
+		    vtputc('H');
+		    vtputc((Char)('0' + lvl));
+		    n += 2;
+		}
+	    }
+	    continue;
+	case 'H':
+	    /* heading of the section the current line belongs to */
+	    if ((bp->b_mode & MDMDMOD) == 0)
+		continue;
+	    if (md_current_heading(hbuf, (int)sizeof(hbuf),
+				   wp->w_dotp) < 0)
+		continue;
+	    cp = hbuf;
+	    break;
+	case 'l':
+	    /* current line is a list item */
+	    if ((bp->b_mode & MDMDMOD) == 0 ||
+		!md_line_is_list(wp->w_dotp))
+		continue;
+	    cp = CSTR("MDLIST");
+	    break;
+#endif
 	}
 	/* put string pointed by cp */
 	while (*cp && n < term.t_ncol) {

@@ -1,0 +1,2038 @@
+/*
+ * mdmode.C_ -- Markdown mode (MDMODE) for kemacs.
+ *
+ * Provides marker-aware editing for CommonMark / GFM style Markdown:
+ *
+ *   Phase 1 (mode skeleton + indentation):
+ *     md_mode      -- toggle MDMDMOD for the current buffer
+ *     mdinsert     -- auto-indent / marker continuation on newline
+ *     mdindent     -- re-indent the current line (M-J via smart_indent)
+ *     md_backspace -- dedent one marker level on Backspace
+ *     md_tab       -- TAB: next table cell, or indent a list item
+ *
+ *   Phase 2 (structural editing):
+ *     headings, lists, task lists, emphasis, code, links, quotes,
+ *     fences, table cell motion, and the outline browser.
+ *
+ * Display (Phase 3: conceal / line colour) and folding (Phase 4) are
+ * intentionally not implemented; the outline replaces folding.
+ */
+
+#include	"ecomm.h"
+#include	"estruct.h"
+#include	"edef.h"
+
+#include	<unistd.h>		/* close(), unlink() */
+
+/* tabsize is defined in random.c */
+extern int tabsize;
+
+/* External preview support (defined in spawn.c) */
+extern int spawn_preview(Char *cmd, Char *bname, Char *tmpfile);
+extern void preview_wait_first(void);
+extern char *shell_command_escape_char(const char *s);
+
+/* Source buffer of the outline shown by md_outline(). */
+static BUFFER *md_outline_src = NULL;
+
+/* ================================================================
+ *  Line classification helpers
+ * ================================================================ */
+
+/*
+ * Leading whitespace width of lp in display columns (tabs expanded).
+ */
+static int
+md_indent_cols(LINE *lp)
+{
+	int col = 0;
+	int i;
+	int ts = (tabsize > 0) ? tabsize : 8;
+
+	for (i = 0; i < llength(lp); i++) {
+		Char c = lgetc(lp, i);
+		if (c == ' ')
+			++col;
+		else if (c == '\t')
+			col = (col / ts + 1) * ts;
+		else
+			break;
+	}
+	return col;
+}
+
+/*
+ * TRUE when lp is a fenced code block delimiter (``` or more backticks,
+ * optionally indented and followed by an info string).
+ */
+static int
+md_is_fence(LINE *lp)
+{
+	int i = 0;
+	int n = 0;
+
+	while (i < llength(lp) &&
+	       (lgetc(lp, i) == ' ' || lgetc(lp, i) == '\t'))
+		++i;
+	while (i < llength(lp) && lgetc(lp, i) == '`') {
+		++i;
+		++n;
+	}
+	return (n >= 3);
+}
+
+/*
+ * TRUE when lp lies inside a fenced code block.  Fences do not nest, so
+ * counting the delimiter lines before lp is sufficient.
+ */
+int
+md_in_fence(LINE *lp)
+{
+	LINE *p;
+	int count = 0;
+
+	for (p = lforw(curbp->b_linep);
+	     p != lp && p != curbp->b_linep; p = lforw(p))
+		if (md_is_fence(p))
+			++count;
+	return (count & 1);
+}
+
+/*
+ * ATX heading level (1..6), or 0 when lp is not a heading.
+ */
+int
+md_heading_level(LINE *lp)
+{
+	int i = 0;
+	int n = 0;
+	int sp = 0;
+
+	while (i < llength(lp) && lgetc(lp, i) == ' ') {
+		++i;
+		if (++sp > 3)
+			return 0;
+	}
+	while (i < llength(lp) && lgetc(lp, i) == '#') {
+		++i;
+		++n;
+	}
+	if (n < 1 || n > 6)
+		return 0;
+	if (i < llength(lp) &&
+	    lgetc(lp, i) != ' ' && lgetc(lp, i) != '\t')
+		return 0;
+	return n;
+}
+
+/*
+ * Like md_heading_level(), but also reports the marker span
+ * [start, end) including one following space.
+ */
+static int
+md_heading_span(LINE *lp, int *start, int *end)
+{
+	int i = 0;
+	int n = 0;
+	int sp = 0;
+
+	while (i < llength(lp) && lgetc(lp, i) == ' ') {
+		++i;
+		if (++sp > 3)
+			return 0;
+	}
+	*start = i;
+	while (i < llength(lp) && lgetc(lp, i) == '#') {
+		++i;
+		++n;
+	}
+	if (n < 1 || n > 6)
+		return 0;
+	if (i < llength(lp) &&
+	    lgetc(lp, i) != ' ' && lgetc(lp, i) != '\t')
+		return 0;
+	if (i < llength(lp))
+		++i;			/* include the space */
+	*end = i;
+	return n;
+}
+
+/*
+ * Offset just past the leading block quote markers of lp.  Each '>'
+ * and one following space is part of the prefix; whitespace before a
+ * '>' is included as well.  Returns 0 when the line is not quoted.
+ */
+static int
+md_quote_end(LINE *lp)
+{
+	int i = 0;
+
+	while (i < llength(lp)) {
+		int j = i;
+
+		while (j < llength(lp) &&
+		       (lgetc(lp, j) == ' ' || lgetc(lp, j) == '\t'))
+			++j;
+		if (j - i > 3)
+			break;
+		if (j < llength(lp) && lgetc(lp, j) == '>') {
+			++j;
+			if (j < llength(lp) && lgetc(lp, j) == ' ')
+				++j;
+			i = j;
+		} else
+			break;
+	}
+	return i;
+}
+
+/*
+ * Parse a list marker at or after 'start'.
+ *
+ * On success returns TRUE and sets:
+ *   *mstart .. *mend  marker span, including one following space
+ *   *mkind            0 = bullet, 1 = ordered, 2 = task list
+ *   *mnum             ordered number (kind 1)
+ *
+ * A bullet must be followed by a space/tab or end of line; an ordered
+ * marker is 1..9 digits followed by '.' and a space/EOL.
+ */
+static int
+md_parse_marker_at(LINE *lp, int start,
+		   int *mstart, int *mend, int *mkind, int *mnum)
+{
+	int i = start;
+	int s, e;
+	Char c;
+
+	while (i < llength(lp) &&
+	       (lgetc(lp, i) == ' ' || lgetc(lp, i) == '\t'))
+		++i;
+	s = i;
+	c = (i < llength(lp)) ? lgetc(lp, i) : 0;
+
+	if (c == '-' || c == '*' || c == '+') {
+		++i;
+		if (i < llength(lp) &&
+		    (lgetc(lp, i) == ' ' || lgetc(lp, i) == '\t'))
+			++i;
+		else if (i < llength(lp))
+			return FALSE;	/* "-x" is not a list marker */
+		e = i;
+		*mstart = s;
+		*mend = e;
+		*mkind = 0;
+		*mnum = 0;
+		/* task list: "[ ]", "[x]" or "[X]" */
+		if (e + 3 <= llength(lp) &&
+		    lgetc(lp, e) == '[' &&
+		    (lgetc(lp, e + 1) == ' ' ||
+		     lgetc(lp, e + 1) == 'x' ||
+		     lgetc(lp, e + 1) == 'X') &&
+		    lgetc(lp, e + 2) == ']') {
+			*mkind = 2;
+			*mend = e + 3;
+			if (*mend < llength(lp) && lgetc(lp, *mend) == ' ')
+				++(*mend);
+		}
+		return TRUE;
+	}
+
+	if (c >= '1' && c <= '9') {
+		int num = 0;
+
+		while (i < llength(lp) &&
+		       lgetc(lp, i) >= '0' && lgetc(lp, i) <= '9') {
+			num = num * 10 + (lgetc(lp, i) - '0');
+			++i;
+		}
+		if (i < llength(lp) && lgetc(lp, i) == '.') {
+			++i;
+			if (i < llength(lp) &&
+			    (lgetc(lp, i) == ' ' || lgetc(lp, i) == '\t'))
+				++i;
+			else if (i < llength(lp))
+				return FALSE;
+			*mstart = s;
+			*mend = i;
+			*mkind = 1;
+			*mnum = num;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/* ================================================================
+ *  Indentation helpers
+ * ================================================================ */
+
+static int
+md_insert_spaces(int n)
+{
+	int i;
+
+	for (i = 0; i < n; i++)
+		if (linsert(1, ' ') == FALSE)
+			return FALSE;
+	return TRUE;
+}
+
+/*
+ * Insert 'cols' display columns of indentation at dot, honouring
+ * $md-use-spaces.  Returns TRUE on success.
+ */
+static int
+md_insert_indent(int cols)
+{
+	int ts = (tabsize > 0) ? tabsize : 8;
+
+	if (cols <= 0)
+		return TRUE;
+	if (md_use_spaces)
+		return md_insert_spaces(cols);
+	{
+		int tabs = cols / ts;
+		int spaces = cols % ts;
+		int i;
+
+		for (i = 0; i < tabs; i++)
+			if (linsert(1, '\t') == FALSE)
+				return FALSE;
+		for (i = 0; i < spaces; i++)
+			if (linsert(1, ' ') == FALSE)
+				return FALSE;
+	}
+	return TRUE;
+}
+
+/*
+ * Delete the leading whitespace of the current line; returns its width
+ * in columns.  Dot is left at offset 0.
+ */
+static int
+md_delete_leading_whitespace(void)
+{
+	LINE *lp = curwp->w_dotp;
+	int i = 0;
+
+	while (i < llength(lp)) {
+		Char c = lgetc(lp, i);
+		if (c != ' ' && c != '\t')
+			break;
+		++i;
+	}
+	curwp->w_doto = 0;
+	if (i > 0)
+		(void)ldelete((long)i, FALSE);
+	return i;
+}
+
+/*
+ * Insert 'cols' of indentation at the start of the current line and
+ * advance dot past the inserted text.
+ */
+static int
+md_indent_line(int cols)
+{
+	int chars;
+
+	curwp->w_doto = 0;
+	if (md_use_spaces) {
+		chars = cols;
+		if (md_insert_spaces(cols) == FALSE)
+			return FALSE;
+	} else {
+		int ts = (tabsize > 0) ? tabsize : 8;
+		int tabs = cols / ts;
+		int spaces = cols % ts;
+		int i;
+
+		chars = tabs + spaces;
+		for (i = 0; i < tabs; i++)
+			if (linsert(1, '\t') == FALSE)
+				return FALSE;
+		for (i = 0; i < spaces; i++)
+			if (linsert(1, ' ') == FALSE)
+				return FALSE;
+	}
+	curwp->w_doto += chars;
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/* ================================================================
+ *  Region helper
+ * ================================================================ */
+
+/*
+ * Return the last line touched by a region (mirrors py_indent_region).
+ */
+static LINE *
+md_region_last(REGION *rp)
+{
+	LINE *lp = rp->r_linep;
+	int offset = rp->r_offset;
+	long remaining = rp->r_size;
+
+	while (remaining > 0 && lp != curbp->b_linep) {
+		int len = llength(lp);
+
+		if (offset < len)
+			remaining -= (long)(len - offset) + 1;
+		else
+			remaining -= 1;
+		if (remaining <= 0)
+			break;
+		lp = lforw(lp);
+		offset = 0;
+		if (lp == curbp->b_linep)
+			break;
+	}
+	return lp;
+}
+
+/* ================================================================
+ *  Phase 1: mode skeleton
+ * ================================================================ */
+
+/*
+ * mdinsert() -- called from newline() when MDMDMOD is set.
+ *
+ * Analyses the text before the cursor (the line being split) and
+ * prepares the continuation for the new line:
+ *
+ *   "# ..."   -> no marker
+ *   "- ..."   -> same bullet + space     ($md-auto-list)
+ *   "- [x]"   -> "- [ ] "                (task state reset)
+ *   "1. ..."  -> "2. ..."                ($md-auto-list)
+ *   "> ..."   -> "> ..."                (bare ">" on empty quote)
+ *   "```"     -> no marker, indent only
+ *   inside a fence -> no marker, indent only
+ *   other     -> indent only
+ */
+int
+mdinsert(void)
+{
+	LINE *lp;
+	int doto;
+	int indent_cols;
+	int i;
+	int cont_len = 0;
+	Char cont[32];
+	int in_fence;
+	int qend;
+	int mstart, mend, mkind, mnum;
+	int ts = (tabsize > 0) ? tabsize : 8;
+
+	lp = curwp->w_dotp;
+	doto = curwp->w_doto;
+
+	/* indentation of the text before the cursor */
+	indent_cols = 0;
+	for (i = 0; i < doto; i++) {
+		Char c = lgetc(lp, i);
+		if (c == ' ')
+			++indent_cols;
+		else if (c == '\t')
+			indent_cols = (indent_cols / ts + 1) * ts;
+		else
+			break;
+	}
+
+	in_fence = md_in_fence(lp);
+
+	if (!in_fence && doto > 0) {
+		qend = md_quote_end(lp);
+		if (qend > doto)
+			qend = 0;
+		if (qend > 0) {
+			for (i = 0; i < qend && cont_len < (int)sizeof(cont) - 1; i++)
+				cont[cont_len++] = lgetc(lp, i);
+		}
+		if (md_parse_marker_at(lp, qend, &mstart, &mend,
+				       &mkind, &mnum)) {
+			if (mend <= doto) {
+				if (mkind == 0 && md_auto_list) {
+					if (cont_len < (int)sizeof(cont) - 2) {
+						cont[cont_len++] = lgetc(lp, mstart);
+						cont[cont_len++] = ' ';
+					}
+				} else if (mkind == 1 && md_auto_list) {
+					Char nb[8];
+					int nn = 0;
+					int v = mnum + 1;
+
+					if (v == 0)
+						nb[nn++] = '0';
+					while (v > 0) {
+						nb[nn++] = (Char)('0' + v % 10);
+						v /= 10;
+					}
+					while (nn > 0 &&
+					       cont_len < (int)sizeof(cont) - 1)
+						cont[cont_len++] = nb[--nn];
+					if (cont_len < (int)sizeof(cont) - 1)
+						cont[cont_len++] = '.';
+					if (cont_len < (int)sizeof(cont) - 1)
+						cont[cont_len++] = ' ';
+				} else if (mkind == 2) {
+					static const Char task[] = { '-', ' ', '[', ' ', ']', ' ' };
+					for (i = 0; i < 6 &&
+					     cont_len < (int)sizeof(cont) - 1; i++)
+						cont[cont_len++] = task[i];
+				}
+			}
+		} else if (qend > 0) {
+			/* empty quote line: ">" instead of "> " */
+			if (qend >= llength(lp) &&
+			    cont_len > 0 && cont[cont_len - 1] == ' ')
+				--cont_len;
+		}
+	}
+
+	if (lnewline() == FALSE)
+		return FALSE;
+	if (md_insert_indent(indent_cols) == FALSE)
+		return FALSE;
+	for (i = 0; i < cont_len; i++)
+		if (linsert(1, cont[i]) == FALSE)
+			return FALSE;
+	return TRUE;
+}
+
+/*
+ * md_backspace() -- called from backdel() when MDMDMOD is set.
+ *
+ * When every character before dot is whitespace, remove one indent
+ * level ($md-indent-width).  When dot sits just after a leading list
+ * or quote marker (only whitespace between the marker and dot), remove
+ * that one marker level.  Otherwise fall back to normal backspace.
+ */
+/*ARGSUSED*/
+int
+md_backspace(int f, int n)
+{
+	LINE *lp;
+	int doto;
+	int i;
+	int all_ws;
+	int delete_chars;
+	int qend;
+	int mstart, mend, mkind, mnum;
+	int between_ws;
+
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	if (n < 0)
+		return forwdel(f, -n);
+	if (f != FALSE) {
+		if ((lastflag & CFKILL) == 0)
+			kdelete();
+		thisflag |= CFKILL;
+	}
+
+	if (n == 1 && f == FALSE && (curbp->b_mode & MDMDMOD)) {
+		lp = curwp->w_dotp;
+		doto = curwp->w_doto;
+		if (doto > 0) {
+			all_ws = TRUE;
+			for (i = 0; i < doto; i++) {
+				Char c = lgetc(lp, i);
+				if (c != ' ' && c != '\t') {
+					all_ws = FALSE;
+					break;
+				}
+			}
+			if (all_ws) {
+				if (md_use_spaces) {
+					delete_chars = md_indent_width;
+					if (delete_chars > doto)
+						delete_chars = doto;
+				} else {
+					delete_chars = 1;
+				}
+				curwp->w_doto -= delete_chars;
+				(void)ldelete((long)delete_chars, f);
+				lchange(WFEDIT);
+				return TRUE;
+			}
+
+			qend = md_quote_end(lp);
+			if (md_parse_marker_at(lp, qend, &mstart, &mend,
+					       &mkind, &mnum)) {
+				if (mend <= doto) {
+					between_ws = TRUE;
+					for (i = mend; i < doto; i++) {
+						Char c = lgetc(lp, i);
+						if (c != ' ' && c != '\t') {
+							between_ws = FALSE;
+							break;
+						}
+					}
+					if (between_ws) {
+						/* remove one marker level */
+						delete_chars = mend - qend;
+						curwp->w_doto -= delete_chars;
+						(void)ldelete((long)delete_chars, f);
+						lchange(WFEDIT);
+						return TRUE;
+					}
+				}
+			}
+		}
+	}
+
+	if ((i = backchar(f, n)) == TRUE)
+		i = ldelete((long)n, f);
+	return i;
+}
+
+/*
+ * md_tab() -- TAB in Markdown mode.
+ *
+ *   table row          -> move dot before the next '|'
+ *   list item line head -> indent one level
+ *   otherwise          -> normal tab behaviour
+ */
+/*ARGSUSED*/
+int
+md_tab(int f, int n)
+{
+	LINE *lp;
+	int doto;
+	int i;
+	int all_ws;
+	int qend;
+	int mstart, mend, mkind, mnum;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+
+	lp = curwp->w_dotp;
+	doto = curwp->w_doto;
+
+	/* table cell motion */
+	for (i = doto + 1; i < llength(lp); i++) {
+		if (lgetc(lp, i) == '|') {
+			curwp->w_doto = i;
+			curwp->w_flag |= WFMOVE;
+			return TRUE;
+		}
+	}
+
+	/* indent a list item when dot is in its leading whitespace */
+	all_ws = TRUE;
+	for (i = 0; i < doto; i++) {
+		Char c = lgetc(lp, i);
+		if (c != ' ' && c != '\t') {
+			all_ws = FALSE;
+			break;
+		}
+	}
+	if (all_ws) {
+		qend = md_quote_end(lp);
+		if (md_parse_marker_at(lp, qend, &mstart, &mend,
+				       &mkind, &mnum)) {
+			return md_indent_line(md_indent_width);
+		}
+	}
+
+	/* normal tab */
+	if (!tabsize)
+		return linsert(1, '\t');
+	return linsert(tabsize - (getccol(FALSE) % tabsize), ' ');
+}
+
+/*
+ * smart_indent() -- M-J dispatcher for the active mode.
+ */
+int
+smart_indent(int f, int n)
+{
+	if (curbp->b_mode & MDMDMOD)
+		return mdindent(f, n);
+	if (curbp->b_mode & MDPYMOD)
+		return pyindent(f, n);
+	if (curbp->b_mode & MDCMOD)
+		return cindent(f, n);
+	return FALSE;
+}
+
+/*
+ * mdindent() -- re-indent the current line (M-J).
+ *
+ * The quote prefix is preserved verbatim; only the body indentation is
+ * recomputed.  List nesting is measured in $md-indent-width units and
+ * capped one level above the previous list item.  Fenced code blocks
+ * and blank lines are left untouched.
+ */
+/*ARGSUSED*/
+int
+mdindent(int f, int n)
+{
+	LINE *lp;
+	LINE *prev;
+	LINE *p;
+	int i;
+	int ts;
+	int qend, bws, bcols;
+	int found;
+	int mstart, mend, mkind, mnum;
+	int prev_qend, prev_bcols, prev_is_list;
+	int prev_mstart, prev_mend, prev_mkind, prev_mnum;
+	int desired;
+	int level, prev_level;
+
+	(void)f;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	if (n < 0)
+		return FALSE;
+	if (n == 0)
+		n = 1;
+	ts = (tabsize > 0) ? tabsize : 8;
+
+	for (i = 0; i < n; i++) {
+		lp = curwp->w_dotp;
+		if (llength(lp) == 0 || md_in_fence(lp)) {
+			if (i < n - 1)
+				(void)forwline(TRUE, 1);
+			continue;
+		}
+
+		qend = md_quote_end(lp);
+		bws = 0;
+		bcols = 0;
+		while (qend + bws < llength(lp)) {
+			Char c = lgetc(lp, qend + bws);
+			if (c == ' ') {
+				++bws;
+				++bcols;
+			} else if (c == '\t') {
+				++bws;
+				bcols = (bcols / ts + 1) * ts;
+			} else
+				break;
+		}
+		found = md_parse_marker_at(lp, qend, &mstart, &mend,
+					   &mkind, &mnum);
+
+		/* previous non-blank, non-fence line */
+		prev = lback(lp);
+		while (prev != curbp->b_linep) {
+			if (llength(prev) == 0 || md_in_fence(prev)) {
+				prev = lback(prev);
+				continue;
+			}
+			break;
+		}
+		prev_is_list = FALSE;
+		prev_bcols = 0;
+		if (prev != curbp->b_linep) {
+			prev_qend = md_quote_end(prev);
+			prev_bcols = 0;
+			while (prev_qend < llength(prev)) {
+				Char c = lgetc(prev, prev_qend);
+				if (c == ' ')
+					++prev_bcols;
+				else if (c == '\t')
+					prev_bcols = (prev_bcols / ts + 1) * ts;
+				else
+					break;
+				++prev_qend;
+			}
+			prev_is_list = md_parse_marker_at(prev, md_quote_end(prev),
+							  &prev_mstart, &prev_mend,
+							  &prev_mkind, &prev_mnum);
+		}
+
+		desired = bcols;
+		if (found) {
+			level = bcols / md_indent_width;
+			if (level * md_indent_width != bcols)
+				desired = level * md_indent_width;
+			if (prev_is_list) {
+				prev_level = prev_bcols / md_indent_width;
+				if (level > prev_level + 1)
+					desired = (prev_level + 1) * md_indent_width;
+			}
+		} else if (prev_is_list &&
+			   bcols >= prev_bcols + md_indent_width) {
+			desired = prev_bcols + md_indent_width;
+		}
+		if (desired < 0)
+			desired = 0;
+
+		curwp->w_dotp = lp;
+		curwp->w_doto = qend;
+		if (bws > 0)
+			(void)ldelete((long)bws, FALSE);
+		if (md_insert_indent(desired) == FALSE)
+			return FALSE;
+		lchange(WFEDIT);
+
+		if (i < n - 1) {
+			p = lforw(lp);
+			if (p == curbp->b_linep)
+				break;
+			curwp->w_dotp = p;
+			curwp->w_doto = 0;
+		}
+	}
+	return TRUE;
+}
+
+/*
+ * md_mode() -- toggle Markdown mode.
+ */
+/*ARGSUSED*/
+int
+md_mode(int f, int n)
+{
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	if (f) {
+		if (n > 0)
+			curbp->b_mode |= MDMDMOD;
+		else
+			curbp->b_mode &= ~MDMDMOD;
+	} else
+		curbp->b_mode ^= MDMDMOD;
+	upmode();
+	curwp->w_flag |= WFMODE;
+	mlwrite(CSTR("Markdown mode %s"),
+		(curbp->b_mode & MDMDMOD) ? CSTR("ON") : CSTR("OFF"));
+	return TRUE;
+}
+
+/* ================================================================
+ *  Phase 2: headings
+ * ================================================================ */
+
+/*
+ * Replace the heading marker of lp with 'level' hashes (0 removes it).
+ */
+static int
+md_replace_heading(LINE *lp, int level)
+{
+	int start, end;
+	int i;
+
+	if (md_heading_span(lp, &start, &end) == 0)
+		return FALSE;
+	curwp->w_dotp = lp;
+	curwp->w_doto = start;
+	if (ldelete((long)(end - start), FALSE) == FALSE)
+		return FALSE;
+	for (i = 0; i < level; i++)
+		if (linsert(1, '#') == FALSE)
+			return FALSE;
+	if (level > 0 && linsert(1, ' ') == FALSE)
+		return FALSE;
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/* Insert "# ".."###### " at dot. */
+/*ARGSUSED*/
+int
+md_insert_heading(int f, int n)
+{
+	int level;
+	int i;
+
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	level = (f && n > 0) ? n : 1;
+	if (level < 1)
+		level = 1;
+	if (level > md_heading_max)
+		level = md_heading_max;
+	for (i = 0; i < level; i++)
+		if (linsert(1, '#') == FALSE)
+			return FALSE;
+	if (linsert(1, ' ') == FALSE)
+		return FALSE;
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/* Increase the heading level (n steps, default 1). */
+/*ARGSUSED*/
+int
+md_heading_up(int f, int n)
+{
+	LINE *lp;
+	int level;
+	int start, end;
+	int i;
+
+	(void)f;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	if (n < 0)
+		return FALSE;
+	if (n == 0)
+		n = 1;
+	lp = curwp->w_dotp;
+	level = md_heading_span(lp, &start, &end);
+	if (level == 0) {
+		curwp->w_doto = 0;
+		if (linsert(1, '#') == FALSE)
+			return FALSE;
+		if (linsert(1, ' ') == FALSE)
+			return FALSE;
+		lchange(WFEDIT);
+		return TRUE;
+	}
+	for (i = 0; i < n && level < md_heading_max; i++)
+		++level;
+	return md_replace_heading(lp, level);
+}
+
+/* Decrease the heading level; below 1 the line becomes normal text. */
+/*ARGSUSED*/
+int
+md_heading_down(int f, int n)
+{
+	LINE *lp;
+	int level;
+	int start, end;
+	int newlevel;
+
+	(void)f;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	if (n < 0)
+		return FALSE;
+	if (n == 0)
+		n = 1;
+	lp = curwp->w_dotp;
+	level = md_heading_span(lp, &start, &end);
+	if (level == 0)
+		return FALSE;
+	newlevel = level - n;
+	if (newlevel < 1)
+		newlevel = 0;
+	return md_replace_heading(lp, newlevel);
+}
+
+/* normal -> H1 -> H2 -> ... -> Hmax -> normal */
+/*ARGSUSED*/
+int
+md_heading_cycle(int f, int n)
+{
+	LINE *lp;
+	int level;
+	int start, end;
+	int newlevel;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	lp = curwp->w_dotp;
+	level = md_heading_span(lp, &start, &end);
+	if (level == 0) {
+		curwp->w_doto = 0;
+		if (linsert(1, '#') == FALSE)
+			return FALSE;
+		if (linsert(1, ' ') == FALSE)
+			return FALSE;
+		lchange(WFEDIT);
+		return TRUE;
+	}
+	if (level >= md_heading_max)
+		newlevel = 0;
+	else
+		newlevel = level + 1;
+	return md_replace_heading(lp, newlevel);
+}
+
+/* ================================================================
+ *  Phase 2: lists and task lists
+ * ================================================================ */
+
+/* Cycle the bullet character through $md-list-bullets. */
+/*ARGSUSED*/
+int
+md_list_toggle(int f, int n)
+{
+	LINE *lp;
+	int qend, mstart, mend, mkind, mnum;
+	Char cur, nextc;
+	Char *p;
+	int count, idx, k;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	lp = curwp->w_dotp;
+	qend = md_quote_end(lp);
+	if (!md_parse_marker_at(lp, qend, &mstart, &mend, &mkind, &mnum))
+		return FALSE;
+	if (mkind != 0 && mkind != 2)
+		return FALSE;
+	cur = lgetc(lp, mstart);
+
+	/* count single-character bullets and locate the current one */
+	count = 0;
+	idx = -1;
+	p = md_list_bullets ? md_list_bullets : CSTR("- * +");
+	while (*p) {
+		if (*p == ' ' || *p == '\t') {
+			++p;
+			continue;
+		}
+		if (*p == cur && idx < 0)
+			idx = count;
+		++count;
+		++p;
+	}
+	if (count == 0 || idx < 0)
+		return FALSE;
+
+	/* find the next bullet character */
+	k = 0;
+	nextc = 0;
+	p = md_list_bullets;
+	while (*p) {
+		if (*p == ' ' || *p == '\t') {
+			++p;
+			continue;
+		}
+		if (k == ((idx + 1) % count)) {
+			nextc = *p;
+			break;
+		}
+		++k;
+		++p;
+	}
+	if (nextc == 0)
+		return FALSE;
+
+	curwp->w_dotp = lp;
+	curwp->w_doto = mstart;
+	if (ldelete(1L, FALSE) == FALSE)
+		return FALSE;
+	if (linsert(1, nextc) == FALSE)
+		return FALSE;
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/* Indent the current line one list level. */
+/*ARGSUSED*/
+int
+md_list_demote(int f, int n)
+{
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	return md_indent_line(md_indent_width);
+}
+
+/* Remove one list level of indentation. */
+/*ARGSUSED*/
+int
+md_list_promote(int f, int n)
+{
+	LINE *lp;
+	int doto;
+	int i, col;
+	int ts;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	lp = curwp->w_dotp;
+	ts = (tabsize > 0) ? tabsize : 8;
+	doto = curwp->w_doto;
+
+	i = 0;
+	col = 0;
+	while (i < llength(lp) && col < md_indent_width) {
+		Char c = lgetc(lp, i);
+		if (c == ' ') {
+			++i;
+			++col;
+		} else if (c == '\t') {
+			++i;
+			col = (col / ts + 1) * ts;
+		} else
+			break;
+	}
+	if (i == 0)
+		return FALSE;
+	curwp->w_doto = 0;
+	if (ldelete((long)i, FALSE) == FALSE)
+		return FALSE;
+	curwp->w_doto = (doto < i) ? 0 : doto - i;
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/* Renumber an ordered list (region if marked, else the current block). */
+/*ARGSUSED*/
+int
+md_list_renumber(int f, int n)
+{
+	REGION region;
+	LINE *first, *last, *lp;
+	int have_region;
+	int num;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+
+	have_region = FALSE;
+	if (curwp->w_markp != NULL &&
+	    getregion(&region) == TRUE && region.r_size > 0)
+		have_region = TRUE;
+
+	if (have_region) {
+		first = region.r_linep;
+		last = md_region_last(&region);
+	} else {
+		int qend, ms, me, mk, mn;
+
+		first = curwp->w_dotp;
+		while (lback(first) != curbp->b_linep) {
+			LINE *prev = lback(first);
+
+			qend = md_quote_end(prev);
+			if (!md_parse_marker_at(prev, qend, &ms, &me, &mk, &mn) ||
+			    mk != 1)
+				break;
+			first = prev;
+		}
+		last = curwp->w_dotp;
+		while (lforw(last) != curbp->b_linep) {
+			LINE *next = lforw(last);
+
+			qend = md_quote_end(next);
+			if (!md_parse_marker_at(next, qend, &ms, &me, &mk, &mn) ||
+			    mk != 1)
+				break;
+			last = next;
+		}
+	}
+
+	num = 1;
+	for (lp = first; ; lp = lforw(lp)) {
+		int qend, ms, me, mk, mn;
+		int dend, ni, v;
+		Char nb[16];
+
+		qend = md_quote_end(lp);
+		if (md_parse_marker_at(lp, qend, &ms, &me, &mk, &mn) && mk == 1) {
+			dend = ms;
+			while (dend < llength(lp) &&
+			       lgetc(lp, dend) >= '0' && lgetc(lp, dend) <= '9')
+				++dend;
+			curwp->w_dotp = lp;
+			curwp->w_doto = ms;
+			if (ldelete((long)(dend - ms), FALSE) == FALSE)
+				return FALSE;
+			ni = 0;
+			v = num;
+			if (v == 0)
+				nb[ni++] = '0';
+			while (v > 0) {
+				nb[ni++] = (Char)('0' + v % 10);
+				v /= 10;
+			}
+			while (ni > 0)
+				if (linsert(1, nb[--ni]) == FALSE)
+					return FALSE;
+			++num;
+			lchange(WFEDIT);
+		}
+		if (lp == last)
+			break;
+	}
+	return TRUE;
+}
+
+/* Toggle "[ ]" <-> "[x]" on the current line. */
+/*ARGSUSED*/
+int
+md_task_toggle(int f, int n)
+{
+	LINE *lp;
+	int qend, mstart, mend, mkind, mnum;
+	int i, box;
+	Char c, nc;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	lp = curwp->w_dotp;
+	qend = md_quote_end(lp);
+	if (!md_parse_marker_at(lp, qend, &mstart, &mend, &mkind, &mnum))
+		return FALSE;
+	if (mkind != 2)
+		return FALSE;
+
+	box = -1;
+	for (i = mstart; i < mend; i++) {
+		if (lgetc(lp, i) == '[') {
+			box = i + 1;
+			break;
+		}
+	}
+	if (box < 0 || box >= llength(lp))
+		return FALSE;
+	c = lgetc(lp, box);
+	if (c == ' ')
+		nc = 'x';
+	else if (c == 'x' || c == 'X')
+		nc = ' ';
+	else
+		return FALSE;
+
+	curwp->w_dotp = lp;
+	curwp->w_doto = box;
+	if (ldelete(1L, FALSE) == FALSE)
+		return FALSE;
+	if (linsert(1, nc) == FALSE)
+		return FALSE;
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/* ================================================================
+ *  Phase 2: emphasis, code, links
+ * ================================================================ */
+
+/*
+ * Wrap (or unwrap) a region, or the word at dot, with 'marker'.
+ * Shared by md_bold / md_italic / md_code / md_strike.
+ */
+static int
+md_wrap_region(int f, int n, const Char *marker)
+{
+	REGION region;
+	LINE *lp, *last;
+	int mlen = 0;
+	int have_region;
+	int start_line_off;
+	LINE *start_line;
+	int start_off;
+	LINE *end_line;
+	int end_off;
+	int i;
+	int dot;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	while (marker[mlen])
+		++mlen;
+	if (mlen == 0)
+		return FALSE;
+
+	have_region = FALSE;
+	if (curwp->w_markp != NULL &&
+	    getregion(&region) == TRUE && region.r_size > 0) {
+		have_region = TRUE;
+		start_line = region.r_linep;
+		start_off = region.r_offset;
+		last = md_region_last(&region);
+		/* compute end offset on the last line */
+		end_line = last;
+		{
+			long remaining = region.r_size;
+			LINE *p = region.r_linep;
+			int off = region.r_offset;
+
+			while (p != last && p != curbp->b_linep) {
+				int len = llength(p);
+				if (off < len)
+					remaining -= (long)(len - off) + 1;
+				else
+					remaining -= 1;
+				p = lforw(p);
+				off = 0;
+			}
+			end_off = off + (int)remaining;
+		}
+	} else {
+		/* word at dot */
+		lp = curwp->w_dotp;
+		dot = curwp->w_doto;
+		start_line = lp;
+		end_line = lp;
+		start_off = dot;
+		end_off = dot;
+		while (start_off > 0) {
+			Char c = lgetc(lp, start_off - 1);
+			if (c == ' ' || c == '\t' || c == '#' || c == '*' ||
+			    c == '_' || c == '`' || c == '[' || c == ']')
+				break;
+			--start_off;
+		}
+		while (end_off < llength(lp)) {
+			Char c = lgetc(lp, end_off);
+			if (c == ' ' || c == '\t' || c == '#' || c == '*' ||
+			    c == '_' || c == '`' || c == '[' || c == ']')
+				break;
+			++end_off;
+		}
+		if (start_off == end_off) {
+			/* no word: insert an empty pair, dot between them */
+			curwp->w_doto = dot;
+			for (i = 0; i < mlen; i++)
+				if (linsert(1, marker[i]) == FALSE)
+					return FALSE;
+			for (i = 0; i < mlen; i++)
+				if (linsert(1, marker[mlen - 1 - i]) == FALSE)
+					return FALSE;
+			curwp->w_doto = dot + mlen;
+			lchange(WFEDIT);
+			return TRUE;
+		}
+	}
+
+	/* already wrapped? (single-line region only) */
+	if (start_line == end_line && start_off >= mlen &&
+	    end_off + mlen <= llength(end_line)) {
+		int wrapped = TRUE;
+
+		for (i = 0; i < mlen; i++) {
+			if (lgetc(end_line, start_off - mlen + i) != marker[i] ||
+			    lgetc(end_line, end_off + i) != marker[i]) {
+				wrapped = FALSE;
+				break;
+			}
+		}
+		if (wrapped) {
+			/* remove the trailing marker first */
+			curwp->w_dotp = end_line;
+			curwp->w_doto = end_off;
+			for (i = 0; i < mlen; i++)
+				if (ldelete(1L, FALSE) == FALSE)
+					return FALSE;
+			if (start_line == end_line)
+				start_line = curwp->w_dotp;
+			/* the leading marker sits at start_off - mlen */
+			curwp->w_dotp = start_line;
+			curwp->w_doto = start_off - mlen;
+			for (i = 0; i < mlen; i++)
+				if (ldelete(1L, FALSE) == FALSE)
+					return FALSE;
+			lchange(WFEDIT);
+			return TRUE;
+		}
+	}
+
+	/* insert the opening marker first, then the closing one */
+	curwp->w_dotp = start_line;
+	curwp->w_doto = start_off;
+	for (i = 0; i < mlen; i++)
+		if (linsert(1, marker[i]) == FALSE)
+			return FALSE;
+	if (start_line == end_line) {
+		/* linsert may have reallocated the line */
+		end_line = curwp->w_dotp;
+		end_off += mlen;
+	}
+	curwp->w_dotp = end_line;
+	curwp->w_doto = end_off;
+	for (i = 0; i < mlen; i++)
+		if (linsert(1, marker[i]) == FALSE)
+			return FALSE;
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/*ARGSUSED*/
+int
+md_bold(int f, int n)
+{
+	static const Char m[3] = { '*', '*', 0 };
+	return md_wrap_region(f, n, m);
+}
+
+/*ARGSUSED*/
+int
+md_italic(int f, int n)
+{
+	static const Char m[2] = { '*', 0 };
+	return md_wrap_region(f, n, m);
+}
+
+/*ARGSUSED*/
+int
+md_code(int f, int n)
+{
+	static const Char m[2] = { '`', 0 };
+	return md_wrap_region(f, n, m);
+}
+
+/*ARGSUSED*/
+int
+md_strike(int f, int n)
+{
+	static const Char m[3] = { '~', '~', 0 };
+	return md_wrap_region(f, n, m);
+}
+
+/*
+ * md_insert_link() -- wrap the region (or insert the URL) as a link.
+ */
+/*ARGSUSED*/
+int
+md_insert_link(int f, int n)
+{
+	Char url[NSTRING];
+	Char text[NSTRING];
+	REGION region;
+	int have_region;
+	int single_line;
+	int i, pos;
+	LINE *lp;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+
+	have_region = FALSE;
+	single_line = FALSE;
+	text[0] = 0;
+	if (curwp->w_markp != NULL &&
+	    getregion(&region) == TRUE && region.r_size > 0) {
+		have_region = TRUE;
+		lp = region.r_linep;
+		if (region.r_offset + region.r_size <= llength(lp))
+			single_line = TRUE;
+		if (single_line) {
+			long off = region.r_offset;
+			long sz = region.r_size;
+
+			pos = 0;
+			while (sz > 0 && pos < NSTRING - 1) {
+				text[pos++] = lgetc(lp, (int)off);
+				++off;
+				--sz;
+			}
+			text[pos] = 0;
+		}
+	}
+
+	if (mlreply(CSTR("URL: "), url, NSTRING - 1) != TRUE)
+		return FALSE;
+
+	if (have_region && single_line && text[0] != 0) {
+		curwp->w_dotp = region.r_linep;
+		curwp->w_doto = region.r_offset;
+		if (ldelete(region.r_size, FALSE) == FALSE)
+			return FALSE;
+		if (linsert(1, '[') == FALSE)
+			return FALSE;
+		for (i = 0; text[i]; i++)
+			if (linsert(1, text[i]) == FALSE)
+				return FALSE;
+		if (linsert(1, ']') == FALSE)
+			return FALSE;
+		if (linsert(1, '(') == FALSE)
+			return FALSE;
+		for (i = 0; url[i]; i++)
+			if (linsert(1, url[i]) == FALSE)
+				return FALSE;
+		if (linsert(1, ')') == FALSE)
+			return FALSE;
+	} else {
+		for (i = 0; url[i]; i++)
+			if (linsert(1, url[i]) == FALSE)
+				return FALSE;
+	}
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/* ================================================================
+ *  Phase 2: quotes and fences
+ * ================================================================ */
+
+/* Toggle a single quote level on the current line. */
+/*ARGSUSED*/
+int
+md_quote_toggle(int f, int n)
+{
+	LINE *lp;
+	int qend;
+	int gt, i;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	lp = curwp->w_dotp;
+	qend = md_quote_end(lp);
+	if (qend > 0) {
+		gt = -1;
+		for (i = 0; i < qend; i++)
+			if (lgetc(lp, i) == '>')
+				gt = i;
+		if (gt < 0)
+			return FALSE;
+		curwp->w_dotp = lp;
+		curwp->w_doto = gt;
+		if (ldelete(1L, FALSE) == FALSE)
+			return FALSE;
+		if (gt < llength(lp) && lgetc(lp, gt) == ' ')
+			if (ldelete(1L, FALSE) == FALSE)
+				return FALSE;
+		lchange(WFEDIT);
+		return TRUE;
+	}
+	curwp->w_doto = 0;
+	if (linsert(1, '>') == FALSE)
+		return FALSE;
+	if (linsert(1, ' ') == FALSE)
+		return FALSE;
+	curwp->w_doto += 2;
+	lchange(WFEDIT);
+	return TRUE;
+}
+
+/* Add or remove "> " on every line of the region. */
+/*ARGSUSED*/
+int
+md_quote_region(int f, int n)
+{
+	REGION region;
+	LINE *lp, *last;
+	int add;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	if (getregion(&region) != TRUE || region.r_size <= 0)
+		return FALSE;
+	last = md_region_last(&region);
+	add = (md_quote_end(curwp->w_dotp) == 0);
+
+	for (lp = region.r_linep; ; lp = lforw(lp)) {
+		if (add) {
+			curwp->w_dotp = lp;
+			curwp->w_doto = 0;
+			if (linsert(1, '>') == FALSE)
+				return FALSE;
+			if (linsert(1, ' ') == FALSE)
+				return FALSE;
+		} else {
+			int qe = md_quote_end(lp);
+			int gt = -1, i;
+
+			if (qe > 0) {
+				for (i = 0; i < qe; i++)
+					if (lgetc(lp, i) == '>')
+						gt = i;
+				curwp->w_dotp = lp;
+				curwp->w_doto = gt;
+				if (ldelete(1L, FALSE) == FALSE)
+					return FALSE;
+				if (gt < llength(lp) && lgetc(lp, gt) == ' ')
+					if (ldelete(1L, FALSE) == FALSE)
+						return FALSE;
+			}
+		}
+		lchange(WFEDIT);
+		if (lp == last)
+			break;
+	}
+	return TRUE;
+}
+
+/*
+ * md_insert_fence() -- insert a ```lang / ``` pair with dot in between.
+ */
+/*ARGSUSED*/
+int
+md_insert_fence(int f, int n)
+{
+	Char open[64];
+	int len, i;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+
+	open[0] = '`';
+	open[1] = '`';
+	open[2] = '`';
+	len = 3;
+	if (md_fence_lang != NULL)
+		for (i = 0; md_fence_lang[i] &&
+			     len < (int)sizeof(open) - 1; i++)
+			open[len++] = md_fence_lang[i];
+
+	for (i = 0; i < len; i++)
+		if (linsert(1, open[i]) == FALSE)
+			return FALSE;
+	if (lnewline() == FALSE)
+		return FALSE;
+	for (i = 0; i < 3; i++)
+		if (linsert(1, '`') == FALSE)
+			return FALSE;
+	if (gotobol(FALSE, 1) == FALSE)
+		return FALSE;
+	if (lnewline() == FALSE)
+		return FALSE;
+	(void)backline(FALSE, 1);
+	lchange(WFHARD);
+	return TRUE;
+}
+
+/*
+ * md_goto_fence() -- jump to the matching fence delimiter.
+ */
+/*ARGSUSED*/
+int
+md_goto_fence(int f, int n)
+{
+	LINE *lp, *p, *target;
+	int on_fence;
+	int before;
+	int lineno;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+
+	lp = curwp->w_dotp;
+	target = NULL;
+	on_fence = md_is_fence(lp);
+
+	if (on_fence) {
+		before = 0;
+		for (p = lforw(curbp->b_linep);
+		     p != lp && p != curbp->b_linep; p = lforw(p))
+			if (md_is_fence(p))
+				++before;
+		if ((before & 1) == 0) {
+			for (p = lforw(lp); p != curbp->b_linep; p = lforw(p))
+				if (md_is_fence(p)) {
+					target = p;
+					break;
+				}
+		} else {
+			for (p = lback(lp); p != curbp->b_linep; p = lback(p))
+				if (md_is_fence(p)) {
+					target = p;
+					break;
+				}
+		}
+	} else if (md_in_fence(lp)) {
+		for (p = lforw(lp); p != curbp->b_linep; p = lforw(p))
+			if (md_is_fence(p)) {
+				target = p;
+				break;
+			}
+	} else {
+		for (p = lforw(lp); p != curbp->b_linep; p = lforw(p))
+			if (md_is_fence(p)) {
+				target = p;
+				break;
+			}
+	}
+	if (target == NULL)
+		return FALSE;
+
+	lineno = 1;
+	for (p = lforw(curbp->b_linep);
+	     p != target && p != curbp->b_linep; p = lforw(p))
+		++lineno;
+	return gotoline(TRUE, lineno);
+}
+
+/* ================================================================
+ *  Phase 2: tables and outline
+ * ================================================================ */
+
+/*
+ * md_table_next_cell() -- move dot before the next '|' on this line.
+ */
+/*ARGSUSED*/
+int
+md_table_next_cell(int f, int n)
+{
+	LINE *lp;
+	int i;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+	lp = curwp->w_dotp;
+	for (i = curwp->w_doto + 1; i < llength(lp); i++) {
+		if (lgetc(lp, i) == '|') {
+			curwp->w_doto = i;
+			curwp->w_flag |= WFMOVE;
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+/*
+ * md_outline() -- list headings in *Markdown Outline*.
+ */
+/*ARGSUSED*/
+int
+md_outline(int f, int n)
+{
+	BUFFER *bp;
+	LINE *lp;
+	Char line[NLINE];
+	int pos, level, i, lineno;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+
+	bp = bfind(CSTR("*Markdown Outline*"), TRUE, BFINVS);
+	if (bp == NULL)
+		return FALSE;
+	md_outline_src = curbp;
+	if (bclear(bp) != TRUE)
+		return FALSE;
+
+	lineno = 1;
+	for (lp = lforw(curbp->b_linep);
+	     lp != curbp->b_linep; lp = lforw(lp), ++lineno) {
+		level = md_heading_level(lp);
+		if (level == 0)
+			continue;
+		pos = 0;
+		{
+			Char tmp[8];
+			int tn = 0;
+			int v = lineno;
+
+			if (v == 0)
+				tmp[tn++] = '0';
+			while (v > 0) {
+				tmp[tn++] = (Char)('0' + v % 10);
+				v /= 10;
+			}
+			while (tn < 5)
+				tmp[tn++] = ' ';
+			while (tn > 0)
+				line[pos++] = tmp[--tn];
+		}
+		line[pos++] = ' ';
+		line[pos++] = ' ';
+		line[pos++] = 'H';
+		line[pos++] = (Char)('0' + level);
+		line[pos++] = ' ';
+		line[pos++] = ' ';
+		for (i = 0; i < llength(lp) && pos < NLINE - 1; i++)
+			line[pos++] = lgetc(lp, i);
+		line[pos] = 0;
+		if (addline(bp, line) == FALSE)
+			return FALSE;
+	}
+	/* Start on the first heading. */
+	if (lforw(bp->b_linep) != bp->b_linep) {
+		bp->b_dotp = lforw(bp->b_linep);
+		bp->b_doto = 0;
+	}
+	/* Show the outline in the current window. */
+	if (swbuffer(bp) == FALSE)
+		return FALSE;
+	return TRUE;
+}
+
+/*
+ * md_goto_heading() -- jump from an outline line to the source heading.
+ */
+/*ARGSUSED*/
+int
+md_goto_heading(int f, int n)
+{
+	LINE *lp;
+	int lineno = 0;
+	int i;
+
+	(void)f;
+	(void)n;
+	if (md_outline_src == NULL)
+		return FALSE;
+	lp = curwp->w_dotp;
+	i = 0;
+	while (i < llength(lp) &&
+	       (lgetc(lp, i) == ' ' || lgetc(lp, i) == '	'))
+		++i;
+	for (; i < llength(lp); i++) {
+		Char c = lgetc(lp, i);
+		if (c < '0' || c > '9')
+			break;
+		lineno = lineno * 10 + (c - '0');
+	}
+	if (lineno <= 0)
+		return FALSE;
+	if (swbuffer(md_outline_src) == FALSE)
+		return FALSE;
+	return gotoline(TRUE, lineno);
+}
+
+/* ================================================================
+ *  Phase 3: conceal and modeline helpers
+ * ================================================================ */
+
+/*
+ * Number of leading characters that conceal should hide.  Line-leading
+ * heading markers, quote markers and list markers are concealed; fence
+ * delimiters are left visible.
+ */
+static int
+md_conceal_end(LINE *lp)
+{
+	int i, k, n;
+	int qend;
+	int mstart, mend, mkind, mnum;
+
+	qend = md_quote_end(lp);
+	i = qend;
+
+	/* heading marker (at line start or after the quote prefix) */
+	k = i;
+	while (k < llength(lp) && lgetc(lp, k) == ' ')
+		++k;
+	if (k - i <= 3) {
+	    n = 0;
+	    while (k < llength(lp) && lgetc(lp, k) == '#') {
+		++k;
+		++n;
+	    }
+	    if (n >= 1 && n <= 6 &&
+		(k >= llength(lp) || lgetc(lp, k) == ' ' ||
+		 lgetc(lp, k) == '	')) {
+		if (k < llength(lp))
+		    ++k;
+		if (k > i)
+		    i = k;
+	    }
+	}
+
+	/* list marker after the quote prefix */
+	if (md_parse_marker_at(lp, i, &mstart, &mend, &mkind, &mnum)) {
+		if (mend > i)
+			i = mend;
+	}
+	return i;
+}
+
+/*
+ * Draw a line for the virtual screen, concealing leading markers.
+ * Concealed characters are drawn as spaces of the same width, so the
+ * display columns (and updpos's cursor computation) are unchanged.
+ */
+void
+md_draw_line(LINE *lp)
+{
+	int conceal;
+	int i;
+
+	if (lp == curbp->b_linep) {
+		for (i = 0; i < llength(lp); i++)
+			vtputc(lgetc(lp, i));
+		return;
+	}
+	conceal = md_conceal_end(lp);
+	for (i = 0; i < llength(lp); i++)
+		vtputc((i < conceal) ? ' ' : lgetc(lp, i));
+}
+
+/*
+ * TRUE when lp is a list item (bullet, ordered or task).
+ */
+int
+md_line_is_list(LINE *lp)
+{
+	int qend;
+	int mstart, mend, mkind, mnum;
+
+	qend = md_quote_end(lp);
+	return md_parse_marker_at(lp, qend, &mstart, &mend, &mkind, &mnum);
+}
+
+/*
+ * Copy the nearest heading at or above lp (the current section) into
+ * buf.  Returns the length, or -1 when the buffer has no heading yet.
+ */
+int
+md_current_heading(Char *buf, int bufsize, LINE *lp)
+{
+	LINE *p;
+	int i, n;
+
+	for (p = lp; p != curbp->b_linep; p = lback(p)) {
+		if (md_heading_level(p) > 0) {
+			n = 0;
+			for (i = 0; i < llength(p) && n < bufsize - 1; i++)
+				buf[n++] = lgetc(p, i);
+			buf[n] = 0;
+			return n;
+		}
+	}
+	return -1;
+}
+
+/* ================================================================
+ *  Phase 4: auto pair and external preview
+ * ================================================================ */
+
+/*
+ * md_conceal_toggle() -- toggle $md-conceal and force a full redraw.
+ */
+/*ARGSUSED*/
+int
+md_conceal_toggle(int f, int n)
+{
+	md_conceal = !md_conceal;
+	sgarbf = TRUE;
+	curwp->w_flag |= WFHARD;
+	mlwrite(CSTR("Markdown conceal %s"),
+		md_conceal ? CSTR("ON") : CSTR("OFF"));
+	return TRUE;
+}
+
+/*
+ * md_pair_char() -- TRUE for characters that md_self_insert inserts as a pair.
+ */
+int
+md_pair_char(Char c)
+{
+	return (c == '*' || c == '`' || c == '[' || c == '_' || c == '~');
+}
+
+/*
+ * Insert n copies of c followed by n copies of its partner, leaving
+ * dot between the two halves.
+ */
+int
+md_self_insert(int n, Char c)
+{
+	Char pair = (c == '[') ? ']' : c;
+	int i;
+
+	for (i = 0; i < n; i++)
+		if (linsert(1, c) == FALSE)
+			return FALSE;
+	for (i = 0; i < n; i++)
+		if (linsert(1, pair) == FALSE)
+			return FALSE;
+	curwp->w_doto -= n;
+	return TRUE;
+}
+
+/*
+ * Build the preview command by substituting %f with the (shell-escaped)
+ * file name.  Returns TRUE on success.
+ */
+int
+md_build_preview_command(Char *out, int size, Char *fname)
+{
+	char *esc;
+	Char ebuf[NLINE];
+	Char *p;
+	int n = 0;
+	int i;
+
+	if (md_preview_command == NULL || md_preview_command[0] == 0)
+		p = CSTR("grip %f");
+	else
+		p = md_preview_command;
+	esc = shell_command_escape_char(cfromC(fname));
+	if (esc == NULL)
+		return FALSE;
+	for (i = 0; esc[i] && i < NLINE - 1; i++)
+		ebuf[i] = (Char)(unsigned char)esc[i];
+	ebuf[i] = 0;
+
+	while (*p && n < size - 1) {
+		if (p[0] == '%' && p[1] == 'f') {
+			for (i = 0; ebuf[i] && n < size - 1; i++)
+				out[n++] = ebuf[i];
+			p += 2;
+		} else
+			out[n++] = *p++;
+	}
+	out[n] = 0;
+	return TRUE;
+}
+
+/*
+ * md-preview() -- run $md-preview-command on the current buffer.
+ *
+ * Buffers without a file name are written to a temporary file which
+ * is removed when the preview is closed.  The command runs in the
+ * background through spawn_preview(); its output is collected in a
+ * dedicated buffer ("*preview*") instead of the terminal, so the
+ * editing buffer is never disturbed.  Pressing ^C in that buffer
+ * kills the command and closes the buffer again.
+ */
+/*ARGSUSED*/
+int
+md_preview(int f, int n)
+{
+	Char cmd[NLINE * 2];
+	Char fn[NLINE];
+	char tmpl[] = "/tmp/kemacs_md_XXXXXX";
+	int use_tmp = FALSE;
+	int i, s;
+
+	(void)f;
+	(void)n;
+	if (curbp->b_mode & MDVIEW)
+		return rdonly();
+
+	if (curbp->b_fname == NULL || curbp->b_fname[0] == 0) {
+		int fd = mkstemp(tmpl);
+
+		if (fd < 0)
+			return FALSE;
+		(void)close(fd);
+		for (i = 0; tmpl[i] && i < NLINE - 1; i++)
+			fn[i] = (Char)(unsigned char)tmpl[i];
+		fn[i] = 0;
+		if (writeout(fn) != TRUE) {
+			(void)unlink(tmpl);
+			return FALSE;
+		}
+		use_tmp = TRUE;
+	} else {
+		for (i = 0; curbp->b_fname[i] && i < NLINE - 1; i++)
+			fn[i] = curbp->b_fname[i];
+		fn[i] = 0;
+	}
+
+	if (md_build_preview_command(cmd, (int)sizeof(cmd), fn) == FALSE) {
+		if (use_tmp)
+			(void)unlink(tmpl);
+		return FALSE;
+	}
+	s = spawn_preview(cmd, CSTR("*preview*"), use_tmp ? fn : NULL);
+	if (s == TRUE)
+		preview_wait_first();
+	return s;
+}

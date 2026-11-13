@@ -64,4 +64,6 @@ window.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h \
 
 word.o: $A/Cstrings.h ecomm.h econfig.h edef.h estruct.h $B/kanji.h word.c
 
+mdmode.o: $A/Cstrings.h ecomm.h econfig.h edef.h efunc.h estruct.h $B/kanji.h mdmode.c
+
 # *** Do not add anything here - It will go away. ***

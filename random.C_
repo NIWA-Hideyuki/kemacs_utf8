@@ -14,6 +14,11 @@ extern	int	pyinsert(void);
 extern	int	pyindent(int f, int n);
 extern	int	py_backspace(int f, int n);
 
+/* Markdown mode functions (defined in mdmode.c) */
+extern	int	mdinsert(void);
+extern	int	md_backspace(int f, int n);
+extern	int	md_tab(int f, int n);
+
 /*
  * Set fill column to n.
  */
@@ -262,6 +267,9 @@ int tab(int f, int n)
 {
 	if (n < 0)
 		return (FALSE);
+	/* Markdown mode: TAB moves between table cells or indents list items */
+	if (n == 1 && (curbp->b_mode & MDMDMOD))
+		return md_tab(f, n);
 	if (n == 0 || n > 1) {
 		tabsize = n;
 		return(TRUE);
@@ -461,6 +469,11 @@ int newline(int f, int n)
 		return(rdonly());	/* we are in read only mode	*/
 	if (n < 0)
 		return (FALSE);
+
+	/* if we are in Markdown mode and this is a default <NL> */
+	if (n == 1 && (curbp->b_mode & MDMDMOD) &&
+	    curwp->w_dotp != curbp->b_linep)
+		return(mdinsert());
 
 	/* if we are in C mode and this is a default <NL> */
 	if (n == 1 && (curbp->b_mode & MDCMOD) &&
@@ -682,6 +695,9 @@ int backdel(int f, int n)
 		return(rdonly());	/* we are in read only mode	*/
 	if (n < 0)
 		return (forwdel(f, -n));
+	/* if we are in Markdown mode and this is a default <BKSP> */
+	if (n == 1 && (curbp->b_mode & MDMDMOD))
+		return md_backspace(f, n);
 	/* if we are in Python mode and this is a default <BKSP> */
 	if (n == 1 && (curbp->b_mode & MDPYMOD))
 		return py_backspace(f, n);

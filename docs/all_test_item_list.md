@@ -4,7 +4,7 @@
 
 最終更新: kemacs UTF-8 ブランチ — ロケール対応ひらがな/カタカナ幅 (kana_is_wide)
 
-`make test` は `tests/` ディレクトリのサブ Makefile を呼び出し、以下の**16のテストプログラム**をビルドして順次実行する。
+`make test` は `tests/` ディレクトリのサブ Makefile を呼び出し、以下の**17のテストプログラム**をビルドして順次実行する。
 各プログラムは `test.h` フレームワークの `TEST_ASSERT*` マクロでアサーションを評価する。
 
 ## 実行結果サマリー
@@ -18,17 +18,18 @@
 ||| test_eval | 9 | 45 成功 / 0 失敗 | 式評価器ヘルパー (stoi/itoaa/gettyp/stol/ltos) |
 ||| test_python | 21 | 50 成功 / 0 失敗 | Python インデント (pyinsert/pyindent/py_backspace/py_indent_region) |
 || test_cmode | 35 | 49 成功 / 0 失敗 | CMODE インデント (cinsert/cindent/cindent_region/c_mode) |
+|| test_mdmode | 79 | 119 成功 / 0 失敗 | Markdown モード (mdinsert/mdindent/md_backspace/md_tab/見出し/リスト/強調/リンク/引用/フェンス/表/アウトライン/conceal/自動ペア/プレビュー) |
 ||| test_vtputc_overflow | — | 35 成功 / 0 失敗 | 画面描画・行あふれ('$')マーカー (80列, kana narrow/wide) |
 ||| test_modeline_gutter | — | 20 成功 / 0 失敗 | モデルインライン番号描画 (kana_is_wide 境界) |
 || test_display_gutter | — | 107 成功 / 0 失敗 | ガーター描画 (行番号幅・切り詰め) |
 ||| test_screen_no_overflow | — | 61 成功 / 0 失敗 | 画面描画オーバーフローなし (80列境界) |
 || test_tcap | 12 | 15 成功 / 0 失敗 | 端末制御 (tcap / terminfo) |
-|| test_spawn | 5 | 9 成功 / 0 失敗 | 外部コマンド起動 (spawn) |
+|| test_spawn | 9 | 21 成功 / 0 失敗 | 外部コマンド起動 (spawn) / プレビュー出力取り込み |
 || test_fileio | 5 | 17 成功 / 0 失敗 | ファイル入出力 (kfopen/kfgetc/kfputc/kfclose) |
 || test_memory_safety | — | 14671 成功 / 0 失敗 | バッファオーバーフロー・メモリリーク検証 (ASan + UBSan, line.c/undo.c) |
 |||| test_batch | 16 | 55 成功 / 0 失敗 | バッチモード統合 (kemacs -x 起動・ファイルI/O・行番号設定・Python 変数) |
 
-> **合計: 16のテストプログラム / 24,684 アセーション群 — 全テスト合格 (exit code 0)**
+> **合計: 17のテストプログラム / 24,815 アセーション群 — 全テスト合格 (exit code 0)**
 
 ---
 
@@ -261,6 +262,100 @@ eval.c は `-ffunction-sections` + `--gc-sections` で必要な関数のみリ�
 
 ---
 
+## 4.6. test_mdmode — Markdown モードユニットテスト
+
+`mdinsert`、`mdindent`、`md_backspace`、`md_tab`、および Phase 2 の構造編集コマンド
+(見出し・リスト・タスクリスト・強調・リンク・引用・フェンス・表セル移動・アウトライン)
+を検証する。`line.c` と `mdmode.c` を直接 `#include` し、`proto.h` を明示的に
+`#include` する (KEMACS_TEST では `edef.h` が `proto.h` を Include しないため)。
+`mlwrite`、`rdonly`、`backchar`、`forwdel`、`forwline`、`backline`、`getregion`、
+`getccol`、`gotobol`、`gotoline`、`mlreply`、`bfind`、`bclear`、`addline`、
+`swbuffer`、`pyindent`、`cindent` のスタブで依存性を満たす。
+
+| # | テスト項目 (英) | テスト項目 (日本語) |
+|---|---|---|
+| 1 | mdinsert bullet | 箇条書き改行でマーカー継続 |
+| 2 | mdinsert heading | 見出し改行でマーカーなし |
+| 3 | mdinsert ordered | 番号リストの採番 +1 |
+| 4 | mdinsert quote | 引用改行で `> ` 継続 |
+| 5 | mdinsert empty quote | 空引用は `>` のみ |
+| 6 | mdinsert task | タスクリストは `[ ]` にリセット |
+| 7 | mdinsert fence | フェンス改行でマーカーなし |
+| 8 | mdinsert code block | 4 スペースコードはインデント継承 |
+| 9 | mdinsert plain | 通常行は空行 |
+| 10 | mdinsert inside fence | フェンス内はマーカー無効 |
+| 11 | mdinsert auto-list off | `$md-auto-list` FALSE で継続なし |
+| 12 | mdinsert indent | インデント + マーカー |
+| 13 | md_backspace marker | 行頭マーカー 1 段削除 |
+| 14 | md_backspace indented marker | インデント + マーカー削除 |
+| 15 | md_backspace nested quote | 入れ子引用から 1 段削除 |
+| 16 | md_backspace whitespace | 空白のみ行で 1 段デデント |
+| 17 | md_backspace normal | 通常のバックスペース |
+| 18 | mdindent normalize | 5 スペース → 4 スペース |
+| 19 | mdindent over-indent | 親 +1 段に制限 |
+| 20 | mdindent quote preserved | 引用プレフィックス保持 |
+| 21 | mdindent fence untouched | フェンス内は変更なし |
+| 22 | md-insert-heading | H1 挿入 |
+| 23 | md-insert-heading H3 | H3 挿入 |
+| 24 | md-heading-up | H1 → H2 |
+| 25 | md-heading-up non-heading | 通常行 → H1 |
+| 26 | md-heading-down | H2 → H1 |
+| 27 | md-heading-down to normal | H1 → 通常行 |
+| 28 | md-heading-cycle | 通常 → H1 → H2 |
+| 29 | md-heading-cycle max | H6 → 通常行 |
+| 30 | md-list-toggle | `-` → `*` |
+| 31 | md-list-toggle cycle | `*` → `+` |
+| 32 | md-list-demote | +2 スペース |
+| 33 | md-list-promote | -2 スペース |
+| 34 | md-list-renumber | 番号リスト採番 |
+| 35 | md-task-toggle | `[ ]` → `[x]` |
+| 36 | md-task-toggle back | `[X]` → `[ ]` |
+| 37 | md-bold region | リージョンを `**` で囲む |
+| 38 | md-bold toggle off | `**` を外す |
+| 39 | md-italic word | 単語を `*` で囲む |
+| 40 | md-code word | 単語を `` ` `` で囲む |
+| 41 | md-insert-link plain | URL そのまま挿入 |
+| 42 | md-insert-link region | リージョン → `[text](url)` |
+| 43 | md-quote-toggle add | `> ` 付加 |
+| 44 | md-quote-toggle remove | `> ` 除去 |
+| 45 | md-quote-region | リージョン一括引用 |
+| 46 | md-insert-fence | ``` ``` ``` 対挿入 |
+| 47 | md-insert-fence lang | ```` ```c ```` 言語指定 |
+| 48 | md-goto-fence | フェンス内 → 閉じフェンス |
+| 49 | md-goto-fence back | 閉じフェンス → 開きフェンス |
+| 50 | md-table-next-cell | 次の `|` へ移動 |
+| 51 | md-tab table | 表行で次のセルへ |
+| 52 | md-tab list indent | リスト行頭でインデント |
+| 53 | md-tab plain | 通常はタブ |
+| 54 | md-outline basic | 見出し一覧の生成 |
+| 55 | md-goto-heading | アウトライン → 先頭見出し |
+| 56 | md-goto-heading second | アウトライン → 2 番目 |
+| 57 | md_mode toggle | モード ON/OFF |
+| 58 | md_mode set on/off | 引数による設定 |
+| 59 | md automode table | `.md` / `.markdown` パターン |
+| 60 | smart_indent md | M-J ディスパッチ |
+| 61 | conceal heading | 見出しマーカーを空白化 |
+| 62 | conceal bullet | 箇条書きマーカーを空白化 |
+| 63 | conceal quote | 引用マーカーを空白化 |
+| 64 | conceal ordered | 番号マーカーを空白化 |
+| 65 | conceal task | タスクマーカーを空白化 |
+| 66 | conceal quote+list | 引用+リストを空白化 |
+| 67 | conceal fence visible | フェンスは表示したまま |
+| 68 | conceal indented code | 4 スペースコードは非対象 |
+| 69 | md-line-is-list | リスト行判定 |
+| 70 | md-current-heading | セクション見出し抽出 |
+| 71 | md-pair-char | 自動ペア文字判定 |
+| 72 | md-self-insert star | `*` をペア挿入 |
+| 73 | md-self-insert bracket | `[` を `]` とペア挿入 |
+| 74 | md-build-preview-command | `%f` 置換 |
+| 75 | md-build-preview-command 2 | `%f` 複数置換 |
+| 76 | md-build-preview-command none | `%f` なし |
+| 77 | md-preview uses filename | プレビューコmmand実行 |
+| 78 | md-conceal-toggle | conceal ON/OFF トグル |
+| 79 | md-preview no filename | 無題バッファのプレビュー |
+
+---
+
 ## 5. test_batch — バッチモード統合テスト
 
 `test_batch` は kemacs バイナリを `-x` コマンドでバッチ起動し、ファイル入出力と終了ステータスを検証する。
@@ -367,7 +462,7 @@ display.c のガーター (行番号欄) 描画ロジックを検証する。行
 2. `make.file` の `test:` ターゲット → `cd tests; make run`
 3. `tests/Makefile` の `run:` ターゲット → `make all` でビルド後、
    `test_kanji / test_search / test_line / test_eval / test_undo /
-   test_python / test_cmode / test_vtputc_overflow / test_modeline_gutter /
+   test_python / test_cmode / test_mdmode / test_vtputc_overflow / test_modeline_gutter /
    test_display_gutter / test_screen_no_overflow` を順次実行し、
    `test_memory_safety` (ASan + UBSan) を実行し、
    最後に `test_batch` を実行する。

@@ -101,6 +101,15 @@ test_python: test_python.c test.h $(CSSO) $(CSTR_A)
 test_cmode: test_cmode.c test.h ../cmode.c $(CSSO) $(CSTR_A)
 	$(CC) $(CFLAGS) test_cmode.c $(CSSO) $(CSTR_A) -o test_cmode
 
+# --- test_mdmode ---
+# Unit tests for Markdown mode: mdinsert, mdindent, md_backspace, md_tab,
+# headings, lists, emphasis, links, quotes, fences, table motion, outline.
+# line.c and mdmode.c are included directly; proto.h is included
+# explicitly because KEMACS_TEST suppresses edef.h's proto.h include.
+test_mdmode: test_mdmode.c test.h ../mdmode.c ../line.c ../proto.h \
+	../ecomm.h ../estruct.h ../edef.h $(CSSO) $(CSTR_A) $(KANJI_A)
+	$(CC) $(CFLAGS) test_mdmode.c $(CSSO) $(CSTR_A) $(KANJI_A) -o test_mdmode
+
 # --- test_memory_safety ---
 # Buffer-overflow and memory-leak tests compiled with ASan + UBSan.
 # Includes line.c and undo.c directly (same pattern as test_undo).
@@ -110,10 +119,10 @@ test_memory_safety: test_memory_safety.c test.h $(CSSO)  \
 	$(CC) $(CFLAGS) $(SANFLAGS) test_memory_safety.c $(CSSO) \
 		$(SANLDFLAGS) -o test_memory_safety
 
-all: test_kanji test_search test_line test_eval test_undo test_python test_cmode test_batch test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow test_memory_safety test_tcap test_spawn test_fileio
+all: test_kanji test_search test_line test_eval test_undo test_python test_cmode test_mdmode test_batch test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow test_memory_safety test_tcap test_spawn test_fileio
 
 run: all
-	@for t in test_kanji test_search test_line test_eval test_undo test_python test_cmode test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow test_tcap test_spawn test_fileio; do \
+	@for t in test_kanji test_search test_line test_eval test_undo test_python test_cmode test_mdmode test_vtputc_overflow test_modeline_gutter test_display_gutter test_screen_no_overflow test_tcap test_spawn test_fileio; do \
 		echo "=== Running $$t ==="; \
 		./$$t || exit 1; \
 	done
@@ -140,4 +149,4 @@ test_fileio: test_fileio.c ../kanji.o ../Css.o $(CSTR_A) $(KANJI_A)
 
 
 clean:
-	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_modeline_gutter test_python test_cmode test_screen_no_overflow test_memory_safety test_undo test_tcap test_spawn test_fileio
+	rm -f test_kanji test_search test_line test_eval test_batch eval_gc.o  test_line_dbg  test_search_dbg test_vtputc_overflow test_display_gutter test_modeline_gutter test_python test_cmode test_mdmode test_screen_no_overflow test_memory_safety test_undo test_tcap test_spawn test_fileio
