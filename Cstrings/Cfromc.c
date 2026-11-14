@@ -38,8 +38,11 @@ Cfromc(char * c)
 	blen = len;
     }
     /* the length of C is no longer than that of c */
+    /* Decode the byte string with the terminal code so that OS strings
+       (argv, getenv, getcwd) carry the same internal Char encoding as
+       text read from the keyboard or a file. */
     ks.p = c;
-    if ((ksp = kalloc((caddr_t)&ks, (int (*)(caddr_t))copen, (int (*)(caddr_t))cclose, (int (*)(caddr_t, char *, int))cget, NULL, KS_BINMODE)) == NULL)
+    if ((ksp = kalloc((caddr_t)&ks, (int (*)(caddr_t))copen, (int (*)(caddr_t))cclose, (int (*)(caddr_t, char *, int))cget, NULL, ks_termcode_flag())) == NULL)
 	return NULL;
     for (C = buf; (*C = kgetc(ksp)) != EOF; C++) ;
     *C = '\0';

@@ -305,6 +305,10 @@ extern void init_kana_width(void); /* detect kana width from locale env */
 
 
 extern unsigned	ks_binmode_flag(void);
+/* Bind the byte<->Char conversion helpers (Cfromc/cfromC) to a terminal code
+   flag; NULL (the default) falls back to DEF_T_CODE. */
+extern void		ks_termcode_bind(KS_FLAG *p);
+extern unsigned	ks_termcode_flag(void);
 extern KSTREAM *	kalloc(caddr_t id, int (*openf)(caddr_t), int (*closef)(caddr_t), int (*getf)(caddr_t, char *, int), int (*putf)(caddr_t, char *, int), unsigned flag);
 extern int		kfree(KSTREAM * ksp);
 extern int		kputc(int c, KSTREAM * kp);

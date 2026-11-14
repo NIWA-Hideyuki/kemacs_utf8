@@ -45,13 +45,14 @@ cfromC(Char * C)
     ks.buf = buf;
     ks.ptr = 0;
     ks.len = blen;
-    if (!(ksp = kalloc((caddr_t)&ks, (int (*)(caddr_t))copen, (int (*)(caddr_t))cclose, (int (*)(caddr_t, char *, int))NULL, (int (*)(caddr_t, char *, int))cput, KS_BINMODE)))
+    /* Encode back to the terminal code; a Char string built from the
+       keyboard or a file round-trips to the original OS bytes this way. */
+    if (!(ksp = kalloc((caddr_t)&ks, (int (*)(caddr_t))copen, (int (*)(caddr_t))cclose, (int (*)(caddr_t, char *, int))NULL, (int (*)(caddr_t, char *, int))cput, ks_termcode_flag())))
 	return NULL;
     while (*C) (void)kputc(*C++, ksp);
-    (void)kputc(' ', ksp); /* reset state of stream */
     blen = ks.len;
     buf = ks.buf;
-    buf[ks.ptr-1] = '\0'; /* trim last char */
+    buf[ks.ptr] = '\0';
     kfree(ksp);
     return buf;
 }

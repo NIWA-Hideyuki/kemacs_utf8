@@ -4,6 +4,46 @@
 
 #include "kanji.h"
 
+/*
+ * ks_termcode_bind: point the Cstrings byte<->Char conversion helpers at the
+ * live terminal code flag.  Cfromc()/cfromC() use this so that OS byte strings
+ * (argv, getenv, getcwd) are decoded/encoded in the same code the keyboard and
+ * display use.  Tools that have no TERM struct (kpp) leave it unset and get
+ * the DEF_T_CODE default.
+ */
+static KS_FLAG *termcode_ptr = NULL;
+static KS_FLAG termcode_default;
+static int termcode_ready = 0;
+
+static void
+termcode_init(void)
+{
+	if (termcode_ready) return;
+	termcode_ready = 1;
+	KS_VALUE(termcode_default) = 0;
+	KS_INTERP(termcode_default) = KS_KANJI;
+#if defined(DEF_T_CODE)
+	KS_CODE(termcode_default) = DEF_T_CODE;
+#else
+	KS_CODE(termcode_default) = KS_JIS;
+#endif
+	KS_THRU(termcode_default) = 1;
+}
+
+void
+ks_termcode_bind(KS_FLAG *p)
+{
+	termcode_ptr = p;
+}
+
+unsigned
+ks_termcode_flag(void)
+{
+	if (termcode_ptr != NULL) return KS_VALUE(*termcode_ptr);
+	termcode_init();
+	return KS_VALUE(termcode_default);
+}
+
 unsigned ks_binmode_flag(void)
 {
 	static KS_FLAG flg;

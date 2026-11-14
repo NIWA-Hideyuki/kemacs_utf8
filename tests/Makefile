@@ -136,8 +136,8 @@ run: all
 	@echo "=== All tests passed ==="
 
 # --- test_tcap ---
-test_tcap: test_tcap.c ../Css.o
-	$(CC) $(CFLAGS) test_tcap.c ../Css.o -lncurses -o test_tcap
+test_tcap: test_tcap.c ../Css.o $(KANJI_A)
+	$(CC) $(CFLAGS) test_tcap.c ../Css.o $(KANJI_A) -lncurses -o test_tcap
 
 # --- test_spawn ---
 test_spawn: test_spawn.c ../Css.o $(CSTR_A) $(KANJI_A)

@@ -1151,7 +1151,7 @@ int modeline(WINDOW *wp)
 	    /* normal char. just echo. */
 	    vtputc(c);
 	    #if	KANJI
-	    n += char_width(c);
+	    n += kcol_width(c);
 	    #else
 	    n++;
 	    #endif
@@ -1167,7 +1167,7 @@ int modeline(WINDOW *wp)
 	    /* itself */
 	    vtputc(c);
 	    #if	KANJI
-	    n += char_width(c);
+	    n += kcol_width(c);
 	    #else
 	    n++;
 	    #endif
@@ -1284,7 +1284,7 @@ int modeline(WINDOW *wp)
 	while (*cp && n < term.t_ncol) {
 	    vtputc(*cp);
 	    #if	KANJI
-	    n += char_width(*cp);
+	    n += kcol_width(*cp);
 	    #else
 	    n++;
 	    #endif

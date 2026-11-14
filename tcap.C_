@@ -238,6 +238,12 @@ int tcapopen(void)
 # endif /* KANJI_TERMCAP */
 #endif /* KANJI */
 
+#if	KANJI
+	/* Cfromc()/cfromC() decode/encode OS byte strings (argv, getenv) with the
+	   terminal code, so file names and environment strings round-trip to the
+	   same bytes the shell and the filesystem use. */
+	ks_termcode_bind(&term.t_code);
+#endif
 	ttopen();
 }
 
