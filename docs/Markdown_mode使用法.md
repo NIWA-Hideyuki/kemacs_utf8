@@ -1,4 +1,4 @@
-y# kemacs Markdown Mode 使用方法
+# kemacs Markdown Mode 使用方法
 
 kemacs に組み込まれた **Markdown Mode (MDMODE)** は、CommonMark / GFM スタイルの
 Markdown を「構造テキスト」として編集するためのモードです。行頭マーカー
